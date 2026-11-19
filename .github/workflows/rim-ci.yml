@@ -1,0 +1,23 @@
+name: RIM verification
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify architecture, syntax, and tests
+        run: npm run verify
+      - name: Build Cloudflare public assets
+        run: npm run build:cloudflare
+      - name: Confirm private server code is not in public output
+        run: test ! -e dist/supabase && test ! -e dist/tests && test ! -e dist/docs

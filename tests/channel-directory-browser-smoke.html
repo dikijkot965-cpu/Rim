@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RIM channel directory browser smoke</title></head>
+<body>
+  <section id="channelsSection"><div id="channelList"></div></section>
+  <pre id="result">running</pre>
+  <script type="module">
+    import { ChannelDirectoryController } from '../src/application/channel-directory-controller.js';
+    const calls = [];
+    const documentRef = document;
+    const windowRef = {
+      openChannel: id => calls.push(`open:${id}`),
+      rimJoinChannel: id => calls.push(`join:${id}`)
+    };
+    const repository = {
+      async getDirectory() {
+        return { ok: true, value: {
+          channels: [
+            { id: 'c1', title: 'Подписка', description: 'Мой канал', is_public: true, username: 'mine' },
+            { id: 'c2', title: '<img src=x>', description: 'Открытый канал', is_public: true, username: 'open' },
+            { id: 'c3', title: 'Закрытый', description: 'По приглашению', is_public: false }
+          ],
+          subscribedChannelIds: ['c1']
+        } };
+      }
+    };
+    const controller = new ChannelDirectoryController({ repository, getUser: () => ({ id: 'user-1' }), documentRef, windowRef });
+    try {
+      await controller.load();
+      const list = document.getElementById('channelList');
+      const allRows = list.querySelectorAll('.rim-channel-row').length;
+      const safeText = !list.querySelector('img') && list.textContent.includes('<img src=x>');
+      list.querySelector('[data-rim-channel-action="open"][data-channel-id="c1"]').click();
+      list.querySelector('[data-rim-channel-action="join"][data-channel-id="c2"]').click();
+      await controller.setScope('subscribed');
+      const subscribedRows = list.querySelectorAll('.rim-channel-row').length;
+      const onlySubscribed = subscribedRows === 1 && list.textContent.includes('Подписка');
+      const passed = allRows === 3 && safeText && onlySubscribed && calls.join(',') === 'open:c1,join:c2';
+      document.body.dataset.result = passed ? 'PASS' : 'FAIL';
+      document.getElementById('result').textContent = JSON.stringify({ passed, allRows, subscribedRows, safeText, calls });
+    } catch (error) {
+      document.body.dataset.result = 'ERROR';
+      document.getElementById('result').textContent = String(error?.stack || error);
+    } finally { controller.dispose(); }
+  </script>
+</body>
+</html>

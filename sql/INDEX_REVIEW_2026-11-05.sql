@@ -1,0 +1,8 @@
+-- Read-only index review notes. No production DDL is needed for this release.
+-- Verified in the connected project:
+-- chat_messages_conversation_created_idx (conversation_id, created_at DESC, id DESC)
+-- conversation_members_user_conversation_idx (user_id, conversation_id)
+-- conversations_last_message_at_idx (last_message_at DESC NULLS LAST)
+-- profiles_last_seen_at_idx (last_seen_at DESC) WHERE show_online = true
+-- channel_posts_channel_created_idx (channel_id, created_at DESC)
+-- Avoid creating duplicate indexes with alternate names; duplicate indexes add write overhead.

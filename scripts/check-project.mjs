@@ -1,0 +1,141 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+const failures = [];
+const report = message => failures.push(message);
+
+function walk(directory) {
+  if (!fs.existsSync(directory)) return [];
+  const found = [];
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const absolute = path.join(directory, entry.name);
+    if (entry.isDirectory()) found.push(...walk(absolute));
+    else if (/\.(?:js|mjs)$/.test(entry.name)) found.push(absolute);
+  }
+  return found;
+}
+
+const sourceFiles = [
+  ...walk(path.join(root, 'src')),
+  ...walk(path.join(root, 'scripts')),
+  ...walk(path.join(root, 'tests')),
+  ...walk(path.join(root, 'assets', 'js'))
+];
+
+for (const file of sourceFiles) {
+  const source = fs.readFileSync(file, 'utf8');
+  if (/\beval\s*\(|\bnew\s+Function\s*\(/.test(source)) {
+    report(`Forbidden dynamic execution: ${path.relative(root, file)}`);
+  }
+}
+
+// The architecture map is a complete inventory, not merely a list of selected files.
+const mapPath = path.join(root, 'RIM_MODULE_MAP.json');
+if (!fs.existsSync(mapPath)) {
+  report('Missing RIM_MODULE_MAP.json');
+} else {
+  let moduleMap;
+  try {
+    moduleMap = JSON.parse(fs.readFileSync(mapPath, 'utf8'));
+  } catch (error) {
+    report(`Invalid RIM_MODULE_MAP.json: ${error.message}`);
+  }
+
+  if (moduleMap) {
+    const mapped = new Map();
+    for (const [layer, entries] of Object.entries(moduleMap.layers || {})) {
+      if (!Array.isArray(entries)) {
+        report(`Architecture layer must be an array: ${layer}`);
+        continue;
+      }
+      for (const entry of entries) {
+        if (mapped.has(entry)) report(`Duplicate module map entry: ${entry} (${mapped.get(entry)} and ${layer})`);
+        mapped.set(entry, layer);
+        if (!fs.existsSync(path.join(root, entry))) report(`Missing module map entry: ${entry}`);
+      }
+    }
+
+    const actualModules = walk(path.join(root, 'src'))
+      .map(file => path.relative(root, file).split(path.sep).join('/'));
+    for (const file of actualModules) {
+      if (!mapped.has(file)) report(`Unmapped source module: ${file}`);
+    }
+    for (const file of mapped.keys()) {
+      if (file.startsWith('src/') && !actualModules.includes(file)) {
+        report(`Stale source module map entry: ${file}`);
+      }
+    }
+    if (moduleMap.version !== packageJson.version) {
+      report(`Module map version is stale: ${moduleMap.version || '(missing)'}`);
+    }
+  }
+}
+
+// Enforce the most important dependency boundaries without requiring a build system.
+const forbiddenImports = [
+  { layer: 'domain', pattern: /^src\/(?:core|application|infrastructure|features|compatibility)\//, reason: 'domain must remain framework- and infrastructure-independent' },
+  { layer: 'core', pattern: /^src\/(?:application|infrastructure|features|compatibility)\//, reason: 'core must not depend on outer layers' },
+  { layer: 'infrastructure', pattern: /^src\/(?:application|features|compatibility)\//, reason: 'infrastructure must implement boundaries, not depend on use cases or UI' }
+];
+const importPattern = /\b(?:import|export)\s+(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]/g;
+for (const file of walk(path.join(root, 'src'))) {
+  const relative = path.relative(root, file).split(path.sep).join('/');
+  const layer = relative.split('/')[1];
+  const source = fs.readFileSync(file, 'utf8');
+  for (const match of source.matchAll(importPattern)) {
+    const specifier = match[1];
+    if (!specifier.startsWith('.')) continue;
+    const target = path.posix.normalize(path.posix.join(path.posix.dirname(relative), specifier));
+    const rule = forbiddenImports.find(item => item.layer === layer && item.pattern.test(target));
+    if (rule) report(`Dependency boundary violation in ${relative}: ${specifier} (${rule.reason})`);
+  }
+}
+
+// Resolve local HTML assets. External URLs, fragments, data URLs and root-relative URLs are intentionally skipped.
+const htmlPath = path.join(root, 'index.html');
+if (!fs.existsSync(htmlPath)) report('Missing index.html');
+else {
+  const html = fs.readFileSync(htmlPath, 'utf8');
+  for (const match of html.matchAll(/(?:src|href)="([^"]+)"/g)) {
+    const reference = match[1];
+    if (/^(?:https?:|#|data:|\/|mailto:|tel:)/i.test(reference)) continue;
+    const localPath = reference.split(/[?#]/, 1)[0];
+    if (!localPath) continue;
+    if (!fs.existsSync(path.join(root, localPath))) report(`Missing local HTML asset: ${reference}`);
+  }
+}
+
+// Count src/ innerHTML review risks (interpolation without escape helper nearby).
+const SAFE_ESC = /escapeHtml|escapeAttr|escapeJsString|escHtml|sanitizeHtml|CSS\.escape/;
+function countSrcInnerHtmlReview() {
+  let review = 0;
+  const srcRoot = path.join(root, 'src');
+  const files = walk(srcRoot);
+  for (const file of files) {
+    const lines = fs.readFileSync(file, 'utf8').split(/\n/);
+    lines.forEach((line, i) => {
+      if (!/innerHTML\s*=/.test(line) && !/\.innerHTML\s*\+=/.test(line)) return;
+      const window = lines.slice(Math.max(0, i - 1), Math.min(lines.length, i + 4)).join('\n');
+      if (/\$\{/.test(window) && !SAFE_ESC.test(window)) review += 1;
+    });
+  }
+  return review;
+}
+const reviewCount = countSrcInnerHtmlReview();
+if (reviewCount > 12) {
+  report(`Too many src/ innerHTML review sites: ${reviewCount} (budget 12)`);
+}
+
+if (failures.length) {
+  for (const failure of failures) console.error(`Project check failed: ${failure}`);
+  process.exit(1);
+}
+
+const moduleCount = walk(path.join(root, 'src')).length;
+const legacyCount = fs.existsSync(path.join(root, 'assets/js/legacy'))
+  ? fs.readdirSync(path.join(root, 'assets/js/legacy')).filter(name => name.endsWith('.js')).length
+  : 0;
+console.log(`Project check passed: ${moduleCount} mapped source modules; ${legacyCount} legacy scripts; dependency boundaries and local HTML assets verified.`);
