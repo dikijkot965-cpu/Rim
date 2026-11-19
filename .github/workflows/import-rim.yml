@@ -65,6 +65,7 @@ jobs:
           rsync -a --delete \
             --exclude='.git/' \
             --exclude='*.zip' \
+            --exclude='.github/workflows/' \
             /tmp/rim-import/ ./
           rm -f "$RIM_ARCHIVE"
 
