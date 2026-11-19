@@ -5,7 +5,7 @@ on:
     branches:
       - import/iteration-125
     paths:
-      - RIM_IMPORT.zip
+      - '*.zip'
 
 permissions:
   contents: write
@@ -28,14 +28,22 @@ jobs:
         run: |
           set -euo pipefail
 
-          test -s RIM_IMPORT.zip
-          if unzip -Z1 RIM_IMPORT.zip | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
+          mapfile -t archives < <(find . -maxdepth 1 -type f -iname '*.zip' -printf '%f\n')
+          if [ "${#archives[@]}" -ne 1 ]; then
+            echo "Expected exactly one ZIP archive in repository root; found ${#archives[@]}"
+            printf '%s\n' "${archives[@]}"
+            exit 1
+          fi
+          archive="${archives[0]}"
+          test -s "$archive"
+
+          if unzip -Z1 "$archive" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
             echo "Unsafe archive path detected"
             exit 1
           fi
 
           mkdir -p /tmp/rim-import
-          unzip -q RIM_IMPORT.zip -d /tmp/rim-import
+          unzip -q "$archive" -d /tmp/rim-import
 
           test -f /tmp/rim-import/package.json
           test -f /tmp/rim-import/index.html
@@ -46,15 +54,17 @@ jobs:
           test -d /tmp/rim-import/icons
           test -d /tmp/rim-import/supabase
 
+          echo "RIM_ARCHIVE=$archive" >> "$GITHUB_ENV"
+
       - name: Replace repository contents with archive
         shell: bash
         run: |
           set -euo pipefail
           rsync -a --delete \
             --exclude='.git/' \
-            --exclude='RIM_IMPORT.zip' \
+            --exclude='*.zip' \
             /tmp/rim-import/ ./
-          rm -f RIM_IMPORT.zip
+          rm -f "$RIM_ARCHIVE"
 
       - name: Commit imported project
         shell: bash
