@@ -1,0 +1,35 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>
+<div id="chatWindow" style="position:relative;width:900px;height:700px"></div><div id="sidebar"></div>
+<pre id="result">RUNNING</pre>
+<script type="module">
+import { LiteWriterWorkspace } from '../src/features/lite-writer.js';
+const calls=[];
+const db={from(table){
+ let operation='select',payload=null;
+ const q={
+  select(){return q},eq(){return q},order(){return q},limit(){return q},
+  insert(value){operation='insert';payload=value;return q},
+  update(value){operation='update';payload=value;return q},
+  single(){return q},
+  then(resolve){calls.push({table,operation,payload});return Promise.resolve(operation==='select'?{data:[],error:null}:{data:{id:'doc-1',...payload,created_at:new Date().toISOString()},error:null}).then(resolve)}
+ };
+ return q;
+}};
+const writer=new LiteWriterWorkspace({db,getUser:()=>({id:'user-1'}),logger:{warn(){},error(){}}});
+await writer.open();
+const editor=document.getElementById('rimWriterEditor');
+const paper=document.querySelector('.rim-writer-paper');
+if(!editor||!paper)throw new Error('editor shell missing');
+editor.innerHTML='<p>Проверка редактора</p>';
+await writer.save();
+const result={
+ opened:!!document.getElementById('rimWorkspaceOverlay'),
+ whiteCanvas:getComputedStyle(paper).backgroundColor==='rgb(255, 255, 255)',
+ darkText:getComputedStyle(editor).color==='rgb(37, 37, 37)',
+ contenteditable:editor.getAttribute('contenteditable')==='true',
+ saveCalled:calls.some(x=>x.table==='rim_writer_documents'&&x.operation==='insert'),
+ title:document.querySelector('#rimWorkspaceOverlay h2')?.textContent
+};
+document.getElementById('result').textContent=JSON.stringify(result);
+if(!result.opened||!result.whiteCanvas||!result.darkText||!result.contenteditable||!result.saveCalled)throw new Error('Lite Writer smoke test failed');
+</script></body></html>

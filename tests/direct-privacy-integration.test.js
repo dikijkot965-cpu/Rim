@@ -1,0 +1,21 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+test('app owns direct chat and privacy settings routes', () => {
+  const app = readFileSync(join(root, 'src/app.js'), 'utf8');
+  const settings = readFileSync(join(root, 'src/composition/settings-surface.js'), 'utf8');
+  const social = readFileSync(join(root, 'src/composition/social-surface.js'), 'utf8');
+  assert.match(app, /bindSocialSurface/);
+  assert.match(app, /bindSettingsSurface/);
+  // class lives in composition modules: // moved to composition: assert.match(app, /DirectChatService/);
+  // class lives in composition modules: // moved to composition: assert.match(app, /PrivacySettingsService/);
+  assert.match(social, /__RIM_DIRECT_CHAT_OWNED\s*=\s*true/);
+  assert.match(social, /findUserByName/);
+  assert.match(social, /startChatWith/);
+  assert.match(settings, /__RIM_PRIVACY_SETTINGS_OWNED\s*=\s*true/);
+  assert.match(settings, /rimSavePrivacy/);
+  assert.match(app, /4\.0\.0-iteration\.122/);
+});

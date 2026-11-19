@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RIM integration smoke</title></head>
+<body>
+  <div id="sidebar"></div><div id="chatWindow"></div><div id="messages"></div>
+  <button id="inlineOpen" onclick="openConversation('c1')">Открыть чат</button>
+  <script>
+    (() => {
+      let activeConversation = null;
+      let messagesCache = [];
+      const currentUser = { id: 'user-1' };
+      const conversationRow = { id: 'c1', type: 'group', title: 'Проверочная группа', created_at: '2026-11-13T09:00:00.000Z' };
+      const messageRows = [{ id: 'message-1', conversation_id: 'c1', sender_id: 'user-2', body: 'Проверка браузерной интеграции', created_at: '2026-11-13T10:00:00.000Z' }];
+      const queryCalls = [];
+
+      const makeQuery = table => {
+        const filters = {};
+        const query = {
+          select() { return this; },
+          eq(column, value) { filters[column] = value; return this; },
+          in() { return this; },
+          order() { return this; },
+          or() { return this; },
+          limit(n) {
+            queryCalls.push(table);
+            if (table === 'chat_messages') return Promise.resolve({ data: messageRows, error: null });
+            return Promise.resolve({ data: [], error: null });
+          },
+          insert() { return this; },
+          update() { return this; },
+          upsert() { return Promise.resolve({ data: null, error: null }); },
+          delete() { return this; },
+          maybeSingle() {
+            queryCalls.push(table + ':maybeSingle');
+            if (table === 'conversation_members') {
+              if (filters.conversation_id === 'c1' && filters.user_id === 'user-1') {
+                return Promise.resolve({ data: { conversation_id: 'c1', user_id: 'user-1' }, error: null });
+              }
+              return Promise.resolve({ data: null, error: null });
+            }
+            if (table === 'conversations') {
+              if (filters.id === 'c1') return Promise.resolve({ data: conversationRow, error: null });
+              return Promise.resolve({ data: null, error: null });
+            }
+            return Promise.resolve({ data: null, error: null });
+          },
+          single() { return Promise.resolve({ data: null, error: null }); },
+          then(resolve, reject) {
+            // default list resolution
+            if (table === 'conversation_members') {
+              return Promise.resolve({ data: [{ conversation_id: 'c1', user_id: 'user-1' }], error: null }).then(resolve, reject);
+            }
+            if (table === 'chat_messages') {
+              queryCalls.push(table);
+              return Promise.resolve({ data: messageRows, error: null }).then(resolve, reject);
+            }
+            return Promise.resolve({ data: [], error: null }).then(resolve, reject);
+          }
+        };
+        return query;
+      };
+
+      const db = {
+        auth: { onAuthStateChange() { return { data: { subscription: { unsubscribe() {} } } }; } },
+        from: makeQuery,
+        storage: { from() { return { async createSignedUrl() { return { data: { signedUrl: null }, error: null }; }, async createSignedUrls() { return { data: [], error: null }; }, async upload() { return { data: {}, error: null }; }, async remove() { return { data: [], error: null }; } }; } },
+        channel() { return { on() { return this; }, subscribe(callback) { queueMicrotask(() => callback && callback('SUBSCRIBED')); return this; } }; },
+        async removeChannel() {}
+      };
+
+      window.__RIM_LEGACY_CONTEXT = Object.freeze({
+        db,
+        getUser: () => currentUser,
+        getActiveConversation: () => activeConversation,
+        setActiveConversation: c => { activeConversation = c; },
+        getConversations: () => activeConversation ? [activeConversation] : [],
+        setConversations: rows => {},
+        getMessages: () => messagesCache,
+        setMessages: rows => { messagesCache = rows; },
+        getReplyTarget: () => null,
+        setReplyTarget: () => {},
+        notify: message => { document.body.dataset.notice = String(message); }
+      });
+      window.renderMessages = async () => { document.body.dataset.rendered = String(messagesCache.length); };
+      window.renderConversationList = () => {};
+      window.markConversationRead = async () => { document.body.dataset.readMarked = '1'; };
+      // Legacy bait: modular must not call this as the sole path after boot.
+      window.rimLoadMessagesStable = async () => { document.body.dataset.oldLoaderCalled = '1'; };
+      window.openConversation = async id => {
+        activeConversation = { id, type: 'group', title: 'Проверочная группа' };
+        await window.rimLoadMessagesStable();
+        window.subscribeToMessages?.();
+        await window.markConversationRead();
+      };
+      window.addEventListener('error', event => { document.body.dataset.runtimeError = event.message; });
+      window.addEventListener('unhandledrejection', event => { document.body.dataset.runtimeError = String(event.reason?.message || event.reason); });
+      window.addEventListener('rim:ready', () => {
+        document.body.dataset.bootVersion = window.RIM?.version || 'missing';
+        document.getElementById('inlineOpen').click();
+        setTimeout(() => {
+          document.body.dataset.integrationResult = JSON.stringify({
+            booted: !!window.RIM,
+            stableLoaderUnified: window.rimLoadMessagesStable === window.loadMessages || document.body.dataset.oldLoaderCalled !== '1',
+            legacyLoaderBypassed: document.body.dataset.oldLoaderCalled !== '1',
+            messageLoaded: messagesCache.some(row => row.id === 'message-1'),
+            rendered: document.body.dataset.rendered,
+            readMarked: document.body.dataset.readMarked === '1',
+            queryCount: queryCalls.filter(table => String(table).startsWith('chat_messages')).length,
+            inlineHandlerPresent: typeof window.openConversation === 'function',
+            modularOpen: typeof window.__RIM_MODULAR_OPEN_IMPL === 'function',
+            openOwned: !!window.__RIM_OPEN_CONVERSATION_OWNED
+          });
+        }, 400);
+      });
+    })();
+  </script>
+  <script type="module" src="../src/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+test('app owns session notifications member card and calls routes', () => {
+  const app = readFileSync(join(root, 'src/app.js'), 'utf8');
+  const shell = readFileSync(join(root, 'src/composition/shell-surface.js'), 'utf8');
+  assert.match(app, /bindShellSurface/);
+  // class lives in composition modules: // moved to composition: assert.match(app, /SessionLifecycleService/);
+  // class lives in composition modules: // moved to composition: assert.match(app, /NotificationPreferencesService/);
+  // class lives in composition modules: // moved to composition: assert.match(app, /MemberCardController/);
+  // class lives in composition modules: // moved to composition: assert.match(app, /CallsPlaceholderController/);
+  assert.match(shell, /__RIM_SESSION_LIFECYCLE_OWNED/);
+  assert.match(shell, /__RIM_NOTIFICATION_PREFS_OWNED/);
+  assert.match(shell, /__RIM_MEMBER_CARD_OWNED/);
+  assert.match(shell, /__RIM_CALLS_PLACEHOLDER_OWNED/);
+  assert.match(app, /4\.0\.0-iteration\.122/);
+});

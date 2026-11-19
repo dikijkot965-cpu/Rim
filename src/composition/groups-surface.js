@@ -1,0 +1,162 @@
+/**
+ * Composition root fragment: groups surface.
+ * Binds group settings controller and group command window routes.
+ * groupRepository must already be registered on the container.
+ */
+import { GroupSettingsController } from '../application/group-settings-controller.js';
+import { GroupCommandService } from '../application/group-command-service.js';
+
+function reportGroupCommand(result, { notify, logger } = {}) {
+  if (!result) return result;
+  if (!result.ok) {
+    const message = result.error?.message || result.error || 'Операция группы не выполнена.';
+    notify?.(String(message));
+    logger?.warn?.('group.command.failed', { message: String(message) });
+  }
+  return result;
+}
+
+/**
+ * @param {object} deps
+ */
+export function bindGroupsSurface({
+  client,
+  getUser,
+  getConversations,
+  notify,
+  logger,
+  container,
+  lifecycle,
+  documentRef = globalThis.document,
+  windowRef = globalThis.window
+} = {}) {
+  const win = windowRef;
+  const doc = documentRef;
+
+  const groupSettings = new GroupSettingsController({
+    repository: container.get('groupRepository'),
+    getUser,
+    documentRef: doc,
+    windowRef: win,
+    logger,
+    notify
+  });
+  container.value('groupSettings', groupSettings);
+  win.__RIM_GROUP_SETTINGS_OWNED = true;
+  win.rimOpenGroupSettings = id => groupSettings.open(id);
+  lifecycle?.add?.(() => {
+    win.__RIM_GROUP_SETTINGS_OWNED = false;
+    groupSettings.dispose();
+  });
+
+  const groupCommands = new GroupCommandService({
+    client,
+    getUser,
+    getConversations,
+    notify,
+    closeModal: () => win.closeModal?.(),
+    afterCreate: async () => { await win.loadConversations?.(); },
+    reopenSettings: async id => { await win.rimOpenGroupSettings?.(id); },
+    openConversation: async id => { await win.openConversation?.(id); },
+    reloadConversations: async () => { await win.loadConversations?.(); },
+    logger
+  });
+  container.value('groupCommands', groupCommands);
+  win.__RIM_GROUP_COMMANDS_OWNED = true;
+
+  const report = result => reportGroupCommand(result, { notify, logger });
+
+  win.rimCreateGroup = async () => {
+    const names = (doc.getElementById('rimGroupMembers')?.value || '')
+      .split(',')
+      .map(part => part.trim())
+      .filter(Boolean);
+    const result = report(await groupCommands.create({
+      title: doc.getElementById('rimGroupTitle')?.value,
+      username: doc.getElementById('rimGroupUsername')?.value,
+      memberUsernames: names,
+      isPublic: !!doc.getElementById('rimGroupPublic')?.checked,
+      avatarFile: doc.getElementById('rimGroupAvatar')?.files?.[0] || null
+    }));
+    if (result?.ok) notify?.('Группа создана.');
+    return result;
+  };
+
+  win.rimJoinPublicGroup = async id => {
+    const result = report(await groupCommands.joinPublic(id));
+    if (result?.ok) notify?.('Вы вступили в группу.');
+    return result;
+  };
+
+  win.rimSaveGroupSettings = async id => {
+    const result = report(await groupCommands.saveSettings(id, {
+      title: doc.getElementById('rimGroupTitle')?.value,
+      description: doc.getElementById('rimGroupDesc')?.value || '',
+      isPrivate: doc.getElementById('rimGroupPrivate')?.checked !== false
+    }));
+    if (result?.ok) notify?.('Настройки группы сохранены.');
+    return result;
+  };
+
+  win.rimGroupAddMember = async id => {
+    const result = report(await groupCommands.addMember(id, doc.getElementById('rimGroupAddUsername')?.value));
+    if (result?.ok) notify?.('Участник добавлен.');
+    return result;
+  };
+
+  win.rimGroupRemoveMember = async (id, userId) => report(await groupCommands.removeMember(id, userId));
+
+  win.rimGroupSetRole = async (id, userId) => {
+    const role = doc.getElementById('rimGroupRole-' + userId)?.value;
+    return report(await groupCommands.setRole(id, userId, role));
+  };
+
+  win.rimGroupLeave = async id => report(await groupCommands.leave(id));
+
+  win.rimUploadGroupAvatar = async id => {
+    const file = doc.getElementById('rimGroupAvatarFile')?.files?.[0];
+    return report(await groupCommands.uploadAvatar(id, file));
+  };
+
+  win.rimGroupMakeInvite = async id => {
+    const result = report(await groupCommands.createInvite(id));
+    if (result?.ok && result.value != null) {
+      const code = result.value;
+      try { await navigator.clipboard.writeText(String(code)); } catch { /* ignore */ }
+      notify?.('Код приглашения создан: ' + code);
+    }
+    return result;
+  };
+
+  win.rimCopyGroupInvite = async code => {
+    try {
+      await navigator.clipboard.writeText(String(code));
+      notify?.('Код приглашения скопирован.');
+    } catch {
+      notify?.('Код: ' + code);
+    }
+  };
+
+  win.rimGroupRevokeInvite = async id => report(await groupCommands.revokeInvite(id));
+
+  win.rimGroupTransferOwner = async id => {
+    const username = win.prompt?.('Username нового владельца (он должен быть участником группы):');
+    if (username === null || username === undefined) return;
+    const result = report(await groupCommands.transferOwner(id, username));
+    if (result?.ok && !result.value?.cancelled) notify?.('Владение передано.');
+    return result;
+  };
+
+  win.rimJoinGroupByInvite = async () => {
+    const code = win.prompt?.('Вставьте код приглашения в группу:');
+    if (code === null || code === undefined) return;
+    const result = report(await groupCommands.joinByInvite(code));
+    if (result?.ok && !result.value?.cancelled) notify?.('Вы вступили в группу.');
+    return result;
+  };
+
+  lifecycle?.add?.(() => { win.__RIM_GROUP_COMMANDS_OWNED = false; });
+  logger?.info?.('composition.groupsSurface.bound', {});
+
+  return { groupSettings, groupCommands };
+}

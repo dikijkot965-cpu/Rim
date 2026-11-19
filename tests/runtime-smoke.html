@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RIM runtime smoke</title></head>
+<body>
+<div id="app"></div><div id="chatWindow"><div id="messages"></div></div><button id="tabMusic"></button>
+<script>
+(() => {
+  const authCallbacks = [];
+  const db = {
+    auth: { onAuthStateChange(fn) { authCallbacks.push(fn); return { data: { subscription: { unsubscribe() {} } } }; }, async getSession() { return { data: { session: null }, error: null }; } },
+    from() { throw new Error('Unexpected database access during unauthenticated boot'); },
+    storage: { from() { throw new Error('Unexpected Storage access during unauthenticated boot'); } },
+    channel() { throw new Error('Unexpected Realtime subscription during unauthenticated boot'); },
+    async removeChannel() {}
+  };
+  let messages = [];
+  window.__RIM_LEGACY_CONTEXT = Object.freeze({ db, getUser: () => null, getActiveConversation: () => null, getConversations: () => [], getMessages: () => messages, setMessages: rows => { messages = rows; }, notify: () => {} });
+  window.renderMessages = async () => {};
+  window.addEventListener('rim:ready', () => {
+    const button = document.querySelector('.rim-history-button');
+    document.body.dataset.rimReady = String(!!button && button.hidden && typeof window.loadMessages === 'function' && typeof window.subscribeToMessages === 'function');
+    document.body.dataset.rimVersion = window.RIM?.version || 'missing';
+  });
+})();
+</script>
+<script type="module" src="../src/app.js"></script>
+</body></html>

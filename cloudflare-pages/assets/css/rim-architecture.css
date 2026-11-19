@@ -1,0 +1,102 @@
+/* RIM 2.x application surfaces. Existing imperial theme tokens are reused. */
+.rim-workspace-overlay{position:fixed;inset:0;z-index:10020;background:var(--bg,#101216);overflow:auto;padding:clamp(12px,3vw,28px)}
+.rim-favorites-app{max-width:1040px;min-height:calc(100dvh - 24px);margin:0 auto;border:1px solid var(--border);border-radius:20px;background:var(--panel);display:flex;flex-direction:column;overflow:hidden}
+.rim-favorites-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:24px;border-bottom:1px solid var(--border)}
+.rim-favorites-head h1{margin:4px 0;font-size:clamp(24px,4vw,34px)}
+.rim-favorites-head p,.rim-local-music-head p{margin:4px 0;color:var(--muted)}
+.rim-favorites-kicker{font-size:11px;letter-spacing:.16em;color:var(--gold)}
+.rim-favorites-tabs{display:flex;gap:8px;padding:12px 20px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.rim-favorites-tabs button{border:1px solid var(--border);border-radius:12px;background:var(--panel2);color:var(--text);padding:11px 16px}
+.rim-favorites-tabs button.active{background:var(--surface);border-color:var(--gold);color:var(--gold2)}
+.rim-favorites-content{padding:20px;flex:1;min-height:0}
+.rim-favorite-note-form{display:grid;gap:10px;margin-bottom:18px;padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--panel2)}
+.rim-favorite-note-form textarea{resize:vertical;min-height:100px}
+.rim-favorite-items{display:grid;gap:12px}
+.rim-favorite-item{min-width:0;padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--panel2);overflow-wrap:anywhere}
+.rim-favorite-item header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px}
+.rim-favorite-item time{font-size:11px;color:var(--muted);text-align:right}
+.rim-favorite-item>div{white-space:pre-wrap;line-height:1.55;margin-bottom:12px}
+.rim-writer-launch{min-height:55vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px}
+.rim-writer-launch-icon{font-size:54px;color:var(--gold)}
+.rim-writer-launch p{max-width:460px;color:var(--muted)}
+.rim-local-music{max-width:1000px;min-height:100dvh;margin:auto;padding:clamp(14px,3vw,28px);background:var(--bg);color:var(--text)}
+#rimLocalMusicRoot{position:fixed;inset:0;z-index:10030;overflow:auto;background:var(--bg);display:none}
+#rimLocalMusicRoot:not(:empty){display:block}
+#app.rim-feature-hidden{display:none!important}
+.rim-local-music-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.rim-local-music-head h1{margin:0;font-size:clamp(24px,4vw,34px)}
+.rim-local-music-actions{display:flex;gap:10px;flex-wrap:wrap;margin:20px 0}
+.rim-file-pick{display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.rim-local-music-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}
+.rim-local-music-stats>div{padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--panel);display:flex;flex-direction:column;gap:4px}
+.rim-local-music-stats b{font-size:24px;color:var(--gold2)}.rim-local-music-stats span{font-size:12px;color:var(--muted)}
+.rim-local-track-list{display:grid;gap:10px;margin-top:14px}
+.rim-local-track{padding:12px 14px;border:1px solid var(--border);border-radius:14px;background:var(--panel)}
+.rim-local-track-top{display:flex;align-items:center;gap:8px;min-width:0}
+.rim-local-track-title{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;overflow-wrap:anywhere}
+.rim-local-track-title small,.rim-local-track-details{color:var(--muted);font-size:12px}
+.rim-local-track-toggle{border:0;background:transparent;color:var(--gold);font-size:24px;width:32px}
+.rim-local-track-details{padding:12px 4px 2px 40px;display:grid;gap:8px}.rim-local-track-details[hidden]{display:none}
+.rim-local-player{margin:14px 0;padding:14px;border:1px solid var(--gold);border-radius:14px;background:var(--panel)}
+.rim-local-player-title{font-weight:700;margin-bottom:8px}.rim-local-player audio{width:100%}
+.rim-save-message-btn{border:0;background:transparent;color:var(--gold);padding:3px 7px;font-size:15px;opacity:.8}
+@media(max-width:600px){.rim-favorites-head{padding:16px}.rim-favorites-content{padding:12px}.rim-favorites-tabs{padding:10px}.rim-favorites-tabs button{flex:1;padding:10px 8px;font-size:13px}.rim-favorite-item header{flex-direction:column}.rim-local-music-stats{gap:6px}.rim-local-music-stats>div{padding:10px}.rim-local-music-stats b{font-size:20px}}
+
+/* Lite Writer: keep the writing canvas clean; reveal formatting controls only on demand. */
+.rim-writer-shell:not(.tools-open) #rimWriterToolbar{display:none!important}
+.rim-writer-shell.tools-open #rimWriterToolbar{display:block}
+
+.rim-local-filters{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.rim-local-filters .active{border-color:var(--gold);color:var(--gold2)}.rim-local-artists{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--panel)}.rim-local-artists b{width:100%}.rim-local-artists span{font-size:12px;color:var(--muted);padding:5px 8px;border-radius:9px;background:var(--panel2)}
+
+
+/* Lite Writer workspace: isolated layout and readable document typography. */
+#rimWorkspaceOverlay{display:flex;flex-direction:column;box-sizing:border-box}
+#rimWorkspaceOverlay .rim-workspace-head{display:flex;align-items:center;gap:10px;min-height:54px;flex:0 0 auto;padding:8px 4px 14px;border-bottom:1px solid var(--border);margin-bottom:12px}
+#rimWorkspaceOverlay .rim-workspace-head h2{margin:0;font-size:clamp(17px,3vw,22px)}
+#rimWorkspaceOverlay .rim-workspace-head .grow{flex:1;min-width:0}
+.rim-writer-shell{display:grid;grid-template-columns:minmax(180px,250px) minmax(0,1fr);gap:14px;flex:1;min-height:0}
+.rim-writer-docs{min-width:0;overflow:auto;border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:8px}
+.rim-writer-doc{display:flex;width:100%;flex-direction:column;gap:5px;text-align:left;padding:11px;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--text);overflow-wrap:anywhere}
+.rim-writer-doc.active{border-color:var(--gold);background:var(--panel2)}
+.rim-writer-doc small{color:var(--muted)}
+.rim-writer-main{display:flex;flex-direction:column;min-width:0;min-height:0;border:1px solid var(--border);border-radius:14px;background:var(--panel);overflow:hidden}
+.rim-writer-titlebar{display:flex;align-items:center;gap:10px;padding:12px;border-bottom:1px solid var(--border)}
+#rimWriterTitle{width:100%;min-width:0;border:0;outline:0;background:transparent;color:var(--text);font:600 18px 'Roboto',sans-serif}
+.rim-writer-state{flex:0 0 auto;color:var(--muted);font-size:11px}
+.rim-writer-toolbar{display:flex;flex-wrap:wrap;gap:5px;padding:8px;border-bottom:1px solid var(--border);background:var(--panel2)}
+.rim-writer-toolbar.ql-toolbar.ql-snow{border:0}
+.rim-writer-paper-wrap{flex:1;min-height:0;overflow:auto;padding:clamp(10px,3vw,28px);background:var(--bg)}
+.rim-writer-paper{max-width:850px;min-height:100%;margin:0 auto;padding:clamp(18px,4vw,48px);border:1px solid var(--border);border-radius:8px;background:var(--panel);box-shadow:0 4px 22px #00000012}
+#rimWriterEditor{min-height:55vh;color:var(--text);font:16px/1.75 'Roboto',sans-serif}
+#rimWriterEditor .ql-editor{min-height:55vh;padding:0;color:var(--text);font:16px/1.75 'Roboto',sans-serif;overflow-wrap:anywhere;white-space:pre-wrap}
+#rimWriterEditor .ql-editor p{margin:0 0 1em;line-height:1.75}
+#rimWriterEditor .ql-editor h1,#rimWriterEditor .ql-editor h2,#rimWriterEditor .ql-editor h3{line-height:1.3;margin:1.15em 0 .55em;font-family:'Playfair Display',serif}
+#rimWriterEditor .ql-editor li{margin:.25em 0;line-height:1.65}
+#rimWriterEditor .ql-editor blockquote{margin:1em 0;padding:8px 14px;border-left:3px solid var(--gold);color:var(--muted)}
+#rimWriterEditor .ql-editor a{color:var(--gold2);text-decoration:underline}
+.rim-writer-footer{display:flex;justify-content:space-between;gap:10px;padding:10px 14px;border-top:1px solid var(--border);color:var(--muted);font-size:12px}
+.rim-writer-shell:not(.tools-open) #rimWriterToolbar{display:none!important}
+.rim-writer-shell.tools-open #rimWriterToolbar{display:flex}
+@media(max-width:700px){
+  #rimWorkspaceOverlay{padding:8px}
+  #rimWorkspaceOverlay .rim-workspace-head{gap:6px;flex-wrap:wrap}
+  .rim-writer-shell{display:block;position:relative}
+  .rim-writer-docs{display:none;position:absolute;z-index:3;inset:0 auto 0 0;width:min(82vw,290px);box-shadow:8px 0 28px #0005}
+  .rim-writer-shell.docs-open .rim-writer-docs{display:block}
+  .rim-writer-main{height:calc(100dvh - 112px)}
+  .rim-writer-paper-wrap{padding:8px}
+  .rim-writer-paper{padding:18px 14px}
+  #rimWriterEditor .ql-editor{min-height:calc(100dvh - 260px);font-size:16px}
+  .rim-writer-state{display:none}
+  .rim-writer-footer{font-size:11px}
+}
+
+/* Bounded message-history control; inherits the existing imperial button system. */
+.rim-history-button{display:block;margin:10px auto 6px;max-width:min(92%,360px);font-size:12px;padding:8px 14px;opacity:.88}
+.rim-history-button[hidden]{display:none!important}
+
+
+/* RIM modular stacking: channel full is z-index 10050; settings/modals must sit above it. */
+#modalRoot{z-index:11000!important}
+#toast{z-index:11010!important}
+#rimChannelFull{z-index:10050}
