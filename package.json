@@ -1,9 +1,9 @@
 {
   "name": "rim-messenger",
-  "version": "4.0.0-iteration.125",
+  "version": "4.1.4-iteration.131",
   "private": true,
   "type": "module",
-  "description": "RIM messenger — modular client architecture, dual-bind retirement, engineering hardening",
+  "description": "RIM messenger — seed-only authentication, dual-length recovery phrases, push notification foundation, admin usage metrics",
   "scripts": {
     "test": "node --test tests/*.test.js",
     "check": "node scripts/check-project.mjs",

@@ -5,9 +5,8 @@ const DEFAULT_POLL_LIMIT = 20;
 const DEFAULT_COMMENT_LIMIT = 100;
 
 /**
- * Read-only channel feed adapter.
- * Join/leave, publish, react, poll vote and settings mutations remain on the
- * existing RPC / legacy command paths until their contracts are migrated.
+ * Channel feed read model plus explicit server-authorized pin mutation.
+ * Other legacy mutations remain on their existing RPC / command paths.
  */
 export class ChannelFeedRepository {
   constructor(client, {
@@ -27,7 +26,7 @@ export class ChannelFeedRepository {
 
     const channelResult = await this.client
       .from('channels')
-      .select('id,title,description,username,is_public,owner_id,avatar_path,created_at')
+      .select('id,title,description,username,is_public,owner_id,avatar_path,created_at,discussion_conversation_id')
       .eq('id', channelId)
       .maybeSingle();
 
@@ -36,7 +35,7 @@ export class ChannelFeedRepository {
 
     const channel = channelResult.data;
 
-    const [membershipResult, postsResult, pollsResult, avatarResult] = await Promise.all([
+    const [membershipResult, postsResult, pollsResult, pinnedResult, avatarResult, membersCountResult, managersCountResult] = await Promise.all([
       this.client
         .from('channel_members')
         .select('role')
@@ -45,9 +44,10 @@ export class ChannelFeedRepository {
         .maybeSingle(),
       this.client
         .from('channel_posts')
-        .select('id,channel_id,author_id,body,created_at')
+        .select('id,channel_id,author_id,body,created_at,is_pinned,pinned_at,pinned_by')
         .eq('channel_id', channelId)
         .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
         .limit(this.postLimit),
       this.client
         .from('channel_polls')
@@ -55,14 +55,27 @@ export class ChannelFeedRepository {
         .eq('channel_id', channelId)
         .order('created_at', { ascending: false })
         .limit(this.pollLimit),
+      this.client
+        .from('channel_posts')
+        .select('id,channel_id,author_id,body,created_at,is_pinned,pinned_at,pinned_by')
+        .eq('channel_id', channelId)
+        .eq('is_pinned', true)
+        .order('pinned_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(5),
       channel.avatar_path
         ? this.client.storage.from('avatars').createSignedUrl(channel.avatar_path, 1800)
-        : Promise.resolve({ data: null, error: null })
+        : Promise.resolve({ data: null, error: null }),
+      this.client.from('channel_members').select('user_id', { count: 'exact', head: true }).eq('channel_id', channelId),
+      this.client.from('channel_members').select('user_id', { count: 'exact', head: true }).eq('channel_id', channelId).in('role', ['admin', 'moderator'])
     ]);
 
     if (membershipResult.error) return Err(membershipResult.error);
     if (postsResult.error) return Err(postsResult.error);
     if (pollsResult.error) return Err(pollsResult.error);
+    if (pinnedResult.error) return Err(pinnedResult.error);
+    if (membersCountResult.error) return Err(membersCountResult.error);
+    if (managersCountResult.error) return Err(managersCountResult.error);
     // Avatar failure is non-fatal for the shell.
     const avatarUrl = avatarResult?.data?.signedUrl || '';
 
@@ -74,11 +87,40 @@ export class ChannelFeedRepository {
       channel,
       membership,
       posts,
+      hasMorePosts: posts.length === this.postLimit,
       polls,
+      pinnedPosts: Array.isArray(pinnedResult.data) ? pinnedResult.data : [],
+      memberCount: membersCountResult.count || 0,
+      managerCount: managersCountResult.count || 0,
       avatarUrl,
       joined: !!membership,
       role: membership?.role || ''
     });
+  }
+
+  async pinPost(postId, pinned = true) {
+    if (!postId) return Err(new Error('postId is required'));
+    const response = await this.client.rpc('rim_channel_pin_post', {
+      p_post_id: postId,
+      p_pinned: pinned === true
+    });
+    return response.error ? Err(response.error) : Ok(response.data === true);
+  }
+
+  async getOlderPosts(channelId, cursor, { limit = this.postLimit } = {}) {
+    if (!channelId || !cursor?.created_at || !cursor?.id) return Err(new Error('A valid channel and post cursor are required.'));
+    const stamp = new Date(cursor.created_at);
+    const safeId = String(cursor.id);
+    if (!Number.isFinite(stamp.getTime()) || !/^[0-9a-f-]{36}$/i.test(safeId)) return Err(new Error('Invalid channel post cursor.'));
+    const response = await this.client.from('channel_posts')
+      .select('id,channel_id,author_id,body,created_at,is_pinned,pinned_at,pinned_by')
+      .eq('channel_id', channelId)
+      .or(`created_at.lt.${stamp.toISOString()},and(created_at.eq.${stamp.toISOString()},id.lt.${safeId})`)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(clamp(limit, 1, 100, this.postLimit));
+    if (response.error) return Err(response.error);
+    return Ok(Array.isArray(response.data) ? response.data : []);
   }
 
   async getEnrichment({ postIds = [], pollIds = [], authorIds = [] } = {}) {

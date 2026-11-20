@@ -200,6 +200,52 @@ export class AuthFormController {
     }
   }
 
+  async signInWithSeedPhrase() {
+    if (this.busy) return Err(new Error('busy'));
+    const phrase = this.#el('rimSeedLoginPhrase')?.value || '';
+    this.busy = true;
+    const button = this.#el('rimSeedLoginSubmit');
+    if (button) button.disabled = true;
+    this.#setStatus('Проверяем секретную фразу и подготавливаем защищённую сессию…');
+    try {
+      const user = await this.recoveryCodes.seedLogin(phrase);
+      this.window.currentUser = user;
+      const input = this.#el('rimSeedLoginPhrase');
+      if (input) input.value = '';
+      this.#setStatus('Вход по секретной фразе выполнен. Загружаем RIM…');
+      await this.onSignedIn(user);
+      return Ok(user);
+    } catch (error) {
+      this.#setStatus(error?.message || 'Не удалось войти по секретной фразе.');
+      return Err(error);
+    } finally {
+      this.busy = false;
+      if (button) button.disabled = false;
+    }
+  }
+
+  async recoverWithPhrase() {
+    if (this.busy) return Err(new Error('busy'));
+    const phrase = this.#el('rimRecoveryPhrase')?.value || '';
+    this.busy = true;
+    const button = this.#el('rimRecoveryPhraseSubmit');
+    if (button) button.disabled = true;
+    this.#setStatus('Проверяем секретную фразу RIM…');
+    try {
+      const user = await this.recoveryCodes.redeemPhrase(phrase);
+      this.window.currentUser = user;
+      this.#setStatus('Доступ восстановлен. Загружаем RIM…');
+      await this.onSignedIn(user);
+      return Ok(user);
+    } catch (error) {
+      this.#setStatus(error?.message || 'Не удалось восстановить доступ. Проверьте фразу.');
+      return Err(error);
+    } finally {
+      this.busy = false;
+      if (button) button.disabled = false;
+    }
+  }
+
   async recoverWithCode() {
     if (this.busy) return Err(new Error('busy'));
     const code = this.#el('rimRecoveryCode')?.value || '';
@@ -312,6 +358,8 @@ export class AuthFormController {
     win.rimTogglePassword = (id, button) => this.togglePassword(id, button);
     win.rimResetPassword = () => this.resetPassword();
     win.rimRecoverWithCode = () => this.recoverWithCode();
+    win.rimRecoverWithPhrase = () => this.recoverWithPhrase();
+    win.rimSignInWithSeedPhrase = () => this.signInWithSeedPhrase();
     win.signIn = () => this.signIn();
     win.signUp = () => this.signUp();
     win.signInWithGoogle = () => this.signInWithGoogle();

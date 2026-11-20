@@ -36,7 +36,7 @@ test('channel directory reads newest channels and only the current user membersh
   assert.deepEqual(result.value.subscribedChannelIds, ['ch1']);
   const channels = client.calls.find(call => call.table === 'channels');
   const members = client.calls.find(call => call.table === 'channel_members');
-  assert.equal(channels.columns, 'id,title,description,is_public,username');
+  assert.equal(channels.columns, 'id,title,description,is_public,username,avatar_path,catalog_category,created_at');
   assert.deepEqual(channels.orders, [['created_at', { ascending: false }]]);
   assert.equal(channels.limit, 300);
   assert.equal(members.columns, 'channel_id');

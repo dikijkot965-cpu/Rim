@@ -3,6 +3,22 @@ const TELEGRAM_CLIENT_ID = '9041438103';
 const AUTHORIZATION_ENDPOINT = 'https://oauth.telegram.org/auth';
 const EDGE_FUNCTION = 'telegram-auth';
 
+/** Canonical production URL (GitHub Pages). Must match Telegram Bot OIDC redirect + Supabase secret TELEGRAM_REDIRECT_URI. */
+export const RIM_PUBLIC_APP_URL = 'https://dikijkot965-cpu.github.io/Rim/';
+
+function normalizeAppUrl(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try {
+    const url = new URL(raw);
+    let path = url.pathname || '/';
+    if (!path.endsWith('/') && !/\.html?$/i.test(path)) path += '/';
+    return `${url.origin}${path}`;
+  } catch {
+    return '';
+  }
+}
+
 function base64Url(bytes) {
   let binary = '';
   for (const byte of bytes) binary += String.fromCharCode(byte);
@@ -21,18 +37,36 @@ async function sha256Base64Url(value, cryptoRef) {
 }
 
 export class TelegramAuthService {
-  constructor({ client, windowRef = globalThis.window, fetchRef = globalThis.fetch, clientId = TELEGRAM_CLIENT_ID } = {}) {
+  constructor({ client, windowRef = globalThis.window, fetchRef = globalThis.fetch, clientId = TELEGRAM_CLIENT_ID, publicAppUrl = null } = {}) {
     this.client = client;
     this.window = windowRef;
     this.fetch = fetchRef;
     this.clientId = String(clientId);
+    this.publicAppUrl = publicAppUrl;
     this.processing = false;
   }
 
   #redirectUri() {
+    const override = normalizeAppUrl(this.publicAppUrl || this.window?.__RIM_PUBLIC_APP_URL);
+    if (override) return override;
+
+    try {
+      const meta = this.window?.document?.querySelector?.('meta[name="rim-public-url"]')?.getAttribute?.('content');
+      const fromMeta = normalizeAppUrl(meta);
+      if (fromMeta) return fromMeta;
+    } catch { /* ignore */ }
+
+    try {
+      const host = String(this.window?.location?.hostname || '');
+      if (host === 'dikijkot965-cpu.github.io' || host.endsWith('.github.io')) {
+        return normalizeAppUrl(RIM_PUBLIC_APP_URL);
+      }
+    } catch { /* ignore */ }
+
     const location = this.window?.location;
-    if (!location?.origin || !location?.pathname) throw new Error('Не удалось определить адрес возврата Telegram.');
-    return `${location.origin}${location.pathname}`;
+    if (!location?.origin) throw new Error('Не удалось определить адрес возврата Telegram.');
+    const path = location.pathname && location.pathname !== '/' ? location.pathname : '/';
+    return normalizeAppUrl(`${location.origin}${path}`) || `${location.origin}/`;
   }
 
   #storage() {

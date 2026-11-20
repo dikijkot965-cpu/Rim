@@ -8,7 +8,7 @@ function makeWindow(url = 'https://rim.example/index.html') {
   const assigned = [];
   return {
     crypto: webcrypto,
-    location: { href: url, origin: 'https://rim.example', pathname: '/index.html', assign(value) { assigned.push(value); } },
+    location: { href: url, origin: 'https://rim.example', pathname: '/index.html', hostname: 'rim.example', assign(value) { assigned.push(value); } },
     sessionStorage: { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) },
     history: { replaceState(_state, _title, next) { this.lastUrl = next; } },
     assigned,
@@ -75,4 +75,32 @@ test('Telegram callback rejects state mismatch before contacting backend', async
   assert.equal(result.ok, false);
   assert.match(result.error.message, /state/);
   assert.equal(calls, 0);
+});
+
+
+test('GitHub Pages host uses canonical public redirect URI', async () => {
+  const values = new Map();
+  const assigned = [];
+  const win = {
+    crypto: webcrypto,
+    location: {
+      href: 'https://dikijkot965-cpu.github.io/Rim/',
+      origin: 'https://dikijkot965-cpu.github.io',
+      pathname: '/Rim/',
+      hostname: 'dikijkot965-cpu.github.io',
+      assign(value) { assigned.push(value); }
+    },
+    sessionStorage: {
+      getItem: key => values.get(key) ?? null,
+      setItem: (key, value) => values.set(key, value),
+      removeItem: key => values.delete(key)
+    },
+    document: { querySelector: () => null }
+  };
+  const service = new TelegramAuthService({ client: { auth: {} }, windowRef: win, fetchRef: async () => {} });
+  await service.start();
+  const target = new URL(assigned[0]);
+  assert.equal(target.searchParams.get('redirect_uri'), 'https://dikijkot965-cpu.github.io/Rim/');
+  const pending = JSON.parse(values.get(TELEGRAM_AUTH_STORAGE_KEY));
+  assert.equal(pending.redirectUri, 'https://dikijkot965-cpu.github.io/Rim/');
 });

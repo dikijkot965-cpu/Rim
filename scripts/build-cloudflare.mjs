@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'dist');
 const pagesOutput = path.join(root, 'cloudflare-pages');
-const publicEntries = ['index.html', 'manifest.json', 'icons', 'assets', 'src'];
+const publicEntries = ['index.html', 'manifest.json', 'service-worker.js', 'icons', 'assets', 'src'];
 const forbiddenPublicEntries = ['supabase', 'tests', 'docs', 'sql', 'scripts', 'package.json', 'wrangler.jsonc', 'README.md'];
 
 function fail(message) {

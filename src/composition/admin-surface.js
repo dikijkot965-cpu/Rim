@@ -159,7 +159,14 @@ export function bindAdminSurface({
     const data = result.value.stats || {};
     const items = [
       ['Аккаунты', data.users_total],
+      ['Новые за 7 дней', data.users_new_7d],
+      ['Новые за 30 дней', data.users_new_30d],
       ['Активны за 24 часа', data.users_active_24h],
+      ['Активны за 30 дней · оценка MAU', data.users_active_30d],
+      ['С паролем RIM', data.users_with_password],
+      ['С секретной фразой', data.users_with_recovery_phrase],
+      ['С кодами восстановления', data.users_with_recovery_codes],
+      ['Попытки восстановления за 24 ч.', data.recovery_attempts_24h],
       ['Активные сеансы', data.sessions_active],
       ['Сеансы за 24 часа', data.sessions_24h],
       ['Каналы', data.channels_total],
@@ -174,12 +181,39 @@ export function bindAdminSurface({
       ['Показы рекламы за 24 ч.', data.ad_impressions_24h],
       ['Переходы за 24 ч.', data.ad_clicks_24h],
       ['События аналитики за 24 ч.', data.events_24h],
+      ['Треки в облаке', data.music_tracks_total],
+      ['Запуски музыки', data.music_plays_total],
+      ['Время музыки', Math.floor(Number(data.music_listened_seconds || 0) / 3600) + ' ч'],
+      ['Вход через Telegram', data.auth_providers?.telegram || 0],
+      ['Вход через Google', data.auth_providers?.google || 0],
+      ['Вход через почту', data.auth_providers?.email || 0],
       ['Оплачено по договорам', Number(data.paid_contracts_total || 0).toLocaleString('ru-RU') + ' ₽']
     ];
     win.__rimAnalyticsRows = result.value.series || [];
+    const formatBytes = value => {
+      const bytes = Math.max(0, Number(value) || 0);
+      if (bytes < 1024) return `${bytes} Б`;
+      const units = ['КБ', 'МБ', 'ГБ', 'ТБ'];
+      let size = bytes / 1024; let unit = 0;
+      while (size >= 1024 && unit < units.length - 1) { size /= 1024; unit += 1; }
+      return `${size.toLocaleString('ru-RU', { maximumFractionDigits: 1 })} ${units[unit]}`;
+    };
+    const usageCard = (label, used, limit) => {
+      const safeUsed = Math.max(0, Number(used) || 0);
+      const safeLimit = Math.max(1, Number(limit) || 1);
+      const percent = Math.min(100, safeUsed / safeLimit * 100);
+      const status = percent >= 90 ? 'critical' : percent >= 75 ? 'warning' : 'normal';
+      return `<div class="rim-usage-card" data-usage-state="${status}"><div class="rim-usage-head"><b>${label}</b><strong>${formatBytes(safeUsed)} / ${formatBytes(safeLimit)}</strong></div><div class="rim-usage-track"><span style="width:${percent.toFixed(2)}%"></span></div><div class="feature-small">${percent.toLocaleString('ru-RU', { maximumFractionDigits: 1 })}% занято · ${formatBytes(Math.max(0, safeLimit-safeUsed))} свободно</div></div>`;
+    };
+    const usage = `<section class="rim-admin-usage"><div class="rim-admin-section-title">Ресурсы проекта Supabase</div><div class="rim-usage-grid">${usageCard('База данных', data.database_size_bytes, data.database_quota_bytes)}${usageCard('Файловое хранилище', data.storage_bytes, data.storage_quota_bytes)}</div><div class="feature-small">Объектов Storage: ${escapeHtml(data.storage_objects ?? '—')} · Публичных таблиц: ${escapeHtml(data.public_tables ?? '—')}. Квоты отображаются как справочные значения тарифа Free; фактические биллинговые показатели и трафик сверяйте в панели Supabase.</div></section>`;
+    const bucketRows = Array.isArray(data.storage_by_bucket) ? data.storage_by_bucket : [];
+    const bucketHtml = bucketRows.length ? `<div class="rim-admin-bucket-list">${bucketRows.map(bucket => `<div><span>${escapeHtml(bucket.bucket_id)}</span><b>${formatBytes(bucket.bytes)} · ${escapeHtml(bucket.objects)} объектов</b></div>`).join('')}</div>` : '';
+    const tableRows = Array.isArray(data.database_table_sizes) ? data.database_table_sizes : [];
+    const tableHtml = tableRows.length ? `<section class="rim-admin-usage"><div class="rim-admin-section-title">Крупнейшие таблицы базы</div><div class="rim-admin-bucket-list">${tableRows.map(table => `<div><span>${escapeHtml(table.schema)}.${escapeHtml(table.table)}</span><b>${formatBytes(table.bytes)}</b></div>`).join('')}</div></section>` : '';
+    const quotaNote = `<div class="feature-small">Оценка MAU — число пользователей с входом за последние 30 дней, а не официальный биллинговый счётчик. Метрики egress, вызовов Edge Functions и Realtime требуют платформенного Usage API; текущий тарифный SQL-доступ их не раскрывает.</div>`;
     out.innerHTML = `<div class="rim-stats-grid">${items.map(([label, value]) =>
       `<div class="rim-stat-item"><div class="feature-small">${escapeHtml(label)}</div><b>${escapeHtml(value ?? '—')}</b></div>`
-    ).join('')}</div>`;
+    ).join('')}</div>${usage}${bucketHtml}${tableHtml}${quotaNote}`;
     return result;
   };
 
@@ -190,7 +224,11 @@ export function bindAdminSurface({
       ? `<button class="action-btn" type="button" onclick="rimAdminShowUserSessions('${id}')">Сеансы</button>`
       : '';
     const actionLabel = sessionsButton ? 'Роль' : 'Сохранить';
-    return `<div class="rim-admin-user"><div><b>${escHtml(x.display_name || x.username || 'Пользователь')}</b><small>@${escHtml(x.username || '—')} · ${escHtml(x.email || 'email скрыт')}</small></div><div class="rim-admin-user-actions"><select class="field" id="rimRole-${id}"><option value="user" ${role === 'user' ? 'selected' : ''}>Пользователь</option><option value="moderator" ${role === 'moderator' ? 'selected' : ''}>Модератор</option><option value="admin" ${role === 'admin' ? 'selected' : ''}>Администратор</option><option value="superadmin" ${role === 'superadmin' ? 'selected' : ''}>Суперадмин</option></select><button class="action-btn" type="button" onclick="rimAdminSetRole('${id}')">${actionLabel}</button>${sessions}</div></div>`;
+    const providers = Array.isArray(x.providers) && x.providers.length ? x.providers.map(value => escHtml(value)).join(', ') : 'не определён';
+    const passwordState = x.has_password ? 'пароль установлен' : 'без пароля';
+    const recoveryState = x.recovery_phrase_enabled ? 'фраза настроена' : 'фразы нет';
+    const codesState = x.recovery_codes_enabled ? 'коды настроены' : 'кодов нет';
+    return `<div class="rim-admin-user"><div><b>${escHtml(x.display_name || x.username || 'Пользователь')}</b><small>@${escHtml(x.username || '—')} · ${escHtml(x.email || 'email скрыт')}</small><small class="rim-admin-user-security">Вход: ${providers} · ${passwordState} · ${recoveryState} · ${codesState}</small></div><div class="rim-admin-user-actions"><select class="field" id="rimRole-${id}"><option value="user" ${role === 'user' ? 'selected' : ''}>Пользователь</option><option value="moderator" ${role === 'moderator' ? 'selected' : ''}>Модератор</option><option value="admin" ${role === 'admin' ? 'selected' : ''}>Администратор</option><option value="superadmin" ${role === 'superadmin' ? 'selected' : ''}>Суперадмин</option></select><button class="action-btn" type="button" onclick="rimAdminSetRole('${id}')">${actionLabel}</button>${sessions}</div></div>`;
   }
 
   win.rimLoadAdminUsers = async () => {

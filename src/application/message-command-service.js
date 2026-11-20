@@ -14,7 +14,7 @@ const IMAGE_EXTENSIONS = MESSAGE_IMAGE_EXTENSIONS;
 
 /** Application boundary for message mutations. The legacy renderer remains responsible for presentation. */
 export class MessageCommandService {
-  constructor({ repository, storage, getUser, getConversation, getReplyTarget = () => null, getTopicId = () => null, getMessages = () => [], setMessages = null, canSend = async () => true, notify = () => {}, reload = async () => {}, applyLocal = null, clearReply = () => {}, onSent = null }) {
+  constructor({ repository, storage, getUser, getConversation, getReplyTarget = () => null, getTopicId = () => null, getMessages = () => [], setMessages = null, canSend = async () => true, notify = () => {}, reload = async () => {}, applyLocal = null, clearReply = () => {}, onSent = null, notifyPush = null }) {
     this.repository = repository;
     this.storage = storage;
     this.getUser = getUser;
@@ -29,6 +29,7 @@ export class MessageCommandService {
     this.applyLocal = applyLocal;
     this.clearReply = clearReply;
     this.onSent = onSent;
+    this.notifyPush = notifyPush;
     this.inFlight = new Set();
     /** @type {Map<string, number[]>} */
     this.sendTimestampsByConversation = new Map();
@@ -137,6 +138,7 @@ export class MessageCommandService {
         ...(topicId ? { topic_id: topicId } : {})
       });
       if (!result.ok) return result;
+      try { void this.notifyPush?.(result.value); } catch { /* push is best-effort and never blocks message delivery */ }
       if (!fromOutbox) this.noteSuccessfulSend(conversationId);
       this.clearReplyIfUnchanged(conversationId, reply?.id);
       await this.refreshIfCurrent(conversationId, result.value);
@@ -159,6 +161,7 @@ export class MessageCommandService {
         ...(topicId ? { topic_id: topicId } : {})
       });
       if (!result.ok) return result;
+      try { void this.notifyPush?.(result.value); } catch { /* best effort */ }
       this.noteSuccessfulSend(conversation.id);
       await this.refreshIfCurrent(conversation.id, result.value);
       return result;
@@ -194,6 +197,7 @@ export class MessageCommandService {
         }
         return result;
       }
+      try { void this.notifyPush?.(result.value); } catch { /* best effort */ }
       this.clearReplyIfUnchanged(conversation.id, reply?.id);
       await this.refreshIfCurrent(conversation.id);
       return result;

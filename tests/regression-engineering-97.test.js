@@ -29,7 +29,7 @@ test('primitives script loads before bootstrap', () => {
 
 test('CURRENT_STATUS exists and claims iteration 97+', () => {
   const status = readFileSync(join(root, 'docs/CURRENT_STATUS.md'), 'utf8');
-  assert.match(status, /iteration\.97|4\.0\.0-iteration\.12[2345]/);
+  assert.match(status, /iteration\.97|4\.0\.0-iteration\.12[0-9]|4\.1\.[0-9]+-iteration\.13[0-9]/);
   assert.match(status, /not loaded/i);
 });
 

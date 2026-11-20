@@ -60,6 +60,7 @@ export function bindShellSurface({
     onSignedIn: async (user) => {
       win.currentUser = user;
       if (typeof win.initializeApp === 'function') await win.initializeApp();
+      await win.rimMaybeShowSecurityOnboarding?.();
     },
     logger
   });
@@ -97,6 +98,16 @@ export function bindShellSurface({
   win.saveNotificationSettings = async () => {
     const result = await notificationPreferences.saveFromDom();
     if (!result.ok) notify?.(result.error?.message || 'Не удалось сохранить настройки');
+    return result;
+  };
+  win.subscribePushLocally = async () => {
+    const result = await notificationPreferences.subscribePush();
+    if (!result.ok) notify?.(result.error?.message || 'Не удалось подключить push');
+    return result;
+  };
+  win.unsubscribePushLocally = async () => {
+    const result = await notificationPreferences.unsubscribePush();
+    if (!result.ok) notify?.(result.error?.message || 'Не удалось отключить push');
     return result;
   };
   lifecycle?.add?.(() => { win.__RIM_NOTIFICATION_PREFS_OWNED = false; });

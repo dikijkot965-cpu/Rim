@@ -1,5 +1,5 @@
 {
-  "version": "4.0.0-iteration.125",
+  "version": "4.1.4-iteration.131",
   "layers": {
     "core": [
       "src/core/config.js",
@@ -23,6 +23,7 @@
       "src/domain/music-statistics.js",
       "src/domain/music-track.js",
       "src/domain/outbox.js",
+      "src/domain/recovery-phrase.js",
       "src/domain/send-policy.js",
       "src/domain/username.js"
     ],
@@ -84,7 +85,8 @@
       "src/application/telegram-auth-service.js",
       "src/application/typing-presence-controller.js",
       "src/application/viewport-controller.js",
-      "src/application/voice-message-controller.js"
+      "src/application/voice-message-controller.js",
+      "src/application/device-lock-service.js"
     ],
     "infrastructure": [
       "src/infrastructure/supabase/channel-feed-repository.js",
@@ -98,27 +100,28 @@
     "features": [
       "src/features/favorites-workspace.js",
       "src/features/lite-writer.js",
-      "src/features/local-music.js"
+      "src/features/local-music.js",
+      "src/features/radio-player.js"
     ],
     "compatibility": [
       "src/compatibility/legacy-bridge.js"
     ],
     "composition_root": [
       "src/app.js",
-      "src/composition/chat-audience.js",
-      "src/composition/settings-surface.js",
-      "src/composition/channels-surface.js",
-      "src/composition/groups-surface.js",
-      "src/composition/social-surface.js",
       "src/composition/admin-surface.js",
-      "src/composition/shell-surface.js",
-      "src/composition/message-commands-surface.js",
+      "src/composition/channels-surface.js",
+      "src/composition/chat-audience.js",
       "src/composition/chat-runtime-surface.js",
-      "src/composition/message-timeline-surface.js",
-      "src/composition/conversation-session-surface.js",
       "src/composition/conversation-open-surface.js",
+      "src/composition/conversation-session-surface.js",
       "src/composition/features-surface.js",
-      "src/composition/legacy-entrypoint-surface.js"
+      "src/composition/groups-surface.js",
+      "src/composition/legacy-entrypoint-surface.js",
+      "src/composition/message-commands-surface.js",
+      "src/composition/message-timeline-surface.js",
+      "src/composition/settings-surface.js",
+      "src/composition/shell-surface.js",
+      "src/composition/social-surface.js"
     ]
   },
   "legacy_compatibility": "assets/js/legacy/",

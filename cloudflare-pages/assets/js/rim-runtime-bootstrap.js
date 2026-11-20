@@ -233,7 +233,7 @@ if(!window.__RIM_VIEWPORT_OWNED){const vv=window.visualViewport;if(vv){vv.addEve
    PWA SERVICE WORKER
 ===================================================== */
 
-async function registerServiceWorker(){if(!("serviceWorker" in navigator))return;try{await navigator.serviceWorker.register("/sw.js");}catch(e){console.warn("SW register failed",e);}}
+async function registerServiceWorker(){if(!("serviceWorker" in navigator))return;try{await navigator.serviceWorker.register("/service-worker.js");}catch(e){console.warn("SW register failed",e);}}
 
 (async function start(){
   updateViewport();registerServiceWorker();

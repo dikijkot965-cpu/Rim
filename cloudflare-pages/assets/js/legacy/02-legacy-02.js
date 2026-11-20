@@ -1347,7 +1347,7 @@ async function registerServiceWorker(){
  }
 
  try{
-  const registration=await navigator.serviceWorker.register("/sw.js");
+  const registration=await navigator.serviceWorker.register("/service-worker.js");
   console.log("Service Worker зарегистрирован:",registration.scope);
  }catch(error){
   console.warn("Не удалось зарегистрировать Service Worker:",error);
