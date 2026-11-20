@@ -1,0 +1,96 @@
+name: Import RIM iteration 131
+
+on:
+  push:
+    branches:
+      - import/iteration-131
+    paths:
+      - RIM_4.1.4_ITERATION_131.zip
+      - .github/workflows/import-rim.yml
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout staging branch
+        uses: actions/checkout@v4
+        with:
+          ref: import/iteration-131
+          fetch-depth: 0
+
+      - name: Validate and extract archive
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path, PurePosixPath
+          from zipfile import ZipFile
+          import shutil
+
+          archive = Path("RIM_4.1.4_ITERATION_131.zip")
+          if not archive.is_file():
+              raise SystemExit("Expected ZIP archive is missing from repository root")
+
+          target = Path("/tmp/rim-import")
+          shutil.rmtree(target, ignore_errors=True)
+          target.mkdir(parents=True)
+
+          with ZipFile(archive) as zf:
+              entries = zf.infolist()
+              if not entries:
+                  raise SystemExit("Archive is empty")
+              if len(entries) > 20000:
+                  raise SystemExit("Archive contains an unreasonable number of entries")
+
+              total_size = 0
+              for info in entries:
+                  name = info.filename.replace("\\", "/")
+                  path = PurePosixPath(name)
+                  if path.is_absolute() or ".." in path.parts or not path.parts:
+                      raise SystemExit(f"Unsafe archive path: {info.filename}")
+                  if ".git" in path.parts:
+                      raise SystemExit("Archive must not contain Git metadata")
+                  mode = (info.external_attr >> 16) & 0o170000
+                  if mode == 0o120000:
+                      raise SystemExit(f"Symbolic links are not accepted: {info.filename}")
+                  total_size += info.file_size
+                  if total_size > 250 * 1024 * 1024:
+                      raise SystemExit("Archive expands beyond the 250 MB safety limit")
+
+              names = {i.filename.rstrip("/") for i in entries}
+              if "package.json" not in names or "index.html" not in names:
+                  raise SystemExit("ZIP must have package.json and index.html at its root")
+
+              zf.extractall(target)
+
+          if not (target / "package.json").is_file() or not (target / "index.html").is_file():
+              raise SystemExit("Required project root files were not extracted")
+
+          print(f"Validated and extracted {len(entries)} entries ({total_size} bytes uncompressed).")
+          PY
+
+      - name: Replace project files and remove uploaded ZIP
+        shell: bash
+        run: |
+          rsync -a --delete \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='RIM_4.1.4_ITERATION_131.zip' \
+            /tmp/rim-import/ ./
+          rm -f RIM_4.1.4_ITERATION_131.zip
+          git status --short
+
+      - name: Commit imported project
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No project changes detected."
+            exit 1
+          fi
+          git commit -m "Import RIM 4.1.4 iteration 131"
+          git push origin HEAD:import/iteration-131
