@@ -90,8 +90,12 @@ export class SettingsShellController {
       <button class="primary-btn" style="width:100%;margin-top:12px" type="button" data-rim-settings-action="save-privacy">Сохранить конфиденциальность</button>
 
       <h3 style="color:var(--gold2);font-family:'Playfair Display',serif;margin:18px 0 4px">Безопасность аккаунта</h3>
-      <div class="feature-small">Коды восстановления позволяют вернуть доступ, даже если внешний провайдер входа недоступен. Каждый код одноразовый.</div>
-      <button class="action-btn" style="width:100%;margin-top:8px" type="button" data-rim-settings-action="recovery-codes">Создать / заменить коды восстановления</button>
+      <div class="rim-recovery-explainer"><b>Секретная фраза RIM — резервный ключ вашего аккаунта.</b><p>Она состоит из 24 слов в строго заданном порядке. Используйте её, если потеряли доступ к основному способу входа. При восстановлении RIM проверяет фразу, выдаёт новую сессию и помечает фразу использованной — после этого её нужно заменить.</p><p><b>Как хранить:</b> запишите на бумаге; храните в закрытом месте; при необходимости держите вторую копию отдельно. Можно использовать надёжный менеджер паролей. Не отправляйте слова другим людям, не публикуйте их, не вставляйте в сторонние сайты и не сохраняйте в обычных заметках или скриншотах.</p><p><b>Если фраза потеряна:</b> RIM не может восстановить её или показать повторно. Если вы всё ещё вошли в аккаунт, создайте новую фразу здесь. Выпуск новой фразы аннулирует старую.</p><p><b>Границы защиты:</b> фраза помогает подтвердить право на восстановление аккаунта, но не шифрует сообщения и не скрывает IP-адрес или другие сетевые метаданные. Администраторы RIM не видят сами слова.</p></div>
+      <button class="primary-btn" style="width:100%;margin-top:8px" type="button" data-rim-settings-action="recovery-phrase">Создать / заменить секретную фразу</button>
+      <button class="action-btn" style="width:100%;margin-top:8px" type="button" data-rim-settings-action="recovery-codes">Создать / заменить 10 одноразовых кодов</button>
+      <button class="action-btn" style="width:100%;margin-top:8px" type="button" data-rim-settings-action="seed-only">Строгий вход: только по seed-фразе</button>
+      <button class="action-btn" style="width:100%;margin-top:8px" type="button" data-rim-settings-action="device-lock">Код-пароль / графический ключ приложения</button>
+      <div class="feature-small">Локальная блокировка экрана этого устройства. Не заменяет серверную аутентификацию и не отзывает сессию.</div>
 
       <button class="action-btn" id="rimOpenBlocksBtn" style="width:100%;margin-top:10px" type="button" data-rim-settings-action="blocks">Заблокированные пользователи</button>
 
@@ -133,6 +137,9 @@ export class SettingsShellController {
         else if (action === 'blocks') this.window?.rimOpenBlocks?.();
         else if (action === 'notifications') this.window?.openNotificationSettings?.();
         else if (action === 'recovery-codes') this.window?.rimGenerateRecoveryCodes?.();
+        else if (action === 'recovery-phrase') this.window?.rimGenerateRecoveryPhrase?.();
+        else if (action === 'device-lock') this.window?.rimOpenDeviceLockSettings?.();
+        else if (action === 'seed-only') this.window?.rimOpenSeedOnlySettings?.();
         event.preventDefault?.();
       });
     });

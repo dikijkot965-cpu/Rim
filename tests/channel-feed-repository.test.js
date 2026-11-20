@@ -15,8 +15,11 @@ function createClient({
   signedUrl = null
 } = {}) {
   const calls = [];
+  const rpcCalls = [];
   return {
     calls,
+    rpcCalls,
+    async rpc(name, args) { rpcCalls.push({ name, args }); return { data: true, error: null }; },
     storage: {
       from() {
         return {
@@ -32,6 +35,7 @@ function createClient({
         select(columns) { state.columns = columns; return this; },
         eq(column, value) { state.filters.push([column, value]); return this; },
         in(column, values) { state.inFilters.push([column, values]); return this; },
+        or(value) { state.or = value; return this; },
         order(column, options) { state.orders.push([column, options]); return this; },
         limit(value) { state.limit = value; return this; },
         maybeSingle() { state.maybeSingle = true; return this; },
@@ -89,7 +93,7 @@ test('channel shell loads narrow columns and bounded posts/polls', async () => {
   assert.match(channelCall.columns, /id,title,description/);
   assert.equal(postsCall.limit, 30);
   assert.equal(pollsCall.limit, 20);
-  assert.deepEqual(postsCall.orders, [['created_at', { ascending: false }]]);
+  assert.deepEqual(postsCall.orders, [['created_at', { ascending: false }], ['id', { ascending: false }]]);
 });
 
 test('channel enrichment loads reactions, votes and author profiles', async () => {
@@ -136,4 +140,34 @@ test('channel shell propagates missing channel', async () => {
   const result = await new ChannelFeedRepository(client).getShell('missing', 'u1');
   assert.equal(result.ok, false);
   assert.match(String(result.error.message), /Канал не найден/);
+});
+
+
+test('older channel posts use a stable timestamp plus UUID cursor', async () => {
+  const client = createClient({ posts: [{ id: 'p0', channel_id: 'ch1', author_id: 'o1', body: 'older' }] });
+  const result = await new ChannelFeedRepository(client).getOlderPosts('ch1', {
+    created_at: '2026-01-01T00:00:00Z',
+    id: '00000000-0000-4000-8000-000000000001'
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.value[0].id, 'p0');
+  const call = client.calls.find(item => item.table === 'channel_posts');
+  assert.match(call.or, /created_at\.lt\./);
+  assert.deepEqual(call.orders, [['created_at', { ascending: false }], ['id', { ascending: false }]]);
+  assert.equal(call.limit, 30);
+});
+
+test('older channel post query rejects malformed cursors before touching the client', async () => {
+  const client = createClient();
+  const result = await new ChannelFeedRepository(client).getOlderPosts('ch1', { created_at: 'bad', id: 'not-a-uuid' });
+  assert.equal(result.ok, false);
+  assert.equal(client.calls.length, 0);
+});
+
+
+test('channel pin action uses the server-authorized RPC', async () => {
+  const client = createClient();
+  const result = await new ChannelFeedRepository(client).pinPost('post-1', true);
+  assert.equal(result.ok, true);
+  assert.deepEqual(client.rpcCalls, [{ name: 'rim_channel_pin_post', args: { p_post_id: 'post-1', p_pinned: true } }]);
 });

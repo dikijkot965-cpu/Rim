@@ -1,1 +1,11 @@
-RIM 4.0.0-iteration.125 — flattened Cloudflare-ready project root, static-only Cloudflare Pages publication folder, Worker assets build, one-time recovery codes and account recovery UI
+RIM 4.1.4 — ITERATION 131
+Build date: 2026-11-20
+Supabase project: xxvcsaomkyknudoaixbs (existing project; no paid resources added)
+Edge Functions: rim-account-security v12; rim-push v4
+Auth Hook: public.custom_access_token_hook selected; readiness deliberately disabled until full seed-only E2E validation
+Seed-only: not active for any account; no account migrated
+Recovery phrases: custom 12-word / 128-bit entropy and 24-word / 184-bit entropy formats
+Push: sender/chat/channel context and bounded previews; VAPID secrets required before delivery
+Channel feed: subscriber/admin profile context, counts, management shortcuts, pre-grouped reaction/vote rendering
+Admin usage: database and Storage measurements with Free quota references
+Verification: 435/435 unit tests; 108 modules; 287 JS files syntax-checked; Cloudflare build passed; Playwright E2E skipped

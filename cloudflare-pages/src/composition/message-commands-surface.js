@@ -78,6 +78,14 @@ export function bindMessageCommandsSurface({
     onSent: async (message, conversationId) => {
       try { await noteOutgoing(message, conversationId); } catch { /* optional */ }
     },
+    notifyPush: message => {
+      if (!message?.id || !client?.functions?.invoke) return;
+      void client.functions.invoke('rim-push', { body: { action: 'send_message', message_id: message.id } })
+        .then(({ error, data }) => {
+          if (error || data?.error) logger?.warn?.('push.message.delivery.failed', { message: String(error?.message || data?.error || 'unknown') });
+        })
+        .catch(error => logger?.warn?.('push.message.delivery.failed', { message: String(error?.message || error) }));
+    },
     canSend: async ({ user, conversation }) => {
       if (conversation.type === 'group') return true;
       if (conversation.type !== 'direct') return new Error('Не удалось безопасно определить тип переписки для отправки из очереди.');

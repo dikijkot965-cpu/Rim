@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>РИМ — генератор VAPID</title>
+<style>
+:root{color-scheme:dark;font:16px system-ui;background:#101923;color:#edf2f7}*{box-sizing:border-box}body{max-width:760px;margin:0 auto;padding:24px 16px}h1{font-size:24px}.card{background:#1b2936;border:1px solid #344556;border-radius:16px;padding:18px;margin:16px 0}button{border:0;border-radius:10px;padding:13px 18px;background:#247fc0;color:white;font-weight:700;font-size:15px;width:100%}label{display:block;font-weight:650;margin:16px 0 6px}textarea{width:100%;min-height:76px;resize:vertical;background:#0d151d;color:#e9f2fa;border:1px solid #41566a;border-radius:9px;padding:10px;font:12px ui-monospace,monospace;overflow-wrap:anywhere}small{color:#aab8c5;line-height:1.5}.warn{color:#ffcf7a}.ok{color:#8bd8a8}.actions{display:flex;gap:8px}.actions button{flex:1}.hidden{display:none}
+</style></head>
+<body>
+<h1>⚜ Генератор VAPID-ключей РИМ</h1>
+<div class="card"><p>Создаёт пару ключей Web Push локально в этом браузере с помощью Web Crypto. Ключи не отправляются на сервер и никуда не загружаются.</p><p class="warn"><b>Важно:</b> закройте эту страницу после копирования. Приватный ключ нельзя публиковать, пересылать или добавлять в GitHub.</p><button id="generate">Сгенерировать новую пару</button><p id="status" aria-live="polite"><small>Нажмите кнопку. Генерация обычно занимает секунды.</small></p></div>
+<div class="card hidden" id="results">
+<label for="public">Публичный ключ — RIM_VAPID_PUBLIC_KEY</label><textarea id="public" readonly></textarea><div class="actions"><button data-copy="public">Копировать публичный</button></div>
+<label for="private">Приватный ключ — RIM_VAPID_PRIVATE_KEY</label><textarea id="private" readonly></textarea><div class="actions"><button data-copy="private">Копировать приватный</button></div>
+<label for="subject">RIM_VAPID_SUBJECT</label><textarea id="subject" readonly>mailto:ВАШ_EMAIL</textarea><small>Замени ВАШ_EMAIL на действующий адрес, например mailto:owner@example.com. Или используй HTTPS URL своего сайта.</small>
+</div>
+<script>
+const b64url = bytes => { let binary=''; for(const byte of bytes) binary+=String.fromCharCode(byte); return btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); };
+const fromB64url = value => Uint8Array.from(atob(value.replace(/-/g,'+').replace(/_/g,'/').padEnd(Math.ceil(value.length/4)*4,'=')),c=>c.charCodeAt(0));
+document.getElementById('generate').addEventListener('click',async()=>{
+ const status=document.getElementById('status'),button=document.getElementById('generate');
+ button.disabled=true;status.textContent='Создаём ключи…';
+ try{
+  if(!globalThis.crypto?.subtle)throw new Error('Web Crypto недоступен. Откройте страницу в современном браузере через HTTPS или локально.');
+  const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
+  const jwk=await crypto.subtle.exportKey('jwk',pair.privateKey);
+  if(!jwk.x||!jwk.y||!jwk.d)throw new Error('Браузер не вернул полный набор ключей.');
+  const pub=new Uint8Array(65);pub[0]=4;pub.set(fromB64url(jwk.x),1);pub.set(fromB64url(jwk.y),33);
+  document.getElementById('public').value=b64url(pub);
+  document.getElementById('private').value=jwk.d;
+  document.getElementById('results').classList.remove('hidden');
+  status.innerHTML='<span class="ok">Пара создана локально. Сохраните публичный и приватный ключи отдельно.</span>';
+ }catch(error){status.textContent=error.message||String(error)}finally{button.disabled=false}
+});
+document.querySelectorAll('[data-copy]').forEach(button=>button.addEventListener('click',async()=>{
+ const field=document.getElementById(button.dataset.copy);
+ try{await navigator.clipboard.writeText(field.value);button.textContent='Скопировано';setTimeout(()=>button.textContent=button.dataset.copy==='public'?'Копировать публичный':'Копировать приватный',1600)}catch{field.focus();field.select();document.execCommand('copy');button.textContent='Выделено — скопируйте вручную'}
+}));
+</script></body></html>

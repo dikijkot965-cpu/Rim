@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" name="viewport"/>
+<meta content="#17130e" name="theme-color"/>
+<meta content="Русский Императорский Мессенджер — имперская коммуникационная сеть" name="description"/>
+<title>Русский Императорский Мессенджер</title>
+<link href="./manifest.json" rel="manifest"/>
+<link href="./icons/icon-192.png" rel="icon" sizes="192x192" type="image/png"/>
+<link href="./icons/icon-192.png" rel="apple-touch-icon"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&amp;family=Roboto:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8"></script>
+
+
+<link href="assets/css/rim.css" rel="stylesheet"/><link href="assets/css/rim-architecture.css" rel="stylesheet"/></head>
+<body data-theme="imperial">
+<div id="authScreen">
+<div class="auth-card">
+<div class="auth-logo">⚜ 🇷🇺 ИМПЕРСКАЯ КОММУНИКАЦИОННАЯ СЕТЬ</div>
+<div class="auth-sub">Русский Императорский Мессенджер</div>
+<label class="field-label" id="emailLabel">Электронная почта</label>
+<input autocomplete="email" class="field" id="authEmail" placeholder="name@example.com" type="email"/>
+<label class="field-label" id="passwordLabel">Пароль для входа</label>
+<div class="rim-auth-password-wrap"><input autocomplete="current-password" class="field" id="authPassword" placeholder="Введите пароль" type="password"/><button aria-label="Показать пароль" class="rim-auth-eye" onclick="rimTogglePassword('authPassword',this)" type="button">Показать</button></div>
+<div class="rim-auth-extra" hidden="" id="signupExtras">
+<label class="field-label" for="authPasswordConfirm">Повторите пароль</label>
+<input autocomplete="new-password" class="field" id="authPasswordConfirm" placeholder="Введите пароль ещё раз" type="password"/>
+<div class="rim-auth-hint">Для регистрации нужны только электронная почта и придуманный вами пароль. Минимум 8 символов.</div>
+</div>
+<details class="feature-banner rim-auth-options" style="margin-top:12px"><summary>Дополнительные настройки (необязательно)</summary>
+<div class="field-label">Начальные настройки регистрации</div>
+<label class="field-label" for="signupLanguage">Язык интерфейса</label>
+<select class="field" id="signupLanguage"><option value="ru">Русский</option><option value="be">Беларуская</option><option value="pl">Polski</option><option value="fi">Suomi</option><option disabled="" value="zh">中文 — в разработке</option><option value="en">English</option></select>
+<label class="field-label" for="signupTheme">Оформление</label>
+<select class="field" id="signupTheme"><option value="imperial">Имперская тема</option><option value="dark">Тёмная</option><option value="light">Светлая</option><option value="halloween">Хэллоуинская 🎃</option></select>
+<div class="feature-small">Эти параметры сохранятся после подтверждения почты.</div>
+</details>
+<div style="display:flex;gap:8px;margin-top:16px">
+<button class="primary-btn" id="loginBtn" onclick="signIn()" style="flex:1">Войти</button>
+<button class="action-btn" id="registerBtn" onclick="startRegistration()" style="flex:1">Регистрация</button>
+</div>
+<div class="rim-auth-providers" aria-label="Вход через внешние сервисы">
+<button class="rim-auth-telegram" id="telegramAuthBtn" onclick="signInWithTelegram()" type="button"><span class="rim-auth-provider-icon" aria-hidden="true">➤</span><span><strong>Войти через Telegram</strong><small>Основной способ входа · защищённый OIDC</small></span></button>
+<div class="rim-auth-provider-grid">
+<button class="rim-auth-provider-pending" id="googleAuthBtn" data-auth-provider="google" data-auth-handler="signInWithGoogle" type="button" disabled aria-disabled="true"><strong>Google</strong><small>В разработке</small></button>
+<button class="rim-auth-provider-pending" id="githubAuthBtn" type="button" disabled aria-disabled="true"><strong>GitHub</strong><small>В разработке</small></button>
+<button class="rim-auth-provider-pending" id="vkAuthBtn" type="button" disabled aria-disabled="true"><strong>VK</strong><small>В разработке</small></button>
+</div>
+</div>
+<button class="rim-auth-reset" onclick="rimResetPassword()" type="button">Забыли пароль?</button>
+<details class="rim-auth-options" style="margin-top:8px"><summary>Восстановить доступ по секретной фразе RIM</summary><label class="field-label" for="rimRecoveryPhrase">24 слова в правильном порядке</label><textarea class="field" id="rimRecoveryPhrase" rows="3" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Введите 24 слова через пробел"></textarea><button class="action-btn" id="rimRecoveryPhraseSubmit" onclick="rimRecoverWithPhrase()" type="button" style="width:100%;margin-top:8px">Восстановить по фразе</button><div class="feature-small">Для обычного восстановления фраза используется один раз. В строгом режиме seed-only она служит постоянным ключом входа до замены.</div></details>
+<details class="rim-auth-options" style="margin-top:8px"><summary>Войти только по секретной фразе RIM</summary><label class="field-label" for="rimSeedLoginPhrase">24 слова в правильном порядке</label><textarea class="field" id="rimSeedLoginPhrase" rows="3" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Введите секретную фразу"></textarea><button class="action-btn" id="rimSeedLoginSubmit" onclick="rimSignInWithSeedPhrase()" type="button" style="width:100%;margin-top:8px">Войти по фразе</button><div class="feature-small">Этот способ работает только если владелец аккаунта заранее включил строгий режим входа по seed-фразе.</div></details>
+<details class="rim-auth-options" style="margin-top:8px"><summary>Восстановить доступ по коду RIM</summary><label class="field-label" for="rimRecoveryCode">Одноразовый код восстановления</label><input class="field" id="rimRecoveryCode" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"/><button class="action-btn" id="rimRecoverySubmit" onclick="rimRecoverWithCode()" type="button" style="width:100%;margin-top:8px">Восстановить доступ</button><div class="feature-small">Использованный код больше нельзя применить. После входа создайте новый набор.</div></details>
+<div aria-live="polite" class="status" id="authStatus"></div>
+</div>
+</div>
+<div id="app">
+<header class="topbar">
+<div class="brand">
+<div class="brand-title">⚜ РУССКИЙ ИМПЕРАТОРСКИЙ МЕССЕНДЖЕР</div>
+<div class="brand-subtitle">🇷🇺 ИМПЕРСКАЯ КОММУНИКАЦИОННАЯ СЕТЬ</div>
+</div>
+<button class="icon-btn" onclick="openSettings()" title="Настройки">⚙</button>
+<button class="icon-btn" onclick="openProfile()" title="Профиль">♙</button>
+</header>
+<main class="main">
+<section class="sidebar" id="sidebar">
+<div class="tabbar">
+<button class="action-btn selected" id="tabChats" onclick="showSection('chats')">Чаты</button>
+<button class="action-btn" id="tabChannels" onclick="showSection('channels')">Каналы</button>
+<button class="action-btn" id="tabMusic" onclick="showSection('music')">Музыка</button>
+</div>
+<div id="chatsSection" style="display:flex;flex:1;min-height:0;flex-direction:column">
+<div class="sidebar-head">
+<input class="search-input" id="chatSearch" oninput="filterChats()" placeholder="Поиск..."/>
+<button class="icon-btn" onclick="newDirectChat()" title="Новый чат">＋</button>
+<button class="icon-btn" onclick="newGroupChat()" title="Новая группа">♧</button>
+</div>
+<div class="chat-list" id="chatList">
+<div class="loading">Загрузка переписок...</div>
+</div>
+</div>
+<div class="page-content hidden" id="channelsSection">
+<button class="primary-btn" onclick="createChannel()" style="width:100%;margin-bottom:12px">＋ Создать канал</button>
+<div id="channelList"></div>
+</div>
+<div class="page-content hidden" id="musicSection">
+<div class="card">
+<h3>Музыкальная библиотека</h3>
+<p class="muted" style="font-size:12px">Загружай треки и выбирай режим доступа.</p>
+<input class="field" id="musicTitle" placeholder="Название композиции"/>
+<label class="field-label">Файл</label>
+<input accept="audio/*" class="field" id="musicFile" type="file"/>
+<label class="field-label">Доступ</label>
+<select class="field" id="musicVisibility">
+<option value="private">Только я</option>
+<option value="public">Для всех пользователей</option>
+</select>
+<button class="primary-btn" onclick="uploadMusic()" style="width:100%;margin-top:12px">Загрузить трек</button>
+</div>
+<div id="musicList"></div>
+</div>
+</section>
+<section class="chat-window" id="chatWindow">
+<div class="chat-head">
+<button class="icon-btn back-btn" onclick="backToChats()">‹</button>
+<div class="avatar" id="chatHeadAvatar">⚜</div>
+<div class="chat-head-info">
+<div class="chat-head-name" id="chatHeadName">Переписка</div>
+<div class="chat-head-status" id="chatHeadStatus">Выберите чат</div>
+</div>
+<button class="icon-btn" onclick="openChatInfo()">ⓘ</button>
+</div>
+<div class="messages" id="messages">
+<div class="empty-state">Выберите переписку слева или создайте новую.</div>
+</div>
+<div class="composer-area" id="composerArea">
+<div class="reply-bar hidden" id="replyBar">
+<div class="reply-bar-text" id="replyText">Ответ</div>
+<button class="icon-btn" onclick="cancelReply()">×</button>
+</div>
+<div class="sticker-panel hidden" id="stickerPanel">
+<button class="sticker-choice" onclick="sendSticker('⚜')">⚜</button>
+<button class="sticker-choice" onclick="sendSticker('⚔️')">⚔️</button>
+<button class="sticker-choice" onclick="sendSticker('🛡️')">🛡️</button>
+<button class="sticker-choice" onclick="sendSticker('🐻')">🐻</button>
+<button class="sticker-choice" onclick="sendSticker('😂')">😂</button>
+<button class="sticker-choice" onclick="sendSticker('🔥')">🔥</button>
+<button class="sticker-choice" onclick="sendSticker('👍')">👍</button>
+<button class="sticker-choice" onclick="sendSticker('🚀')">🚀</button>
+</div>
+<div class="composer">
+<button class="rim-plus-btn" type="button" id="rimAttachBtn" title="Вложения">＋</button>
+<input accept="image/png,image/jpeg,image/webp,image/gif" hidden="" id="imageInput" onchange="sendImage(this.files[0])" type="file"/>
+<input accept="*/*" hidden="" id="fileInput" type="file"/>
+<textarea class="composer-input" id="messageInput" oninput="resizeComposer(this)" onkeydown="messageKeydown(event)" placeholder="Сообщение..." rows="1"></textarea>
+<button class="rim-mic-btn" type="button" id="rimVoiceBtn" title="Голосовое">🎤</button>
+<button class="send-btn" type="button" onclick="sendMessage()" title="Отправить">➤</button>
+</div>
+</div>
+</section>
+</main>
+</div>
+<div id="modalRoot"></div>
+<div id="toast"></div>
+<!-- Stage C: 02 legacy path retired — runtime lives in rim-runtime-bootstrap.js -->
+<script src="assets/js/core/rim-primitives.js"></script>
+<script src="assets/js/rim-runtime-bootstrap.js"></script>
+<!-- Stage C: 03 feature layer — dual-bind + modular surfaces -->
+<!-- Stage C: 04 local productivity suite retired from boot -->
+<!-- Stage C: 05 nav/profile pages — modular shell/settings -->
+<!-- Stage C: 06 language/compose/ads — modular settings/compose/channel -->
+<!-- Stage C: 07-legacy-07.js retired — nav cleanup covered by 10 + modular shell -->
+
+<!-- Stage C: 08 nav/settings — modular shell owns openMore/openTools -->
+
+<!-- Stage C: 09 topics/seasonal — send owned by message-commands; topics via getTopicId -->
+<!-- Stage C: 10 tabbar → modular TabbarController --><!-- Stage C: 11 reports owned by modular social-surface -->
+
+<!-- Stage C: 12 restore layer — send preflight in modular canSend -->
+
+<!-- Stage C: 13 admin/ads patch; modular admin-surface owns rimAdmin -->
+<!-- Stage C: 14 render/openChannel — modular list renderer + channel feed -->
+<!-- Stage C: 15 history/timeline — modular message timeline -->
+<!-- Stage C: 16 release patch favorites/react — dual-bind + modular commands -->
+<!-- Stage C: 17 channel mgmt — modular channels-surface -->
+<!-- Stage C: 18 update-core dual-bind — modular owns open/timeline -->
+<!-- Stage C: 19 channels UI — modular channel feed (openChannel guarded) -->
+<!-- Stage C: 20 groups — modular groups-surface -->
+<!-- Stage C: 21 search owned by modular shell-surface -->
+<!-- Stage C: 22 admin rimid — modular admin-surface -->
+<!-- Stage C: 23 ads analytics — modular admin -->
+<!-- Stage C: 24 architecture rebuild — modular open/forward -->
+<!-- Stage C: 25 stability — forward/settings dual-bind retired -->
+<script src="assets/js/core/rim-core-release.js"></script><script>
+// Explicit compatibility boundary. These closures are the only supported access to legacy lexical state.
+window.__RIM_LEGACY_CONTEXT = Object.freeze({
+  db,
+  getUser: () => currentUser,
+  getActiveConversation: () => activeConversation,
+  setActiveConversation: conversation => {
+    activeConversation = conversation || null;
+    window.activeConversation = activeConversation;
+    try { window.__rimMirrorLegacyState?.(); } catch (_) {}
+  },
+  getConversations: () => conversations,
+  setConversations: rows => {
+    conversations = Array.isArray(rows) ? rows : [];
+    window.conversations = conversations;
+    try { window.__rimMirrorLegacyState?.(); } catch (_) {}
+  },
+  getMessages: () => messagesCache,
+  getReplyTarget: () => replyTarget,
+  setReplyTarget: target => {
+    replyTarget = target || null;
+    window.replyTarget = replyTarget;
+  },
+  setMessages: rows => {
+    messagesCache = Array.isArray(rows) ? rows : [];
+    window.messagesCache = messagesCache;
+  },
+  notify: message => (typeof toast === 'function' ? toast(message) : console.info(message))
+});
+try { window.__rimMirrorLegacyState?.(); } catch (_) {}
+</script>
+<script type="module" src="./src/app.js"></script>
+</body>
+</html>

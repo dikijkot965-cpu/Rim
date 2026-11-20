@@ -38,7 +38,7 @@ test('dashboardStats aggregates RPC payloads', async () => {
   const service = new AdminCommandService({
     client: {
       rpc: async (name) => {
-        if (name === 'rim_admin_dashboard_stats') return { data: { users_total: 10 }, error: null };
+        if (name === 'rim_admin_dashboard_stats_v2') return { data: { users_total: 10 }, error: null };
         return { data: [{ day: '2026-01-01' }], error: null };
       }
     },

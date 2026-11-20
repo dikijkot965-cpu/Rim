@@ -104,6 +104,33 @@ export class ChannelFeedController {
       case 'comments':
         void this.loadComments(actionEl, postId);
         break;
+      case 'load-older':
+        void this.loadOlderPosts(actionEl);
+        break;
+      case 'pin':
+        void this.togglePinnedPost(actionEl, postId);
+        break;
+      case 'invite':
+        void this.window?.rimChannelCreateInvite?.();
+        break;
+      case 'discussion': {
+        const conversationId = this.channel?.discussion_conversation_id;
+        if (conversationId) void this.window?.openConversation?.(conversationId);
+        break;
+      }
+      case 'new-post': {
+        const composer = this.document?.getElementById?.('rimChannelPostBody');
+        composer?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+        composer?.focus?.();
+        break;
+      }
+      case 'goto-post': {
+        const target = [...(this.document?.querySelectorAll?.('[data-rim-post-id]') || [])]
+          .find(node => String(node.dataset.rimPostId) === String(postId));
+        target?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+        target?.focus?.({ preventScroll: true });
+        break;
+      }
       default:
         break;
     }
@@ -126,7 +153,7 @@ export class ChannelFeedController {
     return { role, manager, canPost, joined };
   }
 
-  #renderShell({ channel, posts, avatarUrl, joined, manager, canPost }) {
+  #renderShell({ channel, posts, avatarUrl, joined, manager, canPost, memberCount = 0, managerCount = 0 }) {
     const id = escapeHtml(channel.id);
     const joinHtml = joined
       ? `<button class="action-btn" type="button" data-rim-cf-action="leave" data-channel-id="${id}">Отписаться</button>`
@@ -156,8 +183,13 @@ export class ChannelFeedController {
       <button class="icon-btn" type="button" data-rim-cf-action="close" title="Закрыть">×</button>
     </header>
     <main class="rim-cf-scroll">
+      <section class="rim-cf-profile-card ${manager ? 'is-manager' : 'is-subscriber'}">
+        <div class="rim-cf-profile-meta"><b>${memberCount.toLocaleString('ru-RU')}</b><span>подписчиков</span>${manager ? `<i>· ${managerCount.toLocaleString('ru-RU')} администраторов</i>` : ''}</div>
+        ${channel.description ? `<p>${escapeHtml(channel.description)}</p>` : ''}
+        ${channel.username ? `<div class="rim-cf-public-link">РИМ · @${escapeHtml(channel.username)}</div>` : ''}
+        <div class="rim-cf-profile-actions">${joinHtml}${manager ? '<button class="action-btn" type="button" data-rim-cf-action="invite">Пригласить</button><button class="action-btn" type="button" data-rim-cf-action="new-post">Новая публикация</button><button class="action-btn" type="button" data-rim-cf-action="settings">Настройки канала</button>' : ''}${channel.discussion_conversation_id ? '<button class="action-btn" type="button" data-rim-cf-action="discussion">Обсуждение</button>' : ''}</div>
+      </section>
       <div class="rim-cf-toolbar">
-        ${joinHtml}
         ${manager ? '<button class="action-btn" type="button" data-rim-cf-action="settings">⚙ Настройки канала</button>' : ''}
         ${canPost ? '<button class="action-btn" type="button" data-rim-cf-action="create-poll">📊 Создать опрос</button>' : ''}
       </div>
@@ -171,7 +203,7 @@ export class ChannelFeedController {
     </main>`;
   }
 
-  #renderEnrichedFeed({ channel, posts, polls, reactions, votes, profileById, userId, joined, manager, canPost }) {
+  #renderEnrichedFeed({ channel, posts, polls, reactions, votes, profileById, userId, joined, manager, canPost, hasMorePosts = false, pinnedPosts = [], memberCount = 0, managerCount = 0 }) {
     const id = escapeHtml(channel.id);
 
     const joinHtml = joined
@@ -180,8 +212,16 @@ export class ChannelFeedController {
         ? `<button class="primary-btn" type="button" data-rim-cf-action="join" data-channel-id="${id}">Подписаться</button>`
         : '<span class="rim-update-muted">Закрытый канал</span>';
 
+    const pinnedHtml = (pinnedPosts || []).length ? `<section class="rim-cf-pinned-list"><div class="rim-cf-pinned-title">📌 Закреплённые публикации</div>${pinnedPosts.map(post => `<div class="rim-cf-pinned-item"><button class="rim-cf-pinned-jump" type="button" data-rim-cf-action="goto-post" data-post-id="${escapeHtml(post.id)}">${escapeHtml(post.body || 'Медиа-публикация')}</button>${manager ? `<button class="action-btn" type="button" data-rim-cf-action="pin" data-post-id="${escapeHtml(post.id)}">Открепить</button>` : ''}</div>`).join('')}</section>` : '';
+
+    const votesByPoll = new Map();
+    for (const vote of votes || []) {
+      const key = String(vote.poll_id);
+      if (!votesByPoll.has(key)) votesByPoll.set(key, []);
+      votesByPoll.get(key).push(vote);
+    }
     const pollHtml = (polls || []).map(poll => {
-      const pollVotes = (votes || []).filter(vote => String(vote.poll_id) === String(poll.id));
+      const pollVotes = votesByPoll.get(String(poll.id)) || [];
       const own = pollVotes.find(vote => String(vote.user_id) === String(userId));
       const total = pollVotes.length;
       const options = (poll.options || []).map((opt, index) => {
@@ -203,8 +243,14 @@ export class ChannelFeedController {
       </section>`;
     }).join('');
 
+    const reactionsByPost = new Map();
+    for (const reaction of reactions || []) {
+      const key = String(reaction.post_id);
+      if (!reactionsByPost.has(key)) reactionsByPost.set(key, []);
+      reactionsByPost.get(key).push(reaction);
+    }
     const postsHtml = (posts || []).map(post => {
-      const rx = (reactions || []).filter(row => String(row.post_id) === String(post.id));
+      const rx = reactionsByPost.get(String(post.id)) || [];
       const author = profileById[String(post.author_id)] || {};
       const authorLabel = escapeHtml(author.display_name || author.username || 'Автор');
       const reactionButtons = REACTION_EMOJI.map(emoji => {
@@ -219,10 +265,11 @@ export class ChannelFeedController {
           </form>`
         : '<div class="rim-update-muted">Подпишитесь на канал, чтобы комментировать.</div>';
 
-      return `<article class="rim-cf-post" data-rim-post-id="${escapeHtml(post.id)}">
+      return `<article class="rim-cf-post ${post.is_pinned ? 'is-pinned' : ''}" data-rim-post-id="${escapeHtml(post.id)}">
+        ${post.is_pinned ? '<div class="rim-cf-pinned-label">📌 Закреплённая публикация</div>' : ''}
         <div class="rim-cf-post-body">${escapeHtml(post.body || '')}</div>
         <div class="rim-update-muted" style="margin-top:9px">${authorLabel} · ${formatWhen(post.created_at)}</div>
-        <div class="rim-cf-toolbar">${reactionButtons}</div>
+        <div class="rim-cf-toolbar">${reactionButtons}${manager ? `<button class="action-btn" type="button" data-rim-cf-action="pin" data-post-id="${escapeHtml(post.id)}">${post.is_pinned ? 'Открепить' : '📌 Закрепить'}</button>` : ''}</div>
         <button type="button" class="rim-cf-comment-toggle" aria-expanded="false" data-rim-cf-action="comments" data-post-id="${escapeHtml(post.id)}">Комментарии</button>
         <div class="rim-cf-comments">
           <div class="rim-update-muted">Откройте комментарии, чтобы загрузить их.</div>
@@ -231,8 +278,13 @@ export class ChannelFeedController {
       </article>`;
     }).join('') || '<div class="empty-state">Публикаций пока нет.</div>';
 
-    return `<div class="rim-cf-toolbar">
-        ${joinHtml}
+    const profilePanel = `<section class="rim-cf-profile-card ${manager ? 'is-manager' : 'is-subscriber'}">
+      <div class="rim-cf-profile-meta"><b>${Number(memberCount).toLocaleString('ru-RU')}</b><span>подписчиков</span>${manager ? `<i>· ${Number(managerCount).toLocaleString('ru-RU')} администраторов</i>` : ''}</div>
+      ${channel.description ? `<p>${escapeHtml(channel.description)}</p>` : ''}
+      ${channel.username ? `<div class="rim-cf-public-link">РИМ · @${escapeHtml(channel.username)}</div>` : ''}
+      <div class="rim-cf-profile-actions">${joinHtml}${manager ? '<button class="action-btn" type="button" data-rim-cf-action="invite">Пригласить</button><button class="action-btn" type="button" data-rim-cf-action="new-post">Новая публикация</button>' : ''}${channel.discussion_conversation_id ? '<button class="action-btn" type="button" data-rim-cf-action="discussion">Обсуждение</button>' : ''}</div>
+    </section>`;
+    return `${profilePanel}<div class="rim-cf-toolbar">
         ${manager ? '<button class="action-btn" type="button" data-rim-cf-action="settings">⚙ Настройки канала</button>' : ''}
         ${canPost ? '<button class="action-btn" type="button" data-rim-cf-action="create-poll">📊 Создать опрос</button>' : ''}
       </div>
@@ -240,9 +292,11 @@ export class ChannelFeedController {
         <textarea id="rimChannelPostBody" class="field" rows="3" maxlength="10000" placeholder="Новая публикация"></textarea>
         <button class="primary-btn" type="button" style="margin-top:8px" data-rim-cf-action="publish">Опубликовать</button>
       </section>` : ''}
+      ${pinnedHtml}
       ${pollHtml}
       <h3>Публикации</h3>
-      ${postsHtml}`;
+      ${postsHtml}
+      ${hasMorePosts ? '<button class="action-btn rim-cf-load-older" type="button" data-rim-cf-action="load-older">Показать более ранние публикации</button>' : '<div class="rim-update-muted rim-cf-end">Вы просмотрели все публикации</div>'}`;
   }
 
   async open(channelId) {
@@ -264,7 +318,7 @@ export class ChannelFeedController {
       }
       if (!shellResult.ok) throw shellResult.error;
 
-      const { channel, membership, posts, polls, avatarUrl } = shellResult.value;
+      const { channel, membership, posts, polls, pinnedPosts = [], avatarUrl, hasMorePosts = false, memberCount = 0, managerCount = 0 } = shellResult.value;
       const flags = this.#computeFlags(channel, membership, user.id);
 
       this.window.currentChannel = channel;
@@ -287,7 +341,9 @@ export class ChannelFeedController {
         avatarUrl,
         joined: flags.joined,
         manager: flags.manager,
-        canPost: flags.canPost
+        canPost: flags.canPost,
+        memberCount,
+        managerCount
       });
       const host = this.document.querySelector?.('.main') || this.document.body;
       host.appendChild(full);
@@ -311,21 +367,13 @@ export class ChannelFeedController {
         if (!enrichmentResult.ok) throw enrichmentResult.error;
 
         const { reactions, votes, profileById } = enrichmentResult.value;
+        this.feedState = {
+          channel, posts: [...posts], polls, reactions, votes, profileById,
+          userId: user.id, joined: flags.joined, manager: flags.manager,
+          canPost: flags.canPost, hasMorePosts, pinnedPosts: [...pinnedPosts], memberCount, managerCount
+        };
         const main = full.querySelector('.rim-cf-scroll');
-        if (main) {
-          main.innerHTML = this.#renderEnrichedFeed({
-            channel,
-            posts,
-            polls,
-            reactions,
-            votes,
-            profileById,
-            userId: user.id,
-            joined: flags.joined,
-            manager: flags.manager,
-            canPost: flags.canPost
-          });
-        }
+        if (main) main.innerHTML = this.#renderEnrichedFeed(this.feedState);
 
         // View tracking + non-critical advertising stay on legacy helpers when present.
         try {
@@ -367,10 +415,80 @@ export class ChannelFeedController {
   close() {
     this.requestEpoch += 1;
     this.activeChannelId = null;
+    this.feedState = null;
+    this.loadingOlderPosts = false;
     this.boundRoot?.removeEventListener?.('click', this.clickHandler);
     this.boundRoot?.removeEventListener?.('submit', this.submitHandler);
     this.boundRoot = null;
     this.document?.getElementById?.('rimChannelFull')?.remove?.();
+  }
+
+  async togglePinnedPost(button, postId) {
+    const state = this.feedState;
+    const post = state?.posts?.find(item => String(item.id) === String(postId))
+      || state?.pinnedPosts?.find(item => String(item.id) === String(postId));
+    if (!state || !post || !this.repository.pinPost) return;
+    const nextPinned = !post.is_pinned;
+    if (button) { button.disabled = true; button.textContent = 'Сохраняем…'; }
+    try {
+      const result = await this.repository.pinPost(postId, nextPinned);
+      if (!result.ok) throw result.error;
+      post.is_pinned = nextPinned;
+      post.pinned_at = nextPinned ? new Date().toISOString() : null;
+      if (nextPinned) {
+        state.pinnedPosts = [post, ...(state.pinnedPosts || []).filter(item => String(item.id) !== String(postId))].slice(0, 5);
+      } else {
+        state.pinnedPosts = (state.pinnedPosts || []).filter(item => String(item.id) !== String(postId));
+      }
+      const main = this.boundRoot?.querySelector?.('.rim-cf-scroll');
+      if (main) main.innerHTML = this.#renderEnrichedFeed(state);
+      this.#say(nextPinned ? 'Публикация закреплена.' : 'Публикация откреплена.');
+    } catch (error) {
+      this.logger?.warn?.('channels.feed.pin.failed', { message: error?.message || String(error) });
+      if (button) { button.disabled = false; button.textContent = post.is_pinned ? 'Открепить' : '📌 Закрепить'; }
+      this.#say('Не удалось изменить закрепление публикации.');
+    }
+  }
+
+  async loadOlderPosts(button) {
+    const state = this.feedState;
+    if (!state || this.loadingOlderPosts || !state.hasMorePosts) return;
+    const cursor = state.posts[state.posts.length - 1];
+    if (!cursor) return;
+    this.loadingOlderPosts = true;
+    if (button) { button.disabled = true; button.textContent = 'Загружаем…'; }
+    const main = this.boundRoot?.querySelector?.('.rim-cf-scroll');
+    const previousScrollTop = main?.scrollTop || 0;
+    try {
+      const result = await this.repository.getOlderPosts(state.channel.id, cursor);
+      if (!result.ok) throw result.error;
+      const older = result.value || [];
+      if (!older.length) {
+        state.hasMorePosts = false;
+      } else {
+        const enrichment = await this.repository.getEnrichment({
+          postIds: older.map(post => post.id),
+          authorIds: older.map(post => post.author_id)
+        });
+        if (!enrichment.ok) throw enrichment.error;
+        const ids = new Set(state.posts.map(post => String(post.id)));
+        state.posts.push(...older.filter(post => !ids.has(String(post.id))));
+        state.reactions.push(...enrichment.value.reactions);
+        state.votes.push(...enrichment.value.votes);
+        Object.assign(state.profileById, enrichment.value.profileById);
+        state.hasMorePosts = older.length >= (this.repository.postLimit || 30);
+      }
+      if (main && this.boundRoot?.isConnected !== false) {
+        main.innerHTML = this.#renderEnrichedFeed(state);
+        main.scrollTop = previousScrollTop;
+      }
+    } catch (error) {
+      this.logger?.warn?.('channels.feed.pagination.failed', { message: error?.message || String(error) });
+      if (button) { button.disabled = false; button.textContent = 'Повторить загрузку'; }
+      this.#say('Не удалось загрузить более ранние публикации. Попробуйте ещё раз.');
+    } finally {
+      this.loadingOlderPosts = false;
+    }
   }
 
   async loadComments(button, postId) {
@@ -444,14 +562,25 @@ export class ChannelFeedController {
     const postBody = normalized.value;
     const client = this.repository?.client || this.window?.db || this.window?.__RIM_LEGACY_CONTEXT?.db;
     if (!client) { this.notify?.('Нет подключения к базе.'); return; }
-    const { error } = await client.from('channel_posts').insert({
+    const { data: createdPost, error } = await client.from('channel_posts').insert({
       channel_id: channel.id,
       author_id: user.id,
       body: postBody
-    });
+    }).select('id').single();
     if (error) {
       this.notify?.(error.message || 'Ошибка публикации');
       return;
+    }
+    // Best-effort channel push: publication must not fail if push delivery is unavailable.
+    try {
+      if (createdPost?.id && client.functions?.invoke) {
+        void client.functions.invoke('rim-push', { body: { action: 'send_channel_post', post_id: createdPost.id } })
+          .then(({ error: pushError, data }) => {
+            if (pushError || data?.error) this.logger?.warn?.('channels.push.delivery.failed', { message: String(pushError?.message || data?.error || 'unknown') });
+          }).catch(pushError => this.logger?.warn?.('channels.push.delivery.failed', { message: String(pushError?.message || pushError) }));
+      }
+    } catch (pushError) {
+      this.logger?.warn?.('channels.push.delivery.failed', { message: String(pushError?.message || pushError) });
     }
     if (input) input.value = '';
     this.notify?.('Публикация добавлена.');

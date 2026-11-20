@@ -1,8 +1,46 @@
 # RIM CURRENT STATUS
 
-**Version:** 4.0.0-iteration.125  
-**Date:** 2026-11-19  
+**Version:** 4.1.4-iteration.131  
+**Date:** 2026-11-20  
 **Authority:** This file supersedes older status reports when they conflict.
+
+## Iteration 129 notes
+
+- Independent 256-bit recovery pepper generated inside Supabase Vault. New phrase/code hashes use version 3; legacy version 1 remains verifiable.
+- Added strict seed-only foundations: Custom Access Token Hook, `supabase_auth_admin`-scoped policies, per-session authorization table, restrictive RLS gate on 88 public tables, Storage objects and Realtime messages, and two-phase activation RPCs. In iteration 130 the Hook was connected and `rim-account-security` deployed as v12. In iteration 131 readiness was deliberately returned to `false` pending real-account E2E; no account is seed-only.
+- Fixed message UPDATE/DELETE RLS to require sender ownership and current conversation membership.
+- Added 54 missing FK indexes, removed 5 redundant indexes and 14 exact duplicate RLS policies; converted 136 direct `auth.uid()` policy calls to cached subselects. Performance advisor now shows 0 unindexed-FK and 0 auth-initplan findings; 36 intentional/under-review permissive-policy warnings remain.
+- Channel feed now has stable cursor pagination and pinned posts; channel feed index added.
+- Radio expanded with more Russian-language stations, favourites, sleep timer and bounded reconnect.
+- Added optional local PIN/pattern app lock. It is explicitly not server-side account authentication.
+- Supabase org is on Free plan; built-in leaked-password protection is unavailable until Pro or higher.
+- Iteration 130 verification: 435/435 unit tests pass; 108 mapped modules; syntax check passes across 287 JavaScript files; Cloudflare build passes. Playwright E2E is skipped because Playwright is unavailable; two-account, physical Android and load tests remain pending.
+- `rim-push` v4 is deployed with sender/chat/channel context; VAPID secrets are still required. See `docs/PUSH_NOTIFICATIONS_SETUP.md`.
+- Admin dashboard now shows database and Storage measurements, bucket breakdown, largest tables, public table count and a 30-day active-user estimate.
+
+## Iteration 128 notes
+
+- Recovery Edge Function is ACTIVE at version 7; password readiness is now read from `auth.users.encrypted_password` through a service-role-only RPC.
+- Seed phrase UI explains use, safe storage, loss/rotation and security boundaries; creation requires three random word confirmations. Phrase can be created later in Privacy settings after skipping onboarding.
+- Current phrase format remains RIM v1: 184-bit entropy + checksum; not BIP-39. Strict seed-only sign-in is intentionally not enabled until server-side auth hook and session/RLS gates are complete. See `docs/SEED_ONLY_AUTH_DESIGN.md`.
+- Radio catalogue expanded with Russian stations and category/search controls; HLS fallback is used for HLS streams.
+- Channel directory gained category chips; existing cards/search/subscription state remain.
+- Supabase grant hardening applied: 0 anonymous-executable `SECURITY DEFINER` functions; all 88 public tables have RLS enabled. 50 authenticated-executable definer functions remain with `auth.uid()` checks; advisor still reports generic warnings for these and leaked-password protection disabled.
+- Unit tests: 407/407 pass. Playwright E2E, two-account auth, physical Android and production load tests remain pending for the reasons in `RELEASE_NOTES_2026-11-20.md`.
+
+## Iteration 127 notes
+
+- Added RIM-only 24-word account recovery phrase with 184 bits of random entropy, checksum validation, server-side HMAC storage, one-time redemption, and rate limiting. It is explicitly not BIP-39.
+- Existing recovery codes preserve their v1 HMAC derivation and remain compatible.
+- New-account security onboarding offers cloud-password creation only when no email/password identity exists, plus a one-time recovery phrase prompt.
+- Admin user rows now show identity providers and security readiness flags only; plaintext passwords and recovery phrases are never exposed.
+- Music gained cloud-backed play/completion/listening-time statistics, seven-day activity, top tracks/artists, and a persistent embedded SomaFM radio player.
+- Channel directory gained signed avatars, search, category/date labels, subscription status and responsive card layout.
+- Supabase migration `20261120184000_rim_security_music_admin_hardening` applied and new admin RPCs verified with an administrator claim.
+- At the time of iteration 127 the Edge Function deployment was pending. Iteration 128 subsequently deployed the source as active version 7.
+- Iteration 127 test baseline: architecture PASS (107 modules), syntax PASS (280 files), tests PASS (403/403); Playwright E2E skipped because `@playwright/test` is not installed.
+- Cloudflare build: 147 Worker assets and 148 Pages-only files.
+- Full verification and remaining manual checks are recorded in `docs/ITERATION_127_ENGINEERING_REPORT.md`.
 
 ## What is true now
 
@@ -22,6 +60,11 @@
 | Infrastructure | `src/infrastructure/supabase/*` | Repositories |
 | Core | `src/core/*` | Container, Result, events, html escape |
 | Features | `src/features/*` | Favorites, Lite Writer, etc. |
+
+## Iteration 126 notes
+
+- Telegram OIDC: canonical public URL `https://dikijkot965-cpu.github.io/Rim/` on GitHub Pages host + meta tag.
+- Docs: `docs/TELEGRAM_AUTH.md` (must match Supabase `TELEGRAM_REDIRECT_URI` secret).
 
 ## Iteration 125 notes
 
@@ -219,3 +262,19 @@
 ## Iteration 123 additions
 
 Telegram OIDC PKCE adapter and server-side identity exchange are included; provider secrets and the exact Telegram redirect URI must be configured in Supabase Edge Function Secrets. Offline outbox records are now user-partitioned and replay sends use database-backed client_message_id idempotency.
+
+
+## 2026-11-20 — Iteration 130
+- `rim-account-security` Edge Function deployed as version 12. Custom Access Token Hook is connected in the Dashboard; SQL privilege checks and a non-seed smoke test passed; readiness flag is now true. No user account has seed-only enabled automatically.
+- Seed-only activation uses the two-phase begin/password-rotation/activate flow. The short 12-word RIM format is available alongside the 24-word format.
+- `rim-push` Edge Function deployed as version 2. Push delivery is implemented for messages, but requires VAPID secrets from the project owner before subscriptions and sends can succeed.
+- Admin dashboard includes measured database and Storage usage, object/bucket counts, and Free-plan reference quotas.
+- Channel pinned items now jump to their corresponding post.
+
+
+## Iteration 131 — push context and channel profile
+
+- Push notifications now include sender/chat/channel names and bounded message/post previews, with per-user `show_message_preview` control. Channel publication triggers push delivery. `rim-push` deployed as version 4; VAPID secrets still required.
+- Unified the app on `/service-worker.js`. Added local browser VAPID generator at `tools/vapid-keygen.html` and updated Android setup guide.
+- Channel profile read model now includes exact member/manager counts and distinct administrator quick actions; subscriber view does not expose management controls. Reaction/vote rendering uses pre-grouped maps.
+- Seed-only readiness is intentionally `false` until a real test account completes the full login/refresh/disable test matrix. No user account is seed-only.

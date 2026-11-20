@@ -50,11 +50,13 @@ test('channel directory renders subscribed and public/private actions with exist
     { id: 'c2', title: 'Открытый без подписки', is_public: true },
     { id: 'c3', title: 'Закрытый', is_public: false }
   ], new Set(['c1']));
-  assert.match(html, /class="rim-channel-row"/);
+  assert.match(html, /class="rim-channel-row rim-channel-card"/);
   assert.match(html, /class="rim-channel-avatar"/);
   assert.match(html, /data-rim-channel-action="open" data-channel-id="c1"/);
   assert.match(html, /data-rim-channel-action="join" data-channel-id="c2"/);
-  assert.match(html, /Публичный · @open · Вы подписаны/);
+  assert.match(html, /@open/);
+  assert.match(html, /✓ Подписка/);
+  assert.match(html, /Публичный канал/);
   assert.match(html, /По приглашению/);
 });
 
@@ -138,4 +140,15 @@ test('channel directory reports missing user and disposes pending requests safel
   pending.resolve({ ok: true, value: { channels: [{ id: 'c1' }], subscribedChannelIds: [] } });
   await task;
   assert.equal(doc.list.innerHTML, '<div class="feature-small">Загрузка каналов…</div>');
+});
+
+test('channel directory category filter keeps only matching category cards', async () => {
+  const { renderChannelDirectoryRows } = await import('../src/application/channel-directory-controller.js');
+  const channels = [
+    { id: 'a', title: 'Детский канал', is_public: true, catalog_category: 'Детям' },
+    { id: 'b', title: 'Новости', is_public: true, catalog_category: 'Новости' }
+  ];
+  const html = renderChannelDirectoryRows(channels, new Set(), 'all', '', 'Детям');
+  assert.match(html, /Детский канал/);
+  assert.doesNotMatch(html, /Новости/);
 });

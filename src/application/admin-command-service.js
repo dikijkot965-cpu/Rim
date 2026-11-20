@@ -80,7 +80,7 @@ export class AdminCommandService {
     const admin = this.#requireAdmin();
     if (!admin.ok) return admin;
 
-    const { data, error } = await this.client.rpc('rim_admin_list_users', {
+    const { data, error } = await this.client.rpc('rim_admin_list_users_v2', {
       p_limit: limit,
       p_offset: offset
     });
@@ -94,7 +94,7 @@ export class AdminCommandService {
     const q = String(query || '').trim().replace(/^@/, '');
     if (q.length < 2) return Err(new Error('Введите минимум два символа для поиска.'));
 
-    const { data, error } = await this.client.rpc('rim_admin_search_users', {
+    const { data, error } = await this.client.rpc('rim_admin_search_users_v2', {
       p_query: q,
       p_limit: limit
     });
@@ -255,7 +255,7 @@ export class AdminCommandService {
     if (!admin.ok) return admin;
 
     const [stats, series] = await Promise.all([
-      this.client.rpc('rim_admin_dashboard_stats'),
+      this.client.rpc('rim_admin_dashboard_stats_v2'),
       this.client.rpc('rim_admin_analytics_timeseries', { p_days: days })
     ]);
     if (stats.error) return Err(stats.error);

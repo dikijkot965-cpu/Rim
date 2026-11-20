@@ -1,4 +1,4 @@
-# Императорский Мессенджер (RIM) — инженерная сборка 4.0.0 (текущая итерация 125)
+# Императорский Мессенджер (RIM) — инженерная сборка 4.1.4 (итерация 131)
 
 Это продолжение существующего RIM, а не отдельный новый мессенджер. Сохранены исходный имперский интерфейс, HTML-структура основных экранов, Supabase и совместимость с прежними функциями. Работа ведётся вертикальными инженерными срезами: новая логика переносится в модули, а старый интерфейс остаётся совместимым до подтверждения паритета.
 
@@ -18,7 +18,17 @@
 - **Chat-list query reduction:** удалён устаревший legacy-резолвер собеседников, который делал отдельные запросы участников и профилей. Эту задачу выполняет модульный контроллер; загрузка списка не запрашивает last-seen, а открытие уже разрешённого личного чата обновляет только присутствие.
 - **Channel feed staged loading:** заголовок и ограниченная первая страница канала отображаются до загрузки реакций, голосов, авторов и рекламы; комментарии загружаются отдельно только при раскрытии конкретной публикации. Добавлена защита от устаревших ответов при переключении каналов.
 
-## Проверка текущей сборки — итерация 125
+## Итерация 129 — текущие изменения
+
+- Seed security: независимый pepper внутри Supabase Vault, версионированные HMAC-дайджесты и серверные основы строгого входа по seed-фразе. Readiness остаётся выключенной до подключения Custom Access Token Hook и публикации двухфазной Edge Function.
+- Channels: cursor pagination по `created_at + id`, закреплённые публикации, серверный RPC с проверкой прав администратора и индексы для ленты.
+- Radio: расширен русскоязычный каталог, добавлены избранное, таймер сна и ограниченное автоматическое переподключение.
+- Privacy: опциональный локальный PIN/графический ключ. Это блокировка интерфейса устройства, а не замена аутентификации аккаунта.
+- Message routing: исправлены UPDATE/DELETE RLS-политики — автор должен оставаться участником конкретной переписки.
+
+Текущий инженерный отчёт: `docs/ITERATION_129_ENGINEERING_REPORT.md`.
+
+## Проверка предыдущей сборки — итерация 125
 
 Из корня проекта:
 
@@ -122,3 +132,18 @@ The additive SQL migration is `supabase/migrations/20261119124951_rim_telegram_i
 - Telegram OIDC remains in Supabase; Cloudflare serves only the client.
 
 See `docs/CLOUDFLARE_DEPLOYMENT.md` for exact Cloudflare settings and `docs/ITERATION_125_ENGINEERING_REPORT.md` for verification and remaining work.
+
+
+### Iteration 130 additions
+- RIM recovery phrases now support a 12-word (128-bit) standard format and a 24-word (184-bit) maximum-strength format. Both are custom RIM formats, not BIP-39.
+- Seed-only authentication is deployed behind the connected Custom Access Token Hook and remains opt-in per account.
+- The imperial admin dashboard shows measured database/Storage use and reference quota gauges.
+- Web Push infrastructure and service worker are prepared. Add the VAPID secrets listed in `docs/ITERATION_130_ENGINEERING_REPORT.md` before enabling push subscriptions.
+
+
+## Итерация 131 — уведомления и каналы
+
+- Push-уведомления показывают имя отправителя, название группового чата или канала и краткое превью сообщения/публикации; доступны аватары и индивидуальная настройка показа содержимого. Для подключения VAPID без Node.js см. `tools/vapid-keygen.html` и `docs/PUSH_NOTIFICATIONS_SETUP.md`.
+- Профиль канала разделяет административные действия и пользовательский просмотр, показывает реальные счётчики участников; рендер реакций и голосов оптимизирован через предварительную группировку.
+- Seed-only не включён для аккаунтов и заблокирован readiness-флагом до полного E2E-прогона.
+- Проверки: 435/435 unit tests, 108 модулей, syntax check 287 JS-файлов, Cloudflare build PASS; Playwright E2E пропущен (не установлен).
