@@ -35,7 +35,7 @@ jobs:
         run: |
           cd "$RUNNER_TEMP/rim-sdk"
           npm pack @open-e2ee/signal-protocol-sdk@14.7.0 --pack-destination "$RUNNER_TEMP/rim-sdk-packages"
-          PACKAGE="$RUNNER_TEMP/rim-sdk-packages/signal-protocol-sdk-14.7.0.tgz"
+          PACKAGE="$RUNNER_TEMP/rim-sdk-packages/open-e2ee-signal-protocol-sdk-14.7.0.tgz"
           EXPECTED="kKJ0rn1Gxy1nXk3oYq4jVigmDUKcWlbpV7RmmSm8RrW7tRp0QJv01GHqIzHZdPm7WxqinoUgzMiBXB7qU/dB5w=="
           ACTUAL="$(openssl dgst -sha512 -binary "$PACKAGE" | openssl base64 -A)"
           test "$ACTUAL" = "$EXPECTED"
@@ -60,4 +60,4 @@ jobs:
             ${{ runner.temp }}/rim-sdk/package.json
             ${{ runner.temp }}/rim-sdk/package-lock.json
             ${{ runner.temp }}/rim-sdk/node_modules/
-            ${{ runner.temp }}/rim-sdk-packages/signal-protocol-sdk-14.7.0.tgz
+            ${{ runner.temp }}/rim-sdk-packages/open-e2ee-signal-protocol-sdk-14.7.0.tgz
