@@ -1,0 +1,63 @@
+name: RIM E2E SDK network bootstrap
+
+on:
+  push:
+    branches:
+      - ops/e2e-sdk-bootstrap-20261121
+    paths:
+      - .github/workflows/rim-e2e-sdk-download.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fetch-sdk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+
+      - name: Install pinned SDK and browser build dependencies
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/rim-sdk" "$RUNNER_TEMP/rim-sdk-packages"
+          cd "$RUNNER_TEMP/rim-sdk"
+          npm init -y
+          npm install --no-audit --no-fund @open-e2ee/signal-protocol-sdk@14.7.0 idb@8.0.3 esbuild@0.27.0
+          npm ls @open-e2ee/signal-protocol-sdk idb esbuild --depth=0
+
+      - name: Pack SDK and verify published integrity
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP/rim-sdk"
+          npm pack @open-e2ee/signal-protocol-sdk@14.7.0 --pack-destination "$RUNNER_TEMP/rim-sdk-packages"
+          PACKAGE="$RUNNER_TEMP/rim-sdk-packages/signal-protocol-sdk-14.7.0.tgz"
+          EXPECTED="kKJ0rn1Gxy1nXk3oYq4jVigmDUKcWlbpV7RmmSm8RrW7tRp0QJv01GHqIzHZdPm7WxqinoUgzMiBXB7qU/dB5w=="
+          ACTUAL="$(openssl dgst -sha512 -binary "$PACKAGE" | openssl base64 -A)"
+          test "$ACTUAL" = "$EXPECTED"
+          echo "SDK tarball SHA-512 verified."
+
+      - name: Verify package exports and browser stores
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP/rim-sdk"
+          node --input-type=module -e "import('@open-e2ee/signal-protocol-sdk').then(m => { if (typeof m.createSignalProtocolClient !== 'function') process.exit(2); console.log('Signal SDK entrypoint OK'); })"
+          test -f node_modules/@open-e2ee/signal-protocol-sdk/dist/local/store/web-sqlite/index.js
+          test -f node_modules/@open-e2ee/signal-protocol-sdk/dist/local/store/web/index.js
+
+      - name: Upload offline dependency bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: rim-e2e-sdk-offline-bootstrap
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 1
+          path: |
+            ${{ runner.temp }}/rim-sdk/package.json
+            ${{ runner.temp }}/rim-sdk/package-lock.json
+            ${{ runner.temp }}/rim-sdk/node_modules/
+            ${{ runner.temp }}/rim-sdk-packages/signal-protocol-sdk-14.7.0.tgz
