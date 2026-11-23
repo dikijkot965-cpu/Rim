@@ -7,6 +7,7 @@ import { ChannelDirectoryController } from '../application/channel-directory-con
 import { ChannelFeedController } from '../application/channel-feed-controller.js';
 import { ChannelSettingsController } from '../application/channel-settings-controller.js';
 import { ChannelCommandService } from '../application/channel-command-service.js';
+import { createChannelPlaintextGate } from '../application/channel-plaintext-policy.js';
 
 function reportChannelCommand(result, { notify, logger } = {}) {
   if (!result) return result;
@@ -35,6 +36,18 @@ export function bindChannelsSurface({
 } = {}) {
   const win = windowRef;
   const doc = documentRef;
+  const e2eScopeRepository = container.get('e2eScopeRepository');
+
+  // Shared fail-closed gate for legacy channel actions that still write
+  // plaintext directly through Supabase (polls, votes and comments).
+  const canPerformPlaintextChannelOperation = createChannelPlaintextGate({
+    getUser,
+    getChannel: () => win.currentChannel || null,
+    e2eScopeRepository,
+    notify,
+    logger
+  });
+  win.__rimCanPerformPlaintextChannelOperation = canPerformPlaintextChannelOperation;
 
   const channelDirectory = new ChannelDirectoryController({
     repository: container.get('channelRepository'),
@@ -54,6 +67,8 @@ export function bindChannelsSurface({
 
   const channelFeed = new ChannelFeedController({
     repository: container.get('channelFeedRepository'),
+    e2eScopeRepository: container.get('e2eScopeRepository'),
+    e2eRuntime: container.get('e2eSignalRuntime'),
     getUser,
     documentRef: doc,
     windowRef: win,
@@ -71,6 +86,9 @@ export function bindChannelsSurface({
   win.reactToPost = (postId, emoji) => channelFeed.reactToPost(postId, emoji);
   lifecycle?.add?.(() => {
     win.__RIM_CHANNEL_FEED_OWNED = false;
+    if (win.__rimCanPerformPlaintextChannelOperation === canPerformPlaintextChannelOperation) {
+      delete win.__rimCanPerformPlaintextChannelOperation;
+    }
     channelFeed.dispose();
   });
 

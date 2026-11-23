@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'dist');
@@ -26,6 +27,71 @@ for (const target of [output, pagesOutput]) {
   }
 }
 
+// Bundle the browser entrypoint when development dependencies are installed.
+// The static fallback keeps the legacy build usable, but the SDK-backed E2E
+// loader is not usable until a dependency-aware bundle has been produced.
+let bundledApp = false;
+try {
+  const require = createRequire(import.meta.url);
+  const esbuild = require('esbuild');
+  esbuild.buildSync({
+    entryPoints: [path.join(root, 'src/app.js')],
+    bundle: true,
+    format: 'esm',
+    platform: 'browser',
+    target: ['es2022'],
+    outfile: path.join(output, 'assets/js/rim-app.bundle.js'),
+    loader: { '.wasm': 'file' },
+    assetNames: '[name]-[hash]',
+    chunkNames: '[name]-[hash]',
+    legalComments: 'none',
+    sourcemap: false
+  });
+
+  // The SDK starts SQLite in a dedicated module worker. Its worker and Wasm
+  // are referenced by URL at runtime, so bundling src/app.js alone does not
+  // emit them. Build the worker as a separate same-origin asset and preserve
+  // the explicit URL contract passed by RimSignalProtocolRuntime.
+  const sdkWebSqlite = path.join(root, 'node_modules/@open-e2ee/signal-protocol-sdk/dist/local/store/sqlite/web');
+  const sdkWorker = path.join(sdkWebSqlite, 'worker.js');
+  const sdkWasm = path.join(sdkWebSqlite, 'sqlite3mc/sqlite3.wasm');
+  if (!fs.existsSync(sdkWorker) || !fs.existsSync(sdkWasm)) {
+    throw new Error('Signal Protocol SDK browser SQLite worker/Wasm assets are missing from node_modules.');
+  }
+  const e2eAssets = path.join(output, 'assets/js/e2e');
+  fs.mkdirSync(e2eAssets, { recursive: true });
+  esbuild.buildSync({
+    entryPoints: [sdkWorker],
+    bundle: true,
+    format: 'esm',
+    platform: 'browser',
+    target: ['es2022'],
+    outfile: path.join(e2eAssets, 'sqlite-worker.js'),
+    minify: true,
+    legalComments: 'none',
+    sourcemap: false
+  });
+  fs.copyFileSync(sdkWasm, path.join(e2eAssets, 'sqlite3.wasm'));
+
+  fs.mkdirSync(path.join(pagesOutput, 'assets/js'), { recursive: true });
+  // Copy the complete JS asset directory: esbuild may emit the OPFS worker
+  // and the SQLite Wasm binary as separate same-origin assets.
+  fs.cpSync(path.join(output, 'assets/js'), path.join(pagesOutput, 'assets/js'), { recursive: true });
+
+  // GitHub Pages in this project publishes the repository root. Keep that
+  // deployment path fully self-contained too: a source-only src/app.js entry
+  // cannot resolve the SDK's pinned bare package imports in a browser.
+  fs.mkdirSync(path.join(root, 'assets/js'), { recursive: true });
+  fs.cpSync(path.join(output, 'assets/js'), path.join(root, 'assets/js'), { recursive: true });
+  for (const htmlFile of [path.join(root, 'index.html'), path.join(output, 'index.html'), path.join(pagesOutput, 'index.html')]) {
+    const htmlText = fs.readFileSync(htmlFile, 'utf8').replace('./src/app.js', './assets/js/rim-app.bundle.js');
+    fs.writeFileSync(htmlFile, htmlText);
+  }
+  bundledApp = true;
+} catch (error) {
+  if (error?.code !== 'MODULE_NOT_FOUND') throw error;
+}
+
 // Cloudflare Pages deployment root: deliberately contains static assets only.
 // It must never contain wrangler config, package manifests, TypeScript or Supabase functions.
 fs.writeFileSync(path.join(pagesOutput, '_headers'), [
@@ -37,6 +103,18 @@ fs.writeFileSync(path.join(pagesOutput, '_headers'), [
   '',
   '/assets/*',
   '  Cache-Control: public, max-age=3600',
+  '',
+  '/assets/js/*',
+  "  Content-Security-Policy: default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'",
+  '',
+  '/assets/js/e2e/*.js',
+  "  Content-Security-Policy: default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'",
+  '',
+  '/assets/js/*.wasm',
+  '  Content-Type: application/wasm',
+  '',
+  '/assets/js/e2e/*.wasm',
+  '  Content-Type: application/wasm',
   ''
 ].join('\n'));
 
@@ -44,7 +122,7 @@ fs.writeFileSync(path.join(pagesOutput, '_headers'), [
 const html = fs.readFileSync(path.join(output, 'index.html'), 'utf8');
 const localRefs = [...html.matchAll(/(?:src|href)=["']([^"']+)["']/g)]
   .map(match => match[1])
-  .filter(value => !/^(?:https?:|data:|mailto:|tel:|#|\/)/i.test(value));
+  .filter(value => !/^(?:https?:|data:|mailto:|tel:|#|\/)/i.test(value) && !value.includes('${'));
 for (const ref of localRefs) {
   const clean = ref.split(/[?#]/, 1)[0];
   if (clean && !fs.existsSync(path.join(output, clean))) fail(`Broken local reference in index.html: ${ref}`);
@@ -82,6 +160,7 @@ if (pagesFiles.some(file => /\.(?:ts|tsx|jsonc?)$/i.test(file) && !['manifest.js
 if (['wrangler.jsonc', 'package.json', 'supabase', 'tests', 'docs', 'scripts'].some(entry => fs.existsSync(path.join(pagesOutput, entry)))) fail('Cloudflare Pages output contains build/server-only files');
 if (process.exitCode) process.exit(1);
 
+console.log(`[cloudflare-build] Browser app bundle: ${bundledApp ? 'built with esbuild' : 'not built (install dependencies to bundle SDK imports)'}`);
 console.log(`[cloudflare-build] Built ${files.length} Worker assets into dist/`);
 console.log(`[cloudflare-build] Built ${pagesFiles.length} Pages-only files into cloudflare-pages/`);
 console.log('[cloudflare-build] Pages root contains only HTML, CSS, JS, images, icons, manifest and _headers.');

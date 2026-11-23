@@ -98,12 +98,13 @@ export class MessageOutboxService {
     }));
   }
 
-  enqueueText({ userId = this.#ownerId(), conversationId, conversationType = '', body, replyToMessageId = null, topicId = null }) {
+  enqueueText({ userId = this.#ownerId(), conversationId, conversationType = '', conversationIsPrivate = null, body, replyToMessageId = null, topicId = null }) {
     if (!userId || String(userId) !== this.#ownerId()) return Err(new Error('Очередь доступна только текущему аккаунту.'));
     const created = createOutboxItem({
       userId,
       conversationId,
       conversationType,
+      conversationIsPrivate,
       body,
       replyToMessageId,
       topicId
@@ -139,6 +140,7 @@ export class MessageOutboxService {
           const result = await this.sendText(item.body, {
             conversationId: item.conversationId,
             conversationType: item.conversationType,
+            conversationIsPrivate: item.conversationIsPrivate,
             replyToMessageId: item.replyToMessageId,
             topicId: item.topicId,
             fromOutbox: true,

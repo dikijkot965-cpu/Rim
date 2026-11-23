@@ -1,7 +1,7 @@
 const STATIONS = Object.freeze([
-  { id: 'detskoe', name: 'Детское радио', category: 'Семейное', mood: 'Детское · Семейное', description: 'Песни, сказки и познавательные программы для детей', url: 'https://pub0202.101.ru:8443/stream/air/aac/64/199', source: '101.ru' },
-  { id: 'dorozhnoe', name: 'Дорожное радио', category: 'Русская музыка', mood: 'Поп · Ретро · Дорожное', description: 'Знакомые песни, хиты прошлых лет и дорожные программы', url: 'https://dorognoe.hostingradio.ru/dorognoe', source: 'dorognoe.hostingradio.ru' },
   { id: 'marusya', name: 'Маруся FM', category: 'Русская музыка', mood: 'Новые русские хиты', description: 'Современная русскоязычная популярная музыка', url: 'https://radio-holding.ru:9433/marusya_default', source: 'marus.fm' },
+  { id: 'detskoe', name: 'Детское радио', category: 'Семейное', mood: 'Детское · Семейное', description: 'Песни, сказки и познавательные программы для детей', url: 'https://hls-01-gpm.hostingradio.ru/detifm3022/64/playlist.m3u8', source: 'Детское радио · HLS' },
+  { id: 'dorozhnoe', name: 'Дорожное радио', category: 'Русская музыка', mood: 'Поп · Ретро · Дорожное', description: 'Знакомые песни, хиты прошлых лет и дорожные программы', url: 'https://dorognoe.hostingradio.ru/dorognoe', source: 'dorognoe.hostingradio.ru' },
   { id: 'mayak', name: 'Радио Маяк', category: 'Новости и разговорное', mood: 'Информационное · Разговорное', description: 'Общественные темы, интервью, познавательные и музыкальные программы', url: 'https://icecast-vgtrk.cdnvideo.ru/mayakfm_mp3_192kbps', source: 'ВГТРК' },
   { id: 'radiorussia', name: 'Радио России', category: 'Новости и разговорное', mood: 'Общественное · Информационное', description: 'Новости, аналитика, культура и региональные программы', url: 'https://icecast-vgtrk.cdnvideo.ru/rrzonam_mp3_128kbps', source: 'ВГТРК' },
   { id: 'vestifm', name: 'Вести FM', category: 'Новости и разговорное', mood: 'Новости · Аналитика', description: 'Информационное и общественно-политическое вещание', url: 'https://icecast.vgtrk.cdnvideo.ru/vestifm_mp3_192kbps', source: 'ВГТРК' },
@@ -22,6 +22,8 @@ const STATIONS = Object.freeze([
   { id: 'cliqhop', name: 'cliqhop idm', category: 'Зарубежные', mood: 'IDM · Electronica', description: 'Ломаные ритмы и интеллектуальная электроника', url: 'https://ice.somafm.com/cliqhop', source: 'SomaFM' }
 ]);
 const STORAGE_KEY = 'rim.radio.stats.v2';
+const PREFERENCES_KEY = 'rim.radio.preferences.v1';
+const DEFAULT_FEATURED = ['marusya', 'detskoe', 'dorozhnoe'];
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 
 export class RadioPlayer {
@@ -33,6 +35,8 @@ export class RadioPlayer {
     this.lastTick = 0;
     this.pendingSeconds = 0;
     this.stats = this.readStats();
+    this.preferences = this.readPreferences();
+    this.expanded = false;
     this.manualPause = false;
     this.retryCount = 0;
     this.retryTimer = null;
@@ -45,6 +49,8 @@ export class RadioPlayer {
       <div class="rim-radio-controls"><button class="primary-btn" type="button" data-radio-toggle>▶ Слушать</button><label class="rim-radio-volume">Громкость <input type="range" min="0" max="1" step="0.05" value="0.75" data-radio-volume></label><label class="rim-radio-sleep">Таймер <select data-radio-sleep><option value="0">Без таймера</option><option value="15">15 мин</option><option value="30">30 мин</option><option value="45">45 мин</option><option value="60">60 мин</option><option value="90">90 мин</option></select></label></div>
       <audio preload="none" data-radio-audio></audio>
       <div class="rim-radio-library-tools"><label class="rim-radio-search"><span>Найти станцию</span><input type="search" data-radio-search placeholder="Название или жанр…" autocomplete="off"></label><div class="rim-radio-filters" data-radio-filters>${['Все','Избранное','Русская музыка','Новости и разговорное','Семейное','Музыка','Зарубежные'].map((category,index) => `<button type="button" class="rim-radio-filter${index===0?' active':''}" data-radio-filter="${category}">${category}</button>`).join('')}</div></div>
+      <div class="rim-radio-station-tools"><button type="button" class="action-btn" data-radio-expand aria-expanded="false">Показать все станции</button><button type="button" class="action-btn" data-radio-configure>Настроить список</button></div>
+      <div class="rim-radio-config" data-radio-config hidden><b>Станции в кратком списке</b><p>Выберите избранные станции и количество карточек, видимых без раскрытия списка.</p><label>Показывать <select class="field" data-radio-featured-limit><option value="3">3 станции</option><option value="5">5 станций</option><option value="10">10 станций</option></select></label><div class="rim-radio-config-options">${STATIONS.map(station => `<label><input type="checkbox" data-radio-featured="${station.id}"> ${station.name}</label>`).join('')}</div><button type="button" class="primary-btn" data-radio-save-config>Сохранить</button></div>
       <div class="rim-radio-stations" data-radio-stations>${STATIONS.map(station => `<article class="rim-radio-station" data-station-card="${station.id}"><button type="button" class="rim-radio-play" data-station="${station.id}" aria-label="Слушать ${station.name}"><b>${station.name}</b><small>${station.mood}</small><span>${station.description}</span></button><button type="button" class="rim-radio-favorite" data-radio-favorite="${station.id}" aria-label="Добавить в избранное">☆</button></article>`).join('')}</div>
       <div class="rim-radio-empty" data-radio-empty hidden>По вашему запросу ничего не найдено.</div>
       <div class="rim-radio-stats"><div><b data-radio-starts>${this.stats.starts}</b><small>Запусков</small></div><div><b data-radio-minutes>${Math.floor(this.stats.seconds / 60)}</b><small>Минут в эфире</small></div><div><b data-radio-last-station>${this.stats.favoriteStation ? STATIONS.find(s => s.id === this.stats.favoriteStation)?.name || '—' : '—'}</b><small>Последняя станция</small></div></div>
@@ -54,6 +60,36 @@ export class RadioPlayer {
     this.status = this.element.querySelector('[data-radio-live]');
     this.activeCategory = 'Все';
     this.bind();
+    this.element.querySelector('[data-radio-featured-limit]').value = String(this.preferences.displayLimit);
+    this.renderStationVisibility();
+  }
+
+  readPreferences() {
+    try {
+      const value = JSON.parse(this.storage?.getItem(PREFERENCES_KEY) || 'null');
+      const valid = Array.isArray(value?.featuredStationIds) ? value.featuredStationIds.filter(id => STATIONS.some(station => station.id === id)) : DEFAULT_FEATURED;
+      return { featuredStationIds: [...new Set(valid.length ? valid : DEFAULT_FEATURED)], displayLimit: [3, 5, 10].includes(Number(value?.displayLimit)) ? Number(value.displayLimit) : 3 };
+    } catch { return { featuredStationIds: [...DEFAULT_FEATURED], displayLimit: 3 }; }
+  }
+  savePreferences() {
+    try { this.storage?.setItem(PREFERENCES_KEY, JSON.stringify(this.preferences)); }
+    catch (error) { this.logger?.warn?.('radio.preferences.persist.failed', { message: error?.message || String(error) }); }
+  }
+  renderStationVisibility() {
+    const visibleFeatured = this.preferences.featuredStationIds.slice(0, this.preferences.displayLimit);
+    this.element.querySelectorAll('[data-station-card]').forEach(card => {
+      const isFeatured = visibleFeatured.includes(card.dataset.stationCard);
+      const hiddenByCollapse = !this.expanded && !isFeatured;
+      const matchesCategory = this.activeCategory === 'Все' || (this.activeCategory === 'Избранное' ? this.stats.favorites.includes(card.dataset.stationCard) : STATIONS.find(item => item.id === card.dataset.stationCard)?.category === this.activeCategory);
+      const query = (this.element.querySelector('[data-radio-search]')?.value || '').trim().toLocaleLowerCase('ru');
+      const station = STATIONS.find(item => item.id === card.dataset.stationCard);
+      const matchesQuery = !query || `${station?.name} ${station?.category} ${station?.mood} ${station?.description}`.toLocaleLowerCase('ru').includes(query);
+      card.hidden = hiddenByCollapse || !matchesCategory || !matchesQuery;
+    });
+    const button = this.element.querySelector('[data-radio-expand]');
+    if (button) { button.textContent = this.expanded ? 'Свернуть список' : 'Показать все станции'; button.setAttribute('aria-expanded', String(this.expanded)); }
+    const empty = this.element.querySelector('[data-radio-empty]');
+    if (empty) empty.hidden = [...this.element.querySelectorAll('[data-station-card]')].some(card => !card.hidden);
   }
 
   readStats() {
@@ -92,6 +128,18 @@ export class RadioPlayer {
     }));
     this.element.querySelector('[data-radio-sleep]').addEventListener('change', event => this.setSleepTimer(Number(event.target.value)));
     this.element.querySelector('[data-radio-search]').addEventListener('input', () => this.filterStations());
+    this.element.querySelector('[data-radio-expand]').addEventListener('click', () => { this.expanded = !this.expanded; this.renderStationVisibility(); });
+    this.element.querySelector('[data-radio-configure]').addEventListener('click', () => {
+      const panel = this.element.querySelector('[data-radio-config]'); panel.hidden = !panel.hidden;
+      panel.querySelector('[data-radio-featured-limit]').value = String(this.preferences.displayLimit);
+      panel.querySelectorAll('[data-radio-featured]').forEach(input => { input.checked = this.preferences.featuredStationIds.includes(input.dataset.radioFeatured); });
+    });
+    this.element.querySelector('[data-radio-save-config]').addEventListener('click', () => {
+      const selected = [...this.element.querySelectorAll('[data-radio-featured]:checked')].map(input => input.dataset.radioFeatured);
+      if (!selected.length) { this.logger?.warn?.('radio.preferences.empty_selection', {}); return; }
+      this.preferences = { featuredStationIds: selected, displayLimit: Number(this.element.querySelector('[data-radio-featured-limit]').value) || 3 };
+      this.savePreferences(); this.element.querySelector('[data-radio-config]').hidden = true; this.renderStationVisibility();
+    });
     this.element.querySelectorAll('[data-radio-filter]').forEach(button => button.addEventListener('click', () => {
       this.activeCategory = button.dataset.radioFilter;
       this.element.querySelectorAll('[data-radio-filter]').forEach(item => item.classList.toggle('active', item === button));
@@ -112,17 +160,7 @@ export class RadioPlayer {
     this.audio.addEventListener('error', () => this.fail(new Error('Поток недоступен')));
   }
   filterStations() {
-    const query = (this.element.querySelector('[data-radio-search]').value || '').trim().toLocaleLowerCase('ru');
-    let visible = 0;
-    this.element.querySelectorAll('[data-station]').forEach(button => {
-      const station = STATIONS.find(item => item.id === button.dataset.station);
-      const matchesCategory = this.activeCategory === 'Все' || (this.activeCategory === 'Избранное' ? this.stats.favorites.includes(station.id) : station.category === this.activeCategory);
-      const matchesQuery = !query || `${station.name} ${station.category} ${station.mood} ${station.description}`.toLocaleLowerCase('ru').includes(query);
-      const card = button.closest('[data-station-card]') || button;
-      card.hidden = !(matchesCategory && matchesQuery);
-      if (!card.hidden) visible += 1;
-    });
-    this.element.querySelector('[data-radio-empty]').hidden = visible > 0;
+    this.renderStationVisibility();
   }
 
   async play(station, { retry = false } = {}) {

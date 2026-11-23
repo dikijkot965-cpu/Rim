@@ -78,7 +78,7 @@ test('group settings projection loads group, members and profiles with narrow co
   const membersCall = client.calls.find(call => call.table === 'conversation_members');
   const profilesCall = client.calls.find(call => call.table === 'profiles');
 
-  assert.equal(groupCall.columns, 'id,title,description,is_private,created_by,invite_code,avatar_path,type');
+  assert.equal(groupCall.columns, 'id,title,description,is_private,created_by,invite_code,avatar_path,type,e2e_mode,e2e_epoch,e2e_protocol');
   assert.deepEqual(groupCall.filters, [['id', 'g1']]);
   assert.equal(groupCall.single, true);
 

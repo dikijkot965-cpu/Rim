@@ -11,5 +11,5 @@ test('app prefers modular conversation list paint', () => {
   assert.match(app, /bindConversationSessionSurface/);
   assert.match(session, /__RIM_CONVERSATION_LIST_RENDER_OWNED\s*=\s*true/);
   assert.match(entrypoints, /conversationList\?\.paintList/);
-  assert.match(app, /4\.0\.0-iteration\.122/);
+  assert.match(app, /4\.1\.8-iteration\.163/);
 });

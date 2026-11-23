@@ -16,5 +16,5 @@ test('app routes channel membership commands through ChannelCommandService', () 
   assert.match(c, /rimLeaveChannel/);
   assert.match(c, /rimModerateChannel/);
   assert.match(c, /rimChannelUnrestrict/);
-  assert.match(a, /4\.0\.0-iteration\.122/);
+  assert.match(a, /4\.1\.8-iteration\.163/);
 });

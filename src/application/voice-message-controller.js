@@ -7,6 +7,7 @@ import { Err, Ok } from '../core/result.js';
 export class VoiceMessageController {
   constructor({
     client,
+    e2eScopeRepository = null,
     getUser,
     getActiveConversation,
     notify = () => {},
@@ -18,6 +19,7 @@ export class VoiceMessageController {
     logger = null
   } = {}) {
     this.client = client;
+    this.e2eScopeRepository = e2eScopeRepository;
     this.getUser = getUser;
     this.getActiveConversation = getActiveConversation;
     this.notify = notify;
@@ -121,10 +123,43 @@ export class VoiceMessageController {
       return Err(new Error('Сначала открой переписку.'));
     }
 
+    const userId = String(user.id);
+    const conversationId = String(conversation.id);
+    const contextIsCurrent = () => String(this.getUser?.()?.id || '') === userId
+      && String(this.getActiveConversation?.()?.id || '') === conversationId;
+    const abortForContextChange = () => new Error('Аккаунт или открытая переписка изменились во время отправки голосового сообщения. Отправка остановлена.');
+
     this.sending = true;
+    try {
+      if (this.e2eScopeRepository && ['direct', 'group'].includes(conversation.type)) {
+        if (conversation.type === 'group' && typeof conversation.is_private !== 'boolean') {
+          this.sending = false;
+          return Err(new Error('Не удалось подтвердить приватность группы. Голосовой файл не загружен.'));
+        }
+        const scopeInput = conversation.type === 'direct'
+          ? { type: 'direct', id: conversation.id }
+          : { type: 'group', id: conversation.id, is_private: conversation.is_private };
+        const scope = await this.e2eScopeRepository.getScope(scopeInput, user.id);
+        if (!contextIsCurrent()) { this.sending = false; return Err(abortForContextChange()); }
+        if (!scope.ok) {
+          this.sending = false;
+          return Err(scope.error || new Error('Не удалось проверить E2E-режим голосового сообщения.'));
+        }
+        if (scope.value?.enabled) {
+          this.sending = false;
+          return Err(new Error('Эта переписка требует E2E. Голосовые сообщения пока не поддерживают защищённую отправку; файл не загружен.'));
+        }
+      }
+    } catch (error) {
+      this.sending = false;
+      return Err(error);
+    }
+
+    if (!contextIsCurrent()) { this.sending = false; return Err(abortForContextChange()); }
+
     const id = (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`);
     const ext = String(blob.type || '').includes('mp4') ? 'm4a' : 'webm';
-    const path = `${user.id}/${conversation.id}/${id}.${ext}`;
+    const path = `${userId}/${conversationId}/${id}.${ext}`;
     const mime = blob.type || 'audio/webm';
 
     try {
@@ -133,13 +168,22 @@ export class VoiceMessageController {
         upsert: false
       });
       if (up) throw up;
+      if (!contextIsCurrent()) {
+        await this.client.storage.from('chat-files').remove([path]);
+        return Err(abortForContextChange());
+      }
 
       const { data: msg, error: me } = await this.client
         .from('chat_messages')
-        .insert({ conversation_id: conversation.id, sender_id: user.id, body: '' })
+        .insert({ conversation_id: conversationId, sender_id: userId, body: '' })
         .select('id,created_at')
         .single();
       if (me) throw me;
+      if (!contextIsCurrent()) {
+        try { await this.client.from('chat_messages').delete().eq('id', msg.id).eq('sender_id', userId); } catch { /* best-effort rollback */ }
+        await this.client.storage.from('chat-files').remove([path]);
+        return Err(abortForContextChange());
+      }
 
       const { error: att } = await this.client.from('chat_message_attachments').insert({
         message_id: msg.id,
@@ -151,23 +195,29 @@ export class VoiceMessageController {
         duration_seconds: durationSeconds
       });
       if (att) {
-        await this.client.from('chat_messages').delete().eq('id', msg.id);
+        await this.client.from('chat_messages').delete().eq('id', msg.id).eq('sender_id', userId);
         await this.client.storage.from('chat-files').remove([path]);
         throw att;
       }
+      if (!contextIsCurrent()) {
+        try { await this.client.from('chat_messages').delete().eq('id', msg.id).eq('sender_id', userId); } catch { /* best-effort rollback */ }
+        await this.client.storage.from('chat-files').remove([path]);
+        return Err(abortForContextChange());
+      }
 
       const { error: voice } = await this.client.from('chat_voice_messages').insert({
-        conversation_id: conversation.id,
-        sender_id: user.id,
+        conversation_id: conversationId,
+        sender_id: userId,
         storage_path: path,
         duration_seconds: durationSeconds,
         waveform: []
       });
       if (voice) this.logger?.warn?.('voice.metadata.insert.failed', { message: voice.message });
+      if (!contextIsCurrent()) return Err(abortForContextChange());
 
       await this.reloadMessages();
       try {
-        this.moveChatToTop?.(conversation.id, msg.created_at, 'Голосовое сообщение');
+        this.moveChatToTop?.(conversationId, msg.created_at, 'Голосовое сообщение');
       } catch (error) {
         this.logger?.warn?.('voice.moveChatToTop.failed', { message: error?.message });
       }

@@ -11,5 +11,5 @@ test('app owns global search entrypoints', () => {
   // class lives in composition modules: // moved to composition: assert.match(app, /SearchController/);
   assert.match(shell, /__RIM_SEARCH_OWNED\s*=\s*true/);
   assert.match(shell, /rimSearch/);
-  assert.match(app, /4\.0\.0-iteration\.122/);
+  assert.match(app, /4\.1\.8-iteration\.163/);
 });

@@ -21,6 +21,8 @@ function reportMessageCommand(result, { notify, logger } = {}) {
  */
 export function bindMessageCommandsSurface({
   messageRepository,
+  e2eScopeRepository = null,
+  e2eRuntime = null,
   storage,
   getUser,
   getConversation,
@@ -50,6 +52,8 @@ export function bindMessageCommandsSurface({
     getReplyTarget,
     getTopicId,
     getMessages,
+    e2eScopeRepository,
+    e2eRuntime,
     setMessages,
     applyLocal: async (message, conversationId) => {
       if (!message?.id) {
@@ -163,16 +167,22 @@ export function bindMessageCommandsSurface({
     if (!result?.ok) {
       const err = result?.error;
       if (isNetworkLikeError(err) || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
-        const queued = outbox.enqueueText({
-          userId: getUser?.()?.id,
-          conversationId,
-          conversationType: getConversation?.()?.type || '',
-          body: submittedText
-        });
-        if (queued.ok) {
-          notify?.('Нет сети. Сообщение сохранено в очереди и уйдёт при восстановлении связи.');
-          try { await win.renderMessages?.(); } catch { /* optional */ }
-          return queued;
+        const queuePolicy = await messageCommands.canQueuePlaintextOutbox(getConversation?.(), getUser?.());
+        if (queuePolicy.ok) {
+          const queued = outbox.enqueueText({
+            userId: getUser?.()?.id,
+            conversationId,
+            conversationType: getConversation?.()?.type || '',
+            conversationIsPrivate: getConversation?.()?.is_private ?? null,
+            body: submittedText
+          });
+          if (queued.ok) {
+            notify?.('Нет сети. Сообщение сохранено в очереди и уйдёт при восстановлении связи.');
+            try { await win.renderMessages?.(); } catch { /* optional */ }
+            return queued;
+          }
+        } else {
+          notify?.(queuePolicy.error?.message || 'Открытый текст не сохранён в офлайн-очереди.');
         }
       }
       if (input && !input.value) {

@@ -6,6 +6,7 @@ import { Err, Ok } from '../core/result.js';
 export class ForwardMessageService {
   constructor({
     client,
+    e2eScopeRepository = null,
     getUser,
     getMessages = () => [],
     getConversations = () => [],
@@ -19,6 +20,7 @@ export class ForwardMessageService {
     logger = null
   } = {}) {
     this.client = client;
+    this.e2eScopeRepository = e2eScopeRepository;
     this.getUser = getUser;
     this.getMessages = getMessages;
     this.getConversations = getConversations;
@@ -69,6 +71,7 @@ export class ForwardMessageService {
     return this.exclusive(`forward:${messageId}:${conversationId}`, async () => {
       const source = (this.getMessages?.() || []).find(row => String(row.id) === String(messageId));
       if (!source) return Err(new Error('Исходное сообщение не найдено.'));
+      if (source._rimLocalOnly === true || source._rimE2E === true) return Err(new Error('Пересылка E2E-сообщений пока не подключена; открытый текст не будет скопирован в другую переписку.'));
 
       const { data: member, error: me } = await this.client
         .from('conversation_members')
@@ -78,6 +81,24 @@ export class ForwardMessageService {
         .maybeSingle();
       if (me) return Err(me);
       if (!member) return Err(new Error('Нет доступа к выбранному чату.'));
+
+      if (this.e2eScopeRepository) {
+        const targetResult = await this.client.from('conversations')
+          .select('id,type,is_private').eq('id', conversationId).maybeSingle();
+        if (targetResult.error) return Err(targetResult.error);
+        if (!targetResult.data) return Err(new Error('Не удалось проверить режим целевой переписки.'));
+        const target = targetResult.data;
+        if (!['direct', 'group'].includes(target.type)) return Err(new Error('Тип целевой переписки не распознан; пересылка остановлена.'));
+        if (target.type === 'group' && typeof target.is_private !== 'boolean') return Err(new Error('Не удалось подтвердить приватность целевой группы; пересылка остановлена.'));
+        {
+          const scopeInput = target.type === 'direct'
+            ? { type: 'direct', id: target.id }
+            : { type: 'group', id: target.id, is_private: target.is_private };
+          const scope = await this.e2eScopeRepository.getScope(scopeInput, user.id);
+          if (!scope.ok) return Err(scope.error || new Error('Не удалось проверить E2E целевой переписки.'));
+          if (scope.value?.enabled) return Err(new Error('Целевая переписка требует E2E. Пересылка через открытый серверный механизм запрещена.'));
+        }
+      }
 
       const payload = {
         conversation_id: conversationId,

@@ -14,5 +14,5 @@ test('app owns report and forward routes', () => {
   assert.match(social, /__RIM_FORWARD_OWNED\s*=\s*true/);
   assert.match(social, /rimForwardChoose/);
   assert.match(social, /rimForwardMessage/);
-  assert.match(app, /4\.0\.0-iteration\.122/);
+  assert.match(app, /4\.1\.8-iteration\.163/);
 });

@@ -86,6 +86,8 @@ export function renderGroupSettingsModal(projection, currentUserId) {
       <input id="rimGroupAddUsername" class="field" placeholder="@username">
       <button class="action-btn" type="button" data-rim-group-action="add-member" data-group-id="${id}">Добавить</button>
     </div>
+    <button class="action-btn" type="button" style="width:100%;margin-top:8px" data-rim-group-action="add-zladen" data-group-id="${id}">✦ Подключить Злыдю к группе</button>
+    <div class="rim-update-muted">После добавления Злыдя представится в чате и покажет /menu. В группах с обязательным E2E он не читает сообщения и не отвечает.</div>
     <h3>Участники · ${members.length}</h3>
     ${memberRows}
     ${transferButton}
@@ -155,6 +157,9 @@ export class GroupSettingsController {
         break;
       case 'add-member':
         this.window?.rimGroupAddMember?.(groupId);
+        break;
+      case 'add-zladen':
+        this.window?.rimGroupAddZladen?.(groupId);
         break;
       case 'set-role':
         this.window?.rimGroupSetRole?.(groupId, userId);

@@ -9,7 +9,7 @@ test('app owns favorites row and gates legacy list wrappers', () => {
   const session = readFileSync(join(root, 'src/composition/conversation-session-surface.js'), 'utf8');
   assert.match(app, /bindConversationSessionSurface/);
   assert.match(session, /__RIM_FAVORITES_ROW_OWNED\s*=\s*true/);
-  assert.match(app, /4\.0\.0-iteration\.122/);
+  assert.match(app, /4\.1\.8-iteration\.163/);
   for (const file of [
     'assets/js/legacy/16-rim-release-patch-2026-11.js',
     'assets/js/legacy/18-rim-update-core.js',

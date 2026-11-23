@@ -11,7 +11,7 @@ test('app claims chat-info and pinned-messages ownership through chat-audience c
   assert.match(app, /bindChatAudience/);
   // class lives in composition modules: // moved to composition: assert.match(app, /ChatInfoController/);
   // class lives in composition modules: // moved to composition: assert.match(app, /PinnedMessagesController/);
-  assert.match(app, /4\.0\.0-iteration\.122/);
+  assert.match(app, /4\.1\.8-iteration\.163/);
 
   const composition = readFileSync(join(root, 'src/composition/chat-audience.js'), 'utf8');
   assert.match(composition, /__RIM_CHAT_INFO_OWNED/);

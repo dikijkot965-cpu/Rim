@@ -235,3 +235,69 @@ test('channel feed renders manager shortcuts and separates manager metrics from 
   assert.match(html, /data-rim-cf-action=\"discussion\"/);
   controller.dispose();
 });
+
+test('channel composer supports image attachment and admin post edit/delete/share actions', () => {
+  const source = fs.readFileSync(new URL('../src/application/channel-feed-controller.js', import.meta.url), 'utf8');
+  assert.match(source, /rimChannelPostMedia/);
+  assert.match(source, /storage\.from\('chat-files'\)\.upload/);
+  assert.match(source, /data-rim-cf-action="edit-post"/);
+  assert.match(source, /data-rim-cf-action="delete-post"/);
+  assert.match(source, /data-rim-cf-action="share-post"/);
+});
+
+test('channel admin tabs load actual requests and scheduled queue actions', () => {
+  const source = fs.readFileSync(new URL('../src/application/channel-feed-controller.js', import.meta.url), 'utf8');
+  assert.match(source, /getJoinRequests/);
+  assert.match(source, /reviewJoinRequest/);
+  assert.match(source, /getScheduledPosts/);
+  assert.match(source, /schedulePost/);
+  assert.match(source, /publishScheduledPost/);
+});
+
+
+test('ChannelFeedController blocks plaintext reactions in E2E-required private channels', async () => {
+  let upserts = 0;
+  const notices = [];
+  const channel = { id: 'private-e2e', is_public: false };
+  const controller = new ChannelFeedController({
+    repository: { client: { from: name => { assert.equal(name, 'channel_reactions'); return { upsert: async () => { upserts += 1; return { error: null }; } }; } } },
+    getUser: () => ({ id: 'u1' }),
+    e2eScopeRepository: { getScope: async () => Ok({ enabled: true }) },
+    documentRef: createDocument(),
+    windowRef: { currentChannel: channel },
+    notify: message => notices.push(message)
+  });
+  controller.channel = channel;
+  await controller.reactToPost('post-1', '👍');
+  assert.equal(upserts, 0);
+  assert.match(notices.join(' '), /требуется E2E/i);
+});
+
+test('private E2E channel subscribes to decrypted local messages and renders them', async () => {
+  const documentRef = createDocument();
+  const listeners = new Map();
+  const windowRef = {
+    currentChannel: null,
+    addEventListener(name, fn) { listeners.set(name, fn); },
+    removeEventListener(name, fn) { if (listeners.get(name) === fn) listeners.delete(name); }
+  };
+  const controller = new ChannelFeedController({
+    repository: {
+      getShell: async () => Ok(createShell({ channel: { is_public: false, e2e_mode: 'required' } })),
+      getEnrichment: async () => Ok({ reactions: [], votes: [], profileById: {} })
+    },
+    getUser: () => ({ id: 'u1' }),
+    e2eRuntime: { getLocalConversation: async () => [] },
+    documentRef,
+    windowRef,
+    notify: () => {}
+  });
+  await controller.open('ch1');
+  assert.equal(typeof listeners.get('rim:e2e-message'), 'function');
+  listeners.get('rim:e2e-message')({ detail: { message: {
+    messageId: 'secret-post-1', conversationId: 'ch1', senderId: 'u2', body: 'encrypted text after decrypt', timestamp: 1700000000000
+  } } });
+  assert.equal(controller.feedState.posts.some(post => post.id === 'secret-post-1' && post._rimE2E === true), true);
+  controller.dispose();
+  assert.equal(listeners.has('rim:e2e-message'), false);
+});

@@ -12,5 +12,5 @@ test('app owns block list routes', () => {
   assert.match(surface, /BlockListService/);
   assert.match(surface, /__RIM_BLOCK_LIST_OWNED\s*=\s*true/);
   assert.match(surface, /rimOpenBlocks/);
-  assert.match(app, /4\.0\.0-iteration\.122/);
+  assert.match(app, /4\.1\.8-iteration\.163/);
 });

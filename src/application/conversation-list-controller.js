@@ -308,6 +308,5 @@ export class ConversationListController {
     if (!inserted) list.appendChild(row);
   }
 
-  invalidate() { this.renderToken++; }
 }
 

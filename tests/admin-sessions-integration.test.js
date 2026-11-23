@@ -13,5 +13,5 @@ test('app routes admin channel search and sessions modularly', () => {
   assert.match(admin, /rimFindAdChannels/);
   assert.match(admin, /rimAdminShowUserSessions/);
   assert.match(admin, /rimAdminRevokeSession/);
-  assert.match(app, /4\.0\.0-iteration\.122/);
+  assert.match(app, /4\.1\.8-iteration\.163/);
 });

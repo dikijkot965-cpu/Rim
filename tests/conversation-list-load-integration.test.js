@@ -12,7 +12,7 @@ test('app routes conversation list load through ConversationListController', () 
   assert.match(app, /bindLegacyEntrypointSurface/);
   assert.match(entrypoints, /conversationList\.load\(\)/);
   assert.match(app, /setConversations:\s*legacy\.setConversations/);
-  assert.match(app, /4\.0\.0-iteration\.\d+/);
+  assert.match(app, /4\.1\.8-iteration\.163/);
 });
 
 test('legacy context exposes setConversations for modular list load', () => {

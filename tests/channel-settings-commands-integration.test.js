@@ -15,5 +15,5 @@ test('app routes channel settings mutations through ChannelCommandService', () =
   assert.match(c, /changeAvatar/);
   assert.match(c, /createInvite/);
   assert.match(c, /rimSaveChannelSettings/);
-  assert.match(a, /4\.0\.0-iteration\.122/);
+  assert.match(a, /4\.1\.8-iteration\.163/);
 });

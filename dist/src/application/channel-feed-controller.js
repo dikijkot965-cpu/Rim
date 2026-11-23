@@ -19,6 +19,7 @@ function formatWhen(value) {
 }
 
 const REACTION_EMOJI = ['👍', '❤️', '🔥', '👏', '🎉'];
+function sum(rows, key) { return (rows || []).reduce((total, row) => total + Number(row?.[key] || 0), 0); }
 
 /**
  * Owns the channel full-page feed read model: shell, deferred enrichment and
@@ -28,6 +29,8 @@ export class ChannelFeedController {
   constructor({
     repository,
     getUser,
+    e2eScopeRepository = null,
+    e2eRuntime = null,
     documentRef = globalThis.document,
     windowRef = globalThis.window,
     logger = null,
@@ -36,8 +39,12 @@ export class ChannelFeedController {
   } = {}) {
     this.repository = repository;
     this.getUser = getUser;
+    this.e2eScopeRepository = e2eScopeRepository;
+    this.e2eRuntime = e2eRuntime;
     this.document = documentRef;
     this.window = windowRef;
+    this.e2eMessageHandler = event => this.#onE2EMessage(event);
+    this.window?.addEventListener?.('rim:e2e-message', this.e2eMessageHandler);
     this.logger = logger;
     this.notify = notify || ((message) => {
       const fn = this.window?.toast || this.window?.notify || this.window?.notifyMsg;
@@ -49,6 +56,7 @@ export class ChannelFeedController {
     this.activeChannelId = null;
     this.clickHandler = this.#onClick.bind(this);
     this.submitHandler = this.#onSubmit.bind(this);
+    this.changeHandler = this.#onChange.bind(this);
     this.boundRoot = null;
   }
 
@@ -60,9 +68,11 @@ export class ChannelFeedController {
     if (this.boundRoot === root) return;
     this.boundRoot?.removeEventListener?.('click', this.clickHandler);
     this.boundRoot?.removeEventListener?.('submit', this.submitHandler);
+    this.boundRoot?.removeEventListener?.('change', this.changeHandler);
     this.boundRoot = root;
     this.boundRoot?.addEventListener?.('click', this.clickHandler);
     this.boundRoot?.addEventListener?.('submit', this.submitHandler);
+    this.boundRoot?.addEventListener?.('change', this.changeHandler);
   }
 
   #onClick(event) {
@@ -89,6 +99,9 @@ export class ChannelFeedController {
       case 'settings':
         this.window?.rimOpenChannelSettings?.();
         break;
+      case 'e2e-setup':
+        void this.enableE2E();
+        break;
       case 'create-poll':
         this.window?.rimCreateChannelPoll?.();
         break;
@@ -107,8 +120,48 @@ export class ChannelFeedController {
       case 'load-older':
         void this.loadOlderPosts(actionEl);
         break;
+      case 'tab': {
+        if (!this.feedState) break;
+        this.feedState.activeTab = actionEl.dataset.tab || 'posts';
+        const main = this.boundRoot?.querySelector?.('.rim-cf-scroll');
+        if (main) main.innerHTML = this.#renderEnrichedFeed(this.feedState);
+        if (this.feedState.activeTab === 'media' || this.feedState.activeTab === 'links') void this.#ensureAssets();
+        if (['members','admins'].includes(this.feedState.activeTab)) void this.#ensureRoster();
+        if (this.feedState.activeTab === 'requests') void this.#ensureJoinRequests();
+        if (this.feedState.activeTab === 'scheduled') void this.#ensureScheduledPosts();
+        break;
+      }
+      case 'review-request':
+        void this.reviewJoinRequest(actionEl.dataset.requestId, actionEl.dataset.decision);
+        break;
+      case 'cancel-scheduled':
+        void this.cancelScheduledPost(actionEl.dataset.scheduledId);
+        break;
+      case 'publish-scheduled':
+        void this.publishScheduledPost(actionEl.dataset.scheduledId);
+        break;
+      case 'moderate-member':
+        void this.window?.rimModerateChannel?.(channelId, actionEl.dataset.userId, actionEl.dataset.moderation || 'kick');
+        break;
+      case 'copy-link': {
+        const url = actionEl.dataset.url || '';
+        if (url && this.window?.navigator?.clipboard?.writeText) void this.window.navigator.clipboard.writeText(url).then(() => this.#say('Ссылка скопирована.')).catch(() => this.#say(url));
+        break;
+      }
       case 'pin':
         void this.togglePinnedPost(actionEl, postId);
+        break;
+      case 'edit-post':
+        void this.editPost(postId);
+        break;
+      case 'delete-post':
+        void this.deletePost(postId);
+        break;
+      case 'share-post':
+        void this.sharePost(postId);
+        break;
+      case 'choose-media':
+        this.document?.getElementById?.('rimChannelPostMedia')?.click?.();
         break;
       case 'invite':
         void this.window?.rimChannelCreateInvite?.();
@@ -136,10 +189,17 @@ export class ChannelFeedController {
     }
   }
 
+  #onChange(event) {
+    const input=event.target?.closest?.('#rimChannelPostMedia');if(!input)return;
+    const label=this.document?.getElementById?.('rimChannelPostMediaName');
+    if(label)label.textContent=input.files?.[0]?`${input.files[0].name} · ${(input.files[0].size/1024/1024).toFixed(1)} МБ`:'Можно прикрепить одно изображение до 10 МБ.';
+  }
+
   #onSubmit(event) {
-    const form = event.target?.closest?.('.rim-cf-comment-form');
+    const form = event.target?.closest?.('.rim-cf-comment-form, .rim-cf-schedule-form');
     if (!form || !this.boundRoot?.contains?.(form)) return;
     event.preventDefault();
+    if (form.matches('.rim-cf-schedule-form')) { void this.scheduleFromForm(form); return; }
     const postId = form.dataset.postId;
     if (postId) this.window?.rimAddChannelComment?.(postId);
   }
@@ -155,148 +215,146 @@ export class ChannelFeedController {
 
   #renderShell({ channel, posts, avatarUrl, joined, manager, canPost, memberCount = 0, managerCount = 0 }) {
     const id = escapeHtml(channel.id);
-    const joinHtml = joined
-      ? `<button class="action-btn" type="button" data-rim-cf-action="leave" data-channel-id="${id}">Отписаться</button>`
-      : channel.is_public
-        ? `<button class="primary-btn" type="button" data-rim-cf-action="join" data-channel-id="${id}">Подписаться</button>`
-        : '<span class="rim-update-muted">Закрытый канал</span>';
-
+    const e2eActive = channel.e2e_mode === 'required';
     const avatar = avatarUrl
-      ? `<img src="${escapeHtml(avatarUrl)}" alt="" style="width:100%;height:100%;object-fit:cover">`
-      : '⚜';
-
+      ? `<img src="${escapeHtml(avatarUrl)}" alt="" loading="eager">`
+      : '<span>⚜</span>';
+    const e2eButton = channel.is_public === false && manager
+      ? `<button class="rim-cf-hero-secondary" type="button" data-rim-cf-action="e2e-setup">🔒 ${channel.e2e_mode === 'required' ? 'Проверить E2E' : 'Включить E2E'}</button>`
+      : '';
+    const joinHtml = joined
+      ? `<button class="rim-cf-follow-btn is-following" type="button" data-rim-cf-action="leave" data-channel-id="${id}">Вы подписаны</button>`
+      : channel.is_public
+        ? `<button class="rim-cf-follow-btn" type="button" data-rim-cf-action="join" data-channel-id="${id}">Подписаться</button>`
+        : '<span class="rim-update-muted">Закрытый канал</span>';
     const postsHtml = (posts || []).map(post => `
       <article class="rim-cf-post" data-rim-post-id="${escapeHtml(post.id)}">
         <div class="rim-cf-post-body">${escapeHtml(post.body || '')}</div>
         <div class="rim-update-muted" style="margin-top:9px">${formatWhen(post.created_at)}</div>
-      </article>
-    `).join('') || '<div class="empty-state">Публикаций пока нет.</div>';
-
+      </article>`).join('') || '<div class="rim-cf-empty"><b>Пока здесь тихо</b><span>Когда появятся публикации, они будут отображаться здесь.</span></div>';
     return `<header class="rim-cf-head">
-      <button class="icon-btn" type="button" data-rim-cf-action="close" aria-label="Назад">‹</button>
-      <div class="rim-channel-avatar" style="width:46px;height:46px;flex:0 0 46px;overflow:hidden">${avatar}</div>
-      <div class="rim-cf-head-copy">
-        <h2>${escapeHtml(channel.title)}</h2>
-        <p>${escapeHtml(channel.description || '')}${channel.username ? ' · @' + escapeHtml(channel.username) : ''}</p>
-      </div>
-      ${manager ? '<button class="icon-btn" type="button" data-rim-cf-action="settings" title="Настройки">⚙</button>' : ''}
-      <button class="icon-btn" type="button" data-rim-cf-action="close" title="Закрыть">×</button>
+      <button class="rim-cf-back" type="button" data-rim-cf-action="close" aria-label="Назад">‹</button>
+      <div class="rim-cf-head-avatar">${avatar}</div>
+      <div class="rim-cf-head-copy"><h2>${escapeHtml(channel.title)}</h2><p>${memberCount.toLocaleString('ru-RU')} подписчиков${channel.username ? ' · @' + escapeHtml(channel.username) : ''}</p></div>
+      ${manager ? '<button class="rim-cf-head-action" type="button" data-rim-cf-action="settings" aria-label="Настройки">⚙</button>' : '<button class="rim-cf-head-action" type="button" data-rim-cf-action="tab" data-tab="about" aria-label="Информация">ⓘ</button>'}
     </header>
     <main class="rim-cf-scroll">
-      <section class="rim-cf-profile-card ${manager ? 'is-manager' : 'is-subscriber'}">
-        <div class="rim-cf-profile-meta"><b>${memberCount.toLocaleString('ru-RU')}</b><span>подписчиков</span>${manager ? `<i>· ${managerCount.toLocaleString('ru-RU')} администраторов</i>` : ''}</div>
-        ${channel.description ? `<p>${escapeHtml(channel.description)}</p>` : ''}
-        ${channel.username ? `<div class="rim-cf-public-link">РИМ · @${escapeHtml(channel.username)}</div>` : ''}
-        <div class="rim-cf-profile-actions">${joinHtml}${manager ? '<button class="action-btn" type="button" data-rim-cf-action="invite">Пригласить</button><button class="action-btn" type="button" data-rim-cf-action="new-post">Новая публикация</button><button class="action-btn" type="button" data-rim-cf-action="settings">Настройки канала</button>' : ''}${channel.discussion_conversation_id ? '<button class="action-btn" type="button" data-rim-cf-action="discussion">Обсуждение</button>' : ''}</div>
-      </section>
-      <div class="rim-cf-toolbar">
-        ${manager ? '<button class="action-btn" type="button" data-rim-cf-action="settings">⚙ Настройки канала</button>' : ''}
-        ${canPost ? '<button class="action-btn" type="button" data-rim-cf-action="create-poll">📊 Создать опрос</button>' : ''}
-      </div>
-      ${canPost ? `<section class="rim-update-card">
-        <textarea id="rimChannelPostBody" class="field" rows="3" maxlength="10000" placeholder="Новая публикация"></textarea>
-        <button class="primary-btn" type="button" style="margin-top:8px" data-rim-cf-action="publish">Опубликовать</button>
-      </section>` : ''}
-      <section class="rim-cf-feed-state rim-update-muted" role="status">Загружаем дополнительные данные канала…</section>
-      <h3>Публикации</h3>
-      ${postsHtml}
+      <section class="rim-cf-loading-hero"><div class="rim-cf-hero-avatar">${avatar}</div><h1>${escapeHtml(channel.title)}</h1><p>${escapeHtml(channel.description || 'Публичный канал РИМ')}</p><div class="rim-cf-hero-count">${memberCount.toLocaleString('ru-RU')} подписчиков${manager ? ` · ${managerCount.toLocaleString('ru-RU')} администраторов` : ''}</div><div class="rim-cf-profile-actions">${joinHtml}${e2eButton}${manager ? '<button type="button" class="rim-cf-hero-secondary" data-rim-cf-action="invite">Пригласить</button><button type="button" class="rim-cf-hero-secondary" data-rim-cf-action="new-post">Новая публикация</button>' : ''}${channel.discussion_conversation_id ? '<button type="button" class="rim-cf-hero-secondary" data-rim-cf-action="discussion">Обсуждение</button>' : ''}</div></section>
+      ${manager ? `<section class="rim-cf-admin-panel"><div class="rim-cf-admin-title"><div><span>УПРАВЛЕНИЕ КАНАЛОМ</span><h3>Панель администратора</h3></div></div><div class="rim-cf-admin-grid"><button type="button" data-rim-cf-action="tab" data-tab="about"><b>${memberCount.toLocaleString('ru-RU')}</b><span>Подписчики</span></button><button type="button" data-rim-cf-action="tab" data-tab="admins"><b>${managerCount.toLocaleString('ru-RU')}</b><span>Администраторы</span></button></div><div class="rim-cf-admin-actions"><button type="button" data-rim-cf-action="new-post">＋ Новая публикация</button><button type="button" data-rim-cf-action="invite">↗ Пригласить</button>${e2eActive?'':'<button type="button" data-rim-cf-action="create-poll">▤ Создать опрос</button>'}<button type="button" data-rim-cf-action="settings">Настройки канала</button></div></section>` : ''}
+      <div class="rim-cf-feed-state rim-update-muted" role="status">Загружаем публикации и информацию…</div>
+      <h3>Публикации</h3>${postsHtml}
     </main>`;
   }
 
-  #renderEnrichedFeed({ channel, posts, polls, reactions, votes, profileById, userId, joined, manager, canPost, hasMorePosts = false, pinnedPosts = [], memberCount = 0, managerCount = 0 }) {
+  #renderEnrichedFeed(state) {
+    const { channel, posts = [], polls = [], reactions = [], votes = [], profileById = {}, userId, joined, manager, canPost, hasMorePosts = false, pinnedPosts = [], memberCount = 0, managerCount = 0, avatarUrl = '', profileDetails = {}, assets = { media: [], links: [] } } = state;
     const id = escapeHtml(channel.id);
-
+    const e2eActive = channel.e2e_mode === 'required';
+    const avatar = avatarUrl ? `<img src="${escapeHtml(avatarUrl)}" alt="" loading="eager">` : '<span>⚜</span>';
+    const e2eButton = channel.is_public === false && manager
+      ? `<button class="rim-cf-hero-secondary" type="button" data-rim-cf-action="e2e-setup">🔒 ${channel.e2e_mode === 'required' ? 'Проверить E2E' : 'Включить E2E'}</button>`
+      : '';
     const joinHtml = joined
-      ? `<button class="action-btn" type="button" data-rim-cf-action="leave" data-channel-id="${id}">Отписаться</button>`
+      ? `<button class="rim-cf-follow-btn is-following" type="button" data-rim-cf-action="leave" data-channel-id="${id}">Вы подписаны</button>`
       : channel.is_public
-        ? `<button class="primary-btn" type="button" data-rim-cf-action="join" data-channel-id="${id}">Подписаться</button>`
+        ? `<button class="rim-cf-follow-btn" type="button" data-rim-cf-action="join" data-channel-id="${id}">Подписаться</button>`
         : '<span class="rim-update-muted">Закрытый канал</span>';
-
-    const pinnedHtml = (pinnedPosts || []).length ? `<section class="rim-cf-pinned-list"><div class="rim-cf-pinned-title">📌 Закреплённые публикации</div>${pinnedPosts.map(post => `<div class="rim-cf-pinned-item"><button class="rim-cf-pinned-jump" type="button" data-rim-cf-action="goto-post" data-post-id="${escapeHtml(post.id)}">${escapeHtml(post.body || 'Медиа-публикация')}</button>${manager ? `<button class="action-btn" type="button" data-rim-cf-action="pin" data-post-id="${escapeHtml(post.id)}">Открепить</button>` : ''}</div>`).join('')}</section>` : '';
-
+    const active = state.activeTab || 'posts';
+    const tabs = [['posts','Публикации'],['media','Медиа'],['links','Ссылки'],['about','О канале'],...(manager?[['members','Подписчики'],['admins','Администраторы'],['requests','Заявки'],['scheduled','Отложенные']]:[])];
+    const tabHtml = `<nav class="rim-cf-tabs" aria-label="Разделы канала">${tabs.map(([key,label]) => `<button type="button" class="rim-cf-tab ${active===key?'active':''}" data-rim-cf-action="tab" data-tab="${key}" aria-current="${active===key?'page':'false'}">${label}</button>`).join('')}</nav>`;
+    const pinnedHtml = pinnedPosts.length ? `<section class="rim-cf-pinned-list"><div class="rim-cf-pinned-title">📌 Закреплённые публикации</div>${pinnedPosts.map(post => `<div class="rim-cf-pinned-item"><button class="rim-cf-pinned-jump" type="button" data-rim-cf-action="goto-post" data-post-id="${escapeHtml(post.id)}">${escapeHtml(post.body || 'Медиа-публикация')}</button>${manager ? `<button class="action-btn" type="button" data-rim-cf-action="pin" data-post-id="${escapeHtml(post.id)}">Открепить</button>` : ''}</div>`).join('')}</section>` : '';
     const votesByPoll = new Map();
-    for (const vote of votes || []) {
-      const key = String(vote.poll_id);
-      if (!votesByPoll.has(key)) votesByPoll.set(key, []);
-      votesByPoll.get(key).push(vote);
-    }
-    const pollHtml = (polls || []).map(poll => {
-      const pollVotes = votesByPoll.get(String(poll.id)) || [];
-      const own = pollVotes.find(vote => String(vote.user_id) === String(userId));
-      const total = pollVotes.length;
-      const options = (poll.options || []).map((opt, index) => {
-        const count = pollVotes.filter(vote => Number(vote.option_index) === index).length;
-        const pct = total ? Math.round((count * 100) / total) : 0;
-        const selected = own && Number(own.option_index) === index ? 'selected' : '';
-        const disabled = poll.is_closed || own ? 'disabled' : '';
-        return `<button class="rim-cf-poll-option ${selected}" type="button" ${disabled}
-          data-rim-cf-action="vote" data-poll-id="${escapeHtml(poll.id)}" data-option-index="${index}">
-          <span class="grow">${escapeHtml(opt)}</span><b>${count}</b><span class="rim-update-muted">${pct}%</span>
-        </button>`;
-      }).join('');
-
-      return `<section class="rim-cf-poll">
-        <div class="rim-update-muted">ОПРОС · ${total} голосов ${poll.is_closed ? '· закрыт' : ''}</div>
-        <h3 style="margin:6px 0 9px">${escapeHtml(poll.question)}</h3>
-        ${options}
-        <div class="rim-update-muted">${own ? 'Ваш голос учтён' : poll.is_closed ? 'Голосование закрыто' : 'Выберите вариант'}</div>
-      </section>`;
+    for (const vote of votes) { const key=String(vote.poll_id); if(!votesByPoll.has(key)) votesByPoll.set(key,[]); votesByPoll.get(key).push(vote); }
+    const pollHtml = polls.map(poll => {
+      const pv=votesByPoll.get(String(poll.id))||[]; const own=pv.find(v=>String(v.user_id)===String(userId)); const total=pv.length;
+      const options=(poll.options||[]).map((opt,index)=>{const count=pv.filter(v=>Number(v.option_index)===index).length;const pct=total?Math.round(count*100/total):0;return `<button class="rim-cf-poll-option ${own&&Number(own.option_index)===index?'selected':''}" type="button" ${poll.is_closed||own||e2eActive?'disabled':''} data-rim-cf-action="vote" data-poll-id="${escapeHtml(poll.id)}" data-option-index="${index}"><span class="grow">${escapeHtml(opt)}</span><b>${count}</b><span class="rim-update-muted">${pct}%</span></button>`}).join('');
+      return `<section class="rim-cf-poll"><div class="rim-update-muted">ОПРОС · ${total} голосов ${poll.is_closed?'· закрыт':''}</div><h3>${escapeHtml(poll.question)}</h3>${options}<div class="rim-update-muted">${own?'Ваш голос учтён':poll.is_closed?'Голосование закрыто':'Выберите вариант'}</div></section>`;
     }).join('');
+    const reactionsByPost=new Map(); for(const row of reactions){const key=String(row.post_id);if(!reactionsByPost.has(key))reactionsByPost.set(key,[]);reactionsByPost.get(key).push(row)}
+    const postsHtml=posts.map(post=>{
+      const rx=reactionsByPost.get(String(post.id))||[];const author=profileById[String(post.author_id)]||{};const authorLabel=escapeHtml(author.display_name||author.username||channel.title);
+      const e2ePost = channel.e2e_mode === 'required' || post._rimE2E === true;
+      const reactionButtons=e2ePost ? '' : REACTION_EMOJI.map(emoji=>{const count=rx.filter(row=>row.emoji===emoji).length;const mine=rx.some(row=>row.emoji===emoji&&String(row.user_id)===String(userId));return `<button class="rim-cf-reaction ${mine?'active':''}" type="button" data-rim-cf-action="react" data-post-id="${escapeHtml(post.id)}" data-emoji="${emoji}">${emoji}<span>${count||''}</span></button>`}).join('');
+      const commentForm=e2ePost?'<div class="rim-update-muted">Комментарии для E2E-публикаций недоступны.</div>':joined||channel.is_public?`<form class="rim-cf-comment-form" data-post-id="${escapeHtml(post.id)}"><input id="rimChannelComment-${escapeHtml(post.id)}" class="field" maxlength="2000" placeholder="Написать комментарий…"><button class="primary-btn" type="submit">Отправить</button></form>`:'<div class="rim-update-muted">Подпишитесь на канал, чтобы комментировать.</div>';
+      return `<article class="rim-cf-post ${post.is_pinned?'is-pinned':''}" data-rim-post-id="${escapeHtml(post.id)}">${post.is_pinned?'<div class="rim-cf-pinned-label">📌 Закреплённая публикация</div>':''}<div class="rim-cf-post-author"><div class="rim-cf-post-channel-avatar">${avatar}</div><div><b>${escapeHtml(channel.title)}</b><small>${authorLabel!==escapeHtml(channel.title)?' · '+authorLabel:''} · ${formatWhen(post.created_at)}</small></div>${e2ePost?'':'<button class="rim-cf-post-menu" type="button" data-rim-cf-action="share-post" data-post-id="'+escapeHtml(post.id)+'" aria-label="Поделиться публикацией">↗</button>'}</div>${post.image_url?`<img class="rim-cf-post-image" src="${escapeHtml(post.image_url)}" alt="Медиа публикации" loading="lazy">`:''}<div class="rim-cf-post-body">${escapeHtml(post.body||'')}</div><div class="rim-cf-post-footer"><div class="rim-cf-reactions">${reactionButtons}</div>${manager&&!e2ePost?`<span class="rim-cf-post-admin-actions"><button class="rim-cf-pin-action" type="button" data-rim-cf-action="pin" data-post-id="${escapeHtml(post.id)}">${post.is_pinned?'Открепить':'📌'}</button><button class="rim-cf-pin-action" type="button" data-rim-cf-action="edit-post" data-post-id="${escapeHtml(post.id)}">Изменить</button><button class="rim-cf-pin-action" type="button" data-rim-cf-action="delete-post" data-post-id="${escapeHtml(post.id)}">Удалить</button></span>`:''}</div>${e2ePost?'':'<button type="button" class="rim-cf-comment-toggle" aria-expanded="false" data-rim-cf-action="comments" data-post-id="'+escapeHtml(post.id)+'">Комментарии</button>'}<div class="rim-cf-comments"><div class="rim-update-muted">Откройте комментарии, чтобы загрузить их.</div>${commentForm}</div></article>`;
+    }).join('')||'<div class="rim-cf-empty"><b>Публикаций пока нет</b><span>Здесь появятся новые записи канала.</span></div>';
+    const profileDetailsHtml = `<section class="rim-cf-info-card"><h3>Информация</h3><p>${escapeHtml(channel.description||'Описание канала пока не добавлено.')}</p>${channel.username?`<div class="rim-cf-link-row"><span>Публичная ссылка</span><b>@${escapeHtml(channel.username)}</b><button type="button" data-rim-cf-action="copy-link" data-url="${escapeHtml('@'+channel.username)}">Копировать</button></div>`:''}<div class="rim-cf-info-stats"><div><b>${Number(memberCount).toLocaleString('ru-RU')}</b><span>Подписчики</span></div><div><b>${Number(managerCount).toLocaleString('ru-RU')}</b><span>Администраторы</span></div><div><b>${Number(posts.length).toLocaleString('ru-RU')}</b><span>В ленте</span></div></div>${channel.discussion_conversation_id?'<button class="rim-cf-wide-action" type="button" data-rim-cf-action="discussion">Открыть обсуждение</button>':''}</section>`;
+    const managerPanel = manager ? `<section class="rim-cf-admin-panel"><div class="rim-cf-admin-title"><div><span>УПРАВЛЕНИЕ КАНАЛОМ</span><h3>Панель администратора</h3></div><button type="button" class="rim-cf-settings-round" data-rim-cf-action="settings">⚙</button></div><div class="rim-cf-admin-grid"><button type="button" data-rim-cf-action="tab" data-tab="about"><b>${Number(memberCount).toLocaleString('ru-RU')}</b><span>Подписчики</span></button><button type="button" data-rim-cf-action="tab" data-tab="admins"><b>${Number(managerCount).toLocaleString('ru-RU')}</b><span>Администраторы</span></button><button type="button" data-rim-cf-action="tab" data-tab="requests"><b>${profileDetails.pendingCount==null?'—':Number(profileDetails.pendingCount).toLocaleString('ru-RU')}</b><span>Заявки</span></button><button type="button" data-rim-cf-action="tab" data-tab="scheduled"><b>${profileDetails.scheduledCount==null?'—':Number(profileDetails.scheduledCount).toLocaleString('ru-RU')}</b><span>Отложенные</span></button></div><div class="rim-cf-admin-actions"><button type="button" data-rim-cf-action="new-post">＋ Новая публикация</button><button type="button" data-rim-cf-action="invite">↗ Пригласить</button>${e2eActive?'':'<button type="button" data-rim-cf-action="create-poll">▤ Создать опрос</button>'}<button type="button" data-rim-cf-action="settings">Настройки канала</button></div></section>` : '';
+    let content = '';
+    const composerHtml = canPost ? `<section class="rim-cf-composer"><div class="rim-cf-composer-title"><b>Новая публикация</b><span>От имени канала</span></div><textarea id="rimChannelPostBody" class="field" rows="3" maxlength="8000" placeholder="Что нового у канала?"></textarea><div class="rim-cf-composer-actions">${e2eActive?'':'<button type="button" class="rim-cf-composer-tool" data-rim-cf-action="choose-media">▧ Фото</button>'}${e2eActive?'':'<button type="button" class="rim-cf-composer-tool" data-rim-cf-action="create-poll">▤ Опрос</button>'}<button type="button" class="primary-btn" data-rim-cf-action="publish">Опубликовать</button></div><input id="rimChannelPostMedia" class="rim-cf-media-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif"><div class="rim-cf-media-hint" id="rimChannelPostMediaName">Можно прикрепить одно изображение до 10 МБ.</div></section>` : '';
+    if (active === 'posts') content = `${composerHtml}${pinnedHtml}${pollHtml}<div class="rim-cf-section-heading"><h3>Публикации</h3><span>${posts.length} загружено</span></div>${postsHtml}${hasMorePosts?'<button class="action-btn rim-cf-load-older" type="button" data-rim-cf-action="load-older">Показать более ранние публикации</button>':'<div class="rim-update-muted rim-cf-end">Вы просмотрели все загруженные публикации</div>'}`;
+    else if (active === 'media') content = `<div class="rim-cf-section-heading"><h3>Медиа</h3><span>${assets.media?.length||0}</span></div>${assets.loading?'<div class="rim-cf-empty">Загружаем медиа…</div>':assets.media?.length?`<div class="rim-cf-media-grid">${assets.media.map(item=>`<button type="button" class="rim-cf-media-tile" data-rim-cf-action="goto-post" data-post-id="${escapeHtml(item.id)}"><img src="${escapeHtml(item.media_url||'')}" alt="Медиа канала" loading="lazy"><span>${formatWhen(item.created_at)}</span></button>`).join('')}</div>`:'<div class="rim-cf-empty"><b>Медиа пока нет</b><span>Фотографии и видео из публикаций будут собираться здесь.</span></div>'}`;
+    else if (active === 'links') content = `<div class="rim-cf-section-heading"><h3>Ссылки</h3><span>${assets.links?.length||0}</span></div>${assets.links?.length?assets.links.map(link=>`<div class="rim-cf-link-card"><div><b>${escapeHtml(link.url)}</b><small>${formatWhen(link.created_at)}</small></div><button type="button" data-rim-cf-action="copy-link" data-url="${escapeHtml(link.url)}">Копировать</button><button type="button" data-rim-cf-action="goto-post" data-post-id="${escapeHtml(link.postId)}">Пост</button></div>`).join(''):'<div class="rim-cf-empty"><b>Ссылок пока нет</b><span>Ссылки из публикаций появятся в этом разделе автоматически.</span></div>'}`;
+    else if (active === 'about') content = `${profileDetailsHtml}${manager?`<section class="rim-cf-admin-metrics"><h3>Статистика за 30 дней</h3><div class="rim-cf-metric-grid">${this.#metric('Просмотры',sum(profileDetails.dailyStats,'views_count'))}${this.#metric('Новые подписки',sum(profileDetails.dailyStats,'subscribers_count'))}${this.#metric('Публикации',sum(profileDetails.dailyStats,'posts_count'))}${this.#metric('Реакции',sum(profileDetails.dailyStats,'reactions_count'))}</div><p>Показатели основаны на сохранённых дневных агрегатах. Если статистика ещё не собиралась, значения будут нулевыми.</p></section>`:''}`;
+    else if (active === 'members' || active === 'admins') { const rows=(state.roster||[]).filter(row=>active==='members'||['owner','admin','moderator'].includes(String(row.role||'').toLowerCase())); content=manager?`<section class="rim-cf-info-card"><h3>${active==='admins'?'Администраторы канала':'Подписчики канала'}</h3><p>${state.rosterLoading?'Загружаем список…':state.rosterError?'Не удалось загрузить список участников. Проверьте права доступа.':`${rows.length} записей загружено`}</p>${rows.map(row=>{const profile=row.profile||{};const name=escapeHtml(profile.display_name||profile.username||'Участник');const role=escapeHtml(row.role||'subscriber');const avatar=profile.avatar_url?`<img src="${escapeHtml(profile.avatar_url)}" alt="">`:'<span>◉</span>';return `<div class="rim-cf-member-row"><div class="rim-cf-member-avatar">${avatar}</div><div class="rim-cf-member-copy"><b>${name}</b><small>${role} · ${formatWhen(row.joined_at)}</small></div>${String(row.user_id)!==String(channel.owner_id)&&String(row.user_id)!==String(userId)?`<button type="button" data-rim-cf-action="moderate-member" data-channel-id="${id}" data-user-id="${escapeHtml(row.user_id)}" data-moderation="kick">Удалить</button>`:''}</div>`}).join('')||'<div class="rim-cf-empty">Список пуст или недоступен.</div>'}</section>`:profileDetailsHtml; }
+    else if (active === 'requests') { const rows=state.joinRequests||[]; content=manager?`<section class="rim-cf-info-card"><div class="rim-cf-section-heading"><h3>Заявки на вступление</h3><span>${state.requestsLoading?'Загрузка…':rows.length}</span></div>${state.requestsError?'<div class="rim-cf-empty">Не удалось загрузить заявки. Проверьте права доступа.</div>':rows.map(row=>{const profile=row.profile||{};return `<div class="rim-cf-member-row"><div class="rim-cf-member-avatar">${profile.avatar_url?`<img src="${escapeHtml(profile.avatar_url)}" alt="">`:'<span>◉</span>'}</div><div class="rim-cf-member-copy"><b>${escapeHtml(profile.display_name||profile.username||'Участник')}</b><small>${escapeHtml(row.message||'Без комментария')} · ${formatWhen(row.created_at)}</small></div><button type="button" data-rim-cf-action="review-request" data-request-id="${escapeHtml(row.id)}" data-decision="approved">Принять</button><button type="button" data-rim-cf-action="review-request" data-request-id="${escapeHtml(row.id)}" data-decision="rejected">Отклонить</button></div>`}).join('')||'<div class="rim-cf-empty"><b>Новых заявок нет</b></div>'}</section>`:profileDetailsHtml; }
+    else if (active === 'scheduled') { const rows=state.scheduledPosts||[]; content=manager?`<section class="rim-cf-info-card"><div class="rim-cf-section-heading"><h3>Отложенные публикации</h3><span>${rows.length}</span></div><form class="rim-cf-schedule-form"><textarea class="field" name="body" maxlength="10000" rows="3" placeholder="Текст публикации" required></textarea><label class="field-label">Дата и время публикации</label><input class="field" type="datetime-local" name="scheduled_at" required><button class="primary-btn rim-cf-wide-action" type="submit">Запланировать публикацию</button></form>${state.scheduledError?'<div class="rim-cf-empty">Не удалось загрузить расписание.</div>':''}${rows.map(row=>`<div class="rim-cf-scheduled-row"><div><b>${escapeHtml(row.body||'Медиа-публикация')}</b><small>${formatWhen(row.scheduled_at)}</small></div><button type="button" data-rim-cf-action="publish-scheduled" data-scheduled-id="${escapeHtml(row.id)}">Опубликовать сейчас</button><button type="button" data-rim-cf-action="cancel-scheduled" data-scheduled-id="${escapeHtml(row.id)}">Отменить</button></div>`).join('')||'<div class="rim-cf-empty">Отложенных публикаций пока нет.</div>'}</section>`:profileDetailsHtml; }
+    return `<section class="rim-cf-hero"><div class="rim-cf-hero-cover"></div><div class="rim-cf-hero-main"><div class="rim-cf-hero-avatar">${avatar}</div><div class="rim-cf-hero-title"><h1>${escapeHtml(channel.title)}</h1><span>${channel.is_public?'Публичный канал':'Частный канал'}${channel.username?' · @'+escapeHtml(channel.username):''}</span></div><div class="rim-cf-hero-count"><b>${Number(memberCount).toLocaleString('ru-RU')}</b><span>подписчиков</span></div></div>${channel.description?`<p class="rim-cf-hero-description">${escapeHtml(channel.description)}</p>`:''}<div class="rim-cf-hero-actions">${joinHtml}${e2eButton}${manager?'<button type="button" class="rim-cf-hero-secondary" data-rim-cf-action="invite">Пригласить</button>':''}${channel.discussion_conversation_id?'<button type="button" class="rim-cf-hero-secondary" data-rim-cf-action="discussion">Обсуждение</button>':''}</div></section>${managerPanel}${tabHtml}<section class="rim-cf-tab-content">${content}</section>`;
+  }
 
-    const reactionsByPost = new Map();
-    for (const reaction of reactions || []) {
-      const key = String(reaction.post_id);
-      if (!reactionsByPost.has(key)) reactionsByPost.set(key, []);
-      reactionsByPost.get(key).push(reaction);
+  #onE2EMessage(event) {
+    const message = event?.detail?.message || {};
+    const state = this.feedState;
+    if (!state || state.channel?.e2e_mode !== 'required' || String(message.conversationId || '') !== String(state.channel.id)) return;
+    const id = String(message.messageId || '');
+    if (!id || state.posts.some(post => String(post.id) === id)) return;
+    state.posts.push({ id, channel_id: state.channel.id, author_id: message.senderId, body: String(message.body || ''), created_at: new Date(Number(message.timestamp || Date.now())).toISOString(), _rimE2E: true });
+    state.posts.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    const main = this.boundRoot?.querySelector?.('.rim-cf-scroll');
+    if (main) main.innerHTML = this.#renderEnrichedFeed(state);
+  }
+
+  async enableE2E() {
+    const state = this.feedState;
+    const user = this.getUser?.();
+    const channel = state?.channel;
+    if (!state || !user?.id || !channel?.id || channel.is_public !== false) { this.#say('E2E доступно только участникам закрытого канала.'); return null; }
+    if (!this.e2eRuntime?.startIncoming || !this.e2eRuntime?.verifyScopeExchange || !this.e2eScopeRepository?.requestEnable) { this.#say('Защищённый E2E-модуль недоступен.'); return null; }
+    try {
+      const scopeInput = { type: 'private_channel', id: channel.id, is_public: false };
+      const currentScope = await this.e2eScopeRepository.getScope(scopeInput, user.id);
+      if (!currentScope.ok) throw currentScope.error;
+      if (channel.e2e_mode !== 'required' && channel.e2e_mode !== 'pending') {
+        const pending = await this.e2eScopeRepository.requestPending(scopeInput);
+        if (!pending.ok) throw pending.error;
+      }
+      await this.e2eRuntime.startIncoming();
+      const members = await this.repository.client.from('channel_members').select('user_id').eq('channel_id', channel.id);
+      if (members.error) throw members.error;
+      const memberIds = [...new Set((members.data || []).map(row => String(row.user_id || '')).filter(Boolean))];
+      if (!memberIds.includes(String(user.id)) || memberIds.length < 2) throw new Error('Не удалось подтвердить полный состав подписчиков.');
+      await this.e2eRuntime.verifyScopeExchange({ type: 'private_channel', id: channel.id }, memberIds);
+      if (channel.e2e_mode !== 'required') {
+        const result = await this.e2eScopeRepository.activateScope(scopeInput);
+        if (!result.ok) throw result.error;
+      }
+      this.#say('E2E проверено для участников канала. Закрытый канал использует только зашифрованные публикации.');
+      await this.open(channel.id);
+      return true;
+    } catch (error) {
+      this.logger?.warn?.('channels.e2e.enable.failed', { channelId: String(channel.id), message: error?.message || String(error) });
+      this.#say(error?.message || 'Не удалось включить E2E. Открытая публикация не выполнялась.');
+      return null;
     }
-    const postsHtml = (posts || []).map(post => {
-      const rx = reactionsByPost.get(String(post.id)) || [];
-      const author = profileById[String(post.author_id)] || {};
-      const authorLabel = escapeHtml(author.display_name || author.username || 'Автор');
-      const reactionButtons = REACTION_EMOJI.map(emoji => {
-        const count = rx.filter(row => row.emoji === emoji).length;
-        return `<button class="action-btn" type="button" data-rim-cf-action="react" data-post-id="${escapeHtml(post.id)}" data-emoji="${escapeHtml(emoji)}">${emoji} ${count || ''}</button>`;
-      }).join('');
+  }
 
-      const commentForm = joined || channel.is_public
-        ? `<form class="rim-cf-comment-form" data-post-id="${escapeHtml(post.id)}">
-            <input id="rimChannelComment-${escapeHtml(post.id)}" class="field" maxlength="2000" placeholder="Написать комментарий…">
-            <button class="primary-btn" type="submit">Отправить</button>
-          </form>`
-        : '<div class="rim-update-muted">Подпишитесь на канал, чтобы комментировать.</div>';
+  #metric(label, value) { return `<div><b>${Number(value||0).toLocaleString('ru-RU')}</b><span>${label}</span></div>`; }
 
-      return `<article class="rim-cf-post ${post.is_pinned ? 'is-pinned' : ''}" data-rim-post-id="${escapeHtml(post.id)}">
-        ${post.is_pinned ? '<div class="rim-cf-pinned-label">📌 Закреплённая публикация</div>' : ''}
-        <div class="rim-cf-post-body">${escapeHtml(post.body || '')}</div>
-        <div class="rim-update-muted" style="margin-top:9px">${authorLabel} · ${formatWhen(post.created_at)}</div>
-        <div class="rim-cf-toolbar">${reactionButtons}${manager ? `<button class="action-btn" type="button" data-rim-cf-action="pin" data-post-id="${escapeHtml(post.id)}">${post.is_pinned ? 'Открепить' : '📌 Закрепить'}</button>` : ''}</div>
-        <button type="button" class="rim-cf-comment-toggle" aria-expanded="false" data-rim-cf-action="comments" data-post-id="${escapeHtml(post.id)}">Комментарии</button>
-        <div class="rim-cf-comments">
-          <div class="rim-update-muted">Откройте комментарии, чтобы загрузить их.</div>
-          ${commentForm}
-        </div>
-      </article>`;
-    }).join('') || '<div class="empty-state">Публикаций пока нет.</div>';
+  async #ensureRoster() {
+    const state=this.feedState; if(!state||state.rosterLoaded||state.rosterLoading||!state.manager||!this.repository.getAdminRoster)return;
+    state.rosterLoading=true; const main=this.boundRoot?.querySelector?.('.rim-cf-scroll'); if(main)main.innerHTML=this.#renderEnrichedFeed(state);
+    try { const result=await this.repository.getAdminRoster(state.channel.id); if(!result.ok)throw result.error; if(this.feedState!==state)return; state.roster=result.value||[];state.rosterLoaded=true; }
+    catch(error){this.logger?.warn?.('channels.roster.failed',{message:error?.message||String(error)});state.roster=[];state.rosterError=true;state.rosterLoaded=true;}
+    finally{state.rosterLoading=false;const current=this.boundRoot?.querySelector?.('.rim-cf-scroll');if(current)current.innerHTML=this.#renderEnrichedFeed(state);}
+  }
 
-    const profilePanel = `<section class="rim-cf-profile-card ${manager ? 'is-manager' : 'is-subscriber'}">
-      <div class="rim-cf-profile-meta"><b>${Number(memberCount).toLocaleString('ru-RU')}</b><span>подписчиков</span>${manager ? `<i>· ${Number(managerCount).toLocaleString('ru-RU')} администраторов</i>` : ''}</div>
-      ${channel.description ? `<p>${escapeHtml(channel.description)}</p>` : ''}
-      ${channel.username ? `<div class="rim-cf-public-link">РИМ · @${escapeHtml(channel.username)}</div>` : ''}
-      <div class="rim-cf-profile-actions">${joinHtml}${manager ? '<button class="action-btn" type="button" data-rim-cf-action="invite">Пригласить</button><button class="action-btn" type="button" data-rim-cf-action="new-post">Новая публикация</button>' : ''}${channel.discussion_conversation_id ? '<button class="action-btn" type="button" data-rim-cf-action="discussion">Обсуждение</button>' : ''}</div>
-    </section>`;
-    return `${profilePanel}<div class="rim-cf-toolbar">
-        ${manager ? '<button class="action-btn" type="button" data-rim-cf-action="settings">⚙ Настройки канала</button>' : ''}
-        ${canPost ? '<button class="action-btn" type="button" data-rim-cf-action="create-poll">📊 Создать опрос</button>' : ''}
-      </div>
-      ${canPost ? `<section class="rim-update-card">
-        <textarea id="rimChannelPostBody" class="field" rows="3" maxlength="10000" placeholder="Новая публикация"></textarea>
-        <button class="primary-btn" type="button" style="margin-top:8px" data-rim-cf-action="publish">Опубликовать</button>
-      </section>` : ''}
-      ${pinnedHtml}
-      ${pollHtml}
-      <h3>Публикации</h3>
-      ${postsHtml}
-      ${hasMorePosts ? '<button class="action-btn rim-cf-load-older" type="button" data-rim-cf-action="load-older">Показать более ранние публикации</button>' : '<div class="rim-update-muted rim-cf-end">Вы просмотрели все публикации</div>'}`;
+  async #ensureAssets() {
+    const state=this.feedState; if(!state||state.assetsLoaded||state.assetsLoading)return;
+    state.assetsLoading=true; state.assets={...(state.assets||{}),loading:true};
+    const main=this.boundRoot?.querySelector?.('.rim-cf-scroll'); if(main) main.innerHTML=this.#renderEnrichedFeed(state);
+    try { const result=await this.repository.getChannelAssets(state.channel.id); if(!result.ok) throw result.error; if(this.feedState!==state)return; state.assets=result.value; state.assetsLoaded=true; }
+    catch(error){this.logger?.warn?.('channels.assets.failed',{message:error?.message||String(error)});state.assets={media:[],links:[],error:true};state.assetsLoaded=true;}
+    finally{state.assetsLoading=false;const current=this.boundRoot?.querySelector?.('.rim-cf-scroll');if(current)current.innerHTML=this.#renderEnrichedFeed(state);}
   }
 
   async open(channelId) {
@@ -318,7 +376,18 @@ export class ChannelFeedController {
       }
       if (!shellResult.ok) throw shellResult.error;
 
-      const { channel, membership, posts, polls, pinnedPosts = [], avatarUrl, hasMorePosts = false, memberCount = 0, managerCount = 0 } = shellResult.value;
+      let { channel, membership, posts, polls, pinnedPosts = [], avatarUrl, hasMorePosts = false, memberCount = 0, managerCount = 0 } = shellResult.value;
+      if ((channel.e2e_mode === 'pending' || channel.e2e_mode === 'required') && this.e2eRuntime?.startIncoming) {
+        try { await this.e2eRuntime.startIncoming(); } catch (error) { this.logger?.warn?.('channels.e2e.runtime_start.failed', { message: String(error?.message || error) }); }
+      }
+      if (channel.e2e_mode === 'required' && this.e2eRuntime?.getLocalConversation) {
+        try {
+          const localRows = await this.e2eRuntime.getLocalConversation(channelId, { limit: 500 });
+          const merged = new Map((posts || []).map(post => [String(post.id), post]));
+          for (const row of localRows || []) merged.set(String(row.messageId), { id: String(row.messageId), channel_id: channelId, author_id: row.senderId, body: row.body, created_at: new Date(Number(row.timestamp || Date.now())).toISOString(), _rimE2E: true });
+          posts = [...merged.values()].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        } catch (error) { this.logger?.warn?.('channels.e2e.local_history.failed', { message: String(error?.message || error) }); }
+      }
       const flags = this.#computeFlags(channel, membership, user.id);
 
       this.window.currentChannel = channel;
@@ -367,10 +436,16 @@ export class ChannelFeedController {
         if (!enrichmentResult.ok) throw enrichmentResult.error;
 
         const { reactions, votes, profileById } = enrichmentResult.value;
+        let profileDetails = {};
+        if (flags.manager && this.repository.getProfileDetails) {
+          try { const details = await this.repository.getProfileDetails(channel.id); if (details?.ok) profileDetails = details.value || {}; }
+          catch (detailsError) { this.logger?.warn?.('channels.profile.details.failed', { message: detailsError?.message }); }
+        }
         this.feedState = {
           channel, posts: [...posts], polls, reactions, votes, profileById,
           userId: user.id, joined: flags.joined, manager: flags.manager,
-          canPost: flags.canPost, hasMorePosts, pinnedPosts: [...pinnedPosts], memberCount, managerCount
+          canPost: flags.canPost, hasMorePosts, pinnedPosts: [...pinnedPosts], memberCount, managerCount,
+          avatarUrl, profileDetails, activeTab: 'posts', assets: { media: [], links: [] }, assetsLoaded: false, assetsLoading: false
         };
         const main = full.querySelector('.rim-cf-scroll');
         if (main) main.innerHTML = this.#renderEnrichedFeed(this.feedState);
@@ -419,6 +494,7 @@ export class ChannelFeedController {
     this.loadingOlderPosts = false;
     this.boundRoot?.removeEventListener?.('click', this.clickHandler);
     this.boundRoot?.removeEventListener?.('submit', this.submitHandler);
+    this.boundRoot?.removeEventListener?.('change', this.changeHandler);
     this.boundRoot = null;
     this.document?.getElementById?.('rimChannelFull')?.remove?.();
   }
@@ -535,6 +611,111 @@ export class ChannelFeedController {
     }
   }
 
+  async #ensureJoinRequests() {
+    const state=this.feedState; if(!state||state.requestsLoaded||state.requestsLoading||!state.manager)return;
+    state.requestsLoading=true; const result=await this.repository.getJoinRequests(state.channel.id);
+    if(this.feedState!==state)return; state.requestsLoading=false; state.requestsLoaded=true;
+    if(result.ok)state.joinRequests=result.value;else{state.requestsError=true;this.logger?.warn?.('channels.requests.load.failed',{message:result.error?.message});}
+    const main=this.boundRoot?.querySelector?.('.rim-cf-scroll');if(main)main.innerHTML=this.#renderEnrichedFeed(state);
+  }
+
+  async #ensureScheduledPosts() {
+    const state=this.feedState; if(!state||state.scheduledLoaded||state.scheduledLoading||!state.manager)return;
+    state.scheduledLoading=true; const result=await this.repository.getScheduledPosts(state.channel.id);
+    if(this.feedState!==state)return; state.scheduledLoading=false; state.scheduledLoaded=true;
+    if(result.ok)state.scheduledPosts=result.value;else{state.scheduledError=true;this.logger?.warn?.('channels.scheduled.load.failed',{message:result.error?.message});}
+    const main=this.boundRoot?.querySelector?.('.rim-cf-scroll');if(main)main.innerHTML=this.#renderEnrichedFeed(state);
+  }
+
+  async reviewJoinRequest(requestId, decision) {
+    const state=this.feedState;if(!state?.manager)return;
+    const result=await this.repository.reviewJoinRequest(requestId,decision);
+    if(!result.ok){this.#say('Не удалось обработать заявку: '+(result.error?.message||''));return;}
+    state.requestsLoaded=false;state.profileDetails.pendingCount=Math.max(0,Number(state.profileDetails.pendingCount||0)-1);
+    await this.#ensureJoinRequests();this.#say(decision==='approved'?'Заявка принята.':'Заявка отклонена.');
+  }
+
+  async #allowPlaintextChannelOperation(channel, userId, operationLabel) {
+    if (channel?.is_public === true) return true;
+    if (channel?.is_public !== false) {
+      this.#say('Не удалось подтвердить тип канала. Операция остановлена.');
+      return false;
+    }
+    if (typeof this.e2eScopeRepository?.getScope !== 'function') {
+      this.#say('Не удалось проверить режим защиты канала. Операция остановлена.');
+      return false;
+    }
+    const result = await this.e2eScopeRepository.getScope({ type: 'private_channel', id: channel.id, is_public: false }, userId);
+    if (!result?.ok) {
+      this.logger?.warn?.('channels.e2e_scope_lookup_failed', { channelId: String(channel.id), operation: operationLabel, message: String(result?.error?.message || 'unknown') });
+      this.#say('Не удалось проверить режим защиты канала. Операция остановлена.');
+      return false;
+    }
+    if (result.value?.enabled) {
+      this.#say('В этом канале требуется E2E. Операция с открытым текстом недоступна.');
+      return false;
+    }
+    return true;
+  }
+
+  async scheduleFromForm(form) {
+    const state=this.feedState,user=this.getUser?.();if(!state?.manager||!user?.id)return;
+    if (!(await this.#allowPlaintextChannelOperation(state.channel, user.id, 'schedule'))) return;
+    if (this.feedState !== state || String(this.getUser?.()?.id || '') !== String(user.id)) {
+      this.#say('Планирование отменено: аккаунт или канал изменился.');
+      return;
+    }
+    const data=new FormData(form);const result=await this.repository.schedulePost(state.channel.id,user.id,data.get('body'),data.get('scheduled_at'));
+    if(!result.ok){this.#say(result.error?.message||'Не удалось запланировать публикацию.');return;}
+    if (this.feedState !== state || String(this.getUser?.()?.id || '') !== String(user.id)) {
+      if (result.value?.id) {
+        try { await this.repository.cancelScheduledPost(result.value.id); } catch (error) {
+          this.logger?.warn?.('channels.schedule.stale_rollback_failed', { message: String(error?.message || error) });
+        }
+      }
+      this.#say('Планирование отменено: аккаунт или канал изменился.');
+      return;
+    }
+    form.reset();state.scheduledLoaded=false;await this.#ensureScheduledPosts();this.#say('Публикация добавлена в расписание.');
+  }
+
+  async cancelScheduledPost(id) {
+    const state=this.feedState;if(!state?.manager)return;const result=await this.repository.cancelScheduledPost(id);
+    if(!result.ok){this.#say(result.error?.message||'Не удалось отменить публикацию.');return;}
+    state.scheduledLoaded=false;await this.#ensureScheduledPosts();this.#say('Публикация отменена.');
+  }
+
+  async publishScheduledPost(id) {
+    const state=this.feedState,user=this.getUser?.();if(!state?.manager||!user?.id)return;
+    if (!(await this.#allowPlaintextChannelOperation(state.channel, user.id, 'publish-scheduled'))) return;
+    if (this.feedState !== state || String(this.getUser?.()?.id || '') !== String(user.id)) {
+      this.#say('Публикация отменена: аккаунт или канал изменился.');
+      return;
+    }
+    const result=await this.repository.publishScheduledPost(id);
+    if(!result.ok){this.#say(result.error?.message||'Не удалось опубликовать запись.');return;}
+    state.scheduledLoaded=false;await this.#ensureScheduledPosts();this.#say('Публикация опубликована.');
+  }
+
+  async editPost(postId) {
+    const state=this.feedState;if(!state?.manager)return;const post=state.posts.find(x=>String(x.id)===String(postId));if(!post)return;
+    const next=this.window?.prompt?.('Изменить текст публикации:',post.body||'');if(next===null||next===undefined)return;
+    const result=await this.repository.updatePost(postId,next);if(!result.ok){this.#say(result.error?.message||'Не удалось изменить публикацию.');return;}
+    post.body=result.value.body;post.edited_at=result.value.edited_at;const main=this.boundRoot?.querySelector?.('.rim-cf-scroll');if(main)main.innerHTML=this.#renderEnrichedFeed(state);this.#say('Публикация изменена.');
+  }
+
+  async deletePost(postId) {
+    const state=this.feedState;if(!state?.manager)return;if(!this.window?.confirm?.('Удалить публикацию?'))return;
+    const result=await this.repository.deletePost(postId);if(!result.ok){this.#say(result.error?.message||'Не удалось удалить публикацию.');return;}
+    state.posts=state.posts.filter(x=>String(x.id)!==String(postId));state.pinnedPosts=state.pinnedPosts.filter(x=>String(x.id)!==String(postId));const main=this.boundRoot?.querySelector?.('.rim-cf-scroll');if(main)main.innerHTML=this.#renderEnrichedFeed(state);this.#say('Публикация удалена.');
+  }
+
+  async sharePost(postId) {
+    const state=this.feedState;const channel=state?.channel;if(!channel)return;
+    const url=`${this.window?.location?.origin||''}/?channel=${encodeURIComponent(channel.id)}&post=${encodeURIComponent(postId)}`;
+    try{await this.window?.navigator?.clipboard?.writeText?.(url);this.#say('Ссылка на публикацию скопирована.');}catch{this.#say(url);}
+  }
+
   invalidate() {
     this.requestEpoch += 1;
   }
@@ -551,6 +732,12 @@ export class ChannelFeedController {
       this.notify?.('Канал не открыт.');
       return;
     }
+    const isCurrentContext = () => {
+      const activeUser = this.getUser?.();
+      const activeChannel = this.channel || this.window?.currentChannel;
+      return String(activeUser?.id || '') === String(user.id)
+        && String(activeChannel?.id || '') === String(channel.id);
+    };
     const input = this.document?.getElementById?.('rimChannelPostBody')
       || this.document?.getElementById?.('channelPostText');
     const body = String(input?.value || '').trim();
@@ -562,13 +749,87 @@ export class ChannelFeedController {
     const postBody = normalized.value;
     const client = this.repository?.client || this.window?.db || this.window?.__RIM_LEGACY_CONTEXT?.db;
     if (!client) { this.notify?.('Нет подключения к базе.'); return; }
+    const mediaInput = this.document?.getElementById?.('rimChannelPostMedia');
+    const mediaFile = mediaInput?.files?.[0] || null;
+    if (mediaFile && (mediaFile.size > 10 * 1024 * 1024 || !/^image\/(jpeg|png|webp|gif)$/.test(mediaFile.type))) {
+      this.notify?.('Изображение должно быть JPG, PNG, WebP или GIF и не больше 10 МБ.');
+      return;
+    }
+
+    // A private channel can be marked E2E-required. This legacy publisher writes
+    // plaintext into channel_posts, so it must stop before any media upload or
+    // database write when the channel requires encryption.
+    if (channel.is_public === false) {
+      if (typeof this.e2eScopeRepository?.getScope !== 'function') {
+        this.notify?.('Не удалось проверить режим защиты канала. Публикация остановлена.');
+        return;
+      }
+      const scopeResult = await this.e2eScopeRepository.getScope({ type: 'private_channel', id: channel.id, is_public: false }, user.id);
+      if (!isCurrentContext()) { this.notify?.('Публикация отменена: аккаунт или канал изменился.'); return; }
+      if (!scopeResult?.ok) {
+        this.logger?.warn?.('channels.publish.e2e_scope_lookup_failed', { channelId: String(channel.id), message: String(scopeResult?.error?.message || 'unknown') });
+        this.notify?.('Не удалось проверить режим защиты канала. Публикация остановлена.');
+        return;
+      }
+      if (scopeResult.value?.enabled) {
+        if (mediaFile) { this.notify?.('Для E2E-канала пока поддерживается только текстовая публикация. Медиа не загружено.'); return; }
+        let protectedScope = scopeResult.value;
+        if (!protectedScope.readiness?.ready && Array.isArray(protectedScope.readiness?.missingUserIds) && protectedScope.readiness.missingUserIds.length === 0 && this.e2eRuntime?.verifyScopeExchange && Array.isArray(protectedScope.memberUserIds)) {
+          try {
+            await this.e2eRuntime.startIncoming();
+            await this.e2eRuntime.verifyScopeExchange({ type: 'private_channel', id: channel.id }, protectedScope.memberUserIds);
+            const refreshed = await this.e2eScopeRepository.getScope({ type: 'private_channel', id: channel.id, is_public: false }, user.id);
+            if (!refreshed.ok) throw refreshed.error;
+            protectedScope = refreshed.value;
+          } catch (error) { this.notify?.(`E2E-проверка не завершена: ${error?.message || error}. Открытый текст не отправлен.`); return; }
+        }
+        if (!protectedScope.readiness?.ready || !Array.isArray(protectedScope.memberUserIds) || !this.e2eRuntime?.sendGroup) { this.notify?.(protectedScope.readiness?.reason || 'Защищённый маршрут доставки не готов. Открытый текст не отправлен.'); return; }
+        const memberIds = protectedScope.memberUserIds;
+        if (!memberIds.includes(String(user.id)) || memberIds.length < 2) { this.notify?.('Не удалось подтвердить состав участников канала.'); return; }
+        if (!isCurrentContext()) { this.notify?.('Публикация отменена: аккаунт или канал изменился.'); return; }
+        try {
+          const sent = await this.e2eRuntime.sendGroup(memberIds, postBody, { conversationId: channel.id, scopeType: 'private_channel', clientMessageId: crypto.randomUUID() });
+          if (input) input.value = '';
+          if (mediaInput) mediaInput.value = '';
+          if (sent.failedRecipientCount) this.notify?.(`E2E-доставка частичная: принято ${sent.acceptedRecipientCount}, ошибок ${sent.failedRecipientCount}. Не повторяй автоматически.`);
+          else this.notify?.('Зашифрованная публикация отправлена участникам канала.');
+        } catch (error) { this.notify?.(`E2E-публикация не отправлена: ${error?.message || error}`); }
+        return;
+      }
+    }
+
+    if (!isCurrentContext()) { this.notify?.('Публикация отменена: аккаунт или канал изменился.'); return; }
+    let imagePath = null;
+    if (mediaFile) {
+      const ext = ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' })[mediaFile.type];
+      imagePath = `channels/${channel.id}/${user.id}/${crypto.randomUUID()}.${ext}`;
+      const upload = await client.storage.from('chat-files').upload(imagePath, mediaFile, { contentType: mediaFile.type, upsert: false });
+      if (upload.error) { this.notify?.('Не удалось загрузить изображение: ' + upload.error.message); return; }
+      if (!isCurrentContext()) {
+        await client.storage.from('chat-files').remove([imagePath]);
+        this.notify?.('Публикация отменена: аккаунт или канал изменился. Загруженный файл удалён.');
+        return;
+      }
+    }
+    if (!isCurrentContext()) {
+      if (imagePath) await client.storage.from('chat-files').remove([imagePath]);
+      this.notify?.('Публикация отменена: аккаунт или канал изменился.');
+      return;
+    }
     const { data: createdPost, error } = await client.from('channel_posts').insert({
-      channel_id: channel.id,
-      author_id: user.id,
-      body: postBody
+      channel_id: channel.id, author_id: user.id, body: postBody, image_path: imagePath
     }).select('id').single();
     if (error) {
+      if (imagePath) await client.storage.from('chat-files').remove([imagePath]);
       this.notify?.(error.message || 'Ошибка публикации');
+      return;
+    }
+    // A context switch after the insert is rare but cannot be silently treated
+    // as success. Remove the just-created row and its media on a best-effort basis.
+    if (!isCurrentContext()) {
+      if (createdPost?.id) await client.from('channel_posts').delete().eq('id', createdPost.id);
+      if (imagePath) await client.storage.from('chat-files').remove([imagePath]);
+      this.notify?.('Публикация отменена: аккаунт или канал изменился.');
       return;
     }
     // Best-effort channel push: publication must not fail if push delivery is unavailable.
@@ -583,13 +844,23 @@ export class ChannelFeedController {
       this.logger?.warn?.('channels.push.delivery.failed', { message: String(pushError?.message || pushError) });
     }
     if (input) input.value = '';
+    if (mediaInput) mediaInput.value = '';
     this.notify?.('Публикация добавлена.');
     await this.open(channel.id);
   }
 
   async reactToPost(postId, emoji) {
     const user = this.getUser?.();
-    if (!user?.id || !postId) return;
+    const state = this.feedState;
+    const channel = state?.channel || this.channel || this.window?.currentChannel;
+    if (!user?.id || !postId || !channel?.id) return;
+    if (!(await this.#allowPlaintextChannelOperation(channel, user.id, 'reaction'))) return;
+    if ((state && this.feedState !== state)
+      || String(this.getUser?.()?.id || '') !== String(user.id)
+      || String((this.window?.currentChannel || channel)?.id || '') !== String(channel.id)) {
+      this.notify?.('Операция отменена: аккаунт или канал изменился.');
+      return;
+    }
     const client = this.repository?.client || this.window?.db || this.window?.__RIM_LEGACY_CONTEXT?.db;
     if (!client) { this.notify?.('Нет подключения к базе.'); return; }
     const { error } = await client.from('channel_reactions').upsert({
@@ -600,12 +871,12 @@ export class ChannelFeedController {
     if (error) this.notify?.(error.message);
     else {
       this.notify?.('Реакция добавлена.');
-      const channel = this.channel || this.window?.currentChannel;
       if (channel?.id) await this.open(channel.id);
     }
   }
 
   dispose() {
     this.close();
+    this.window?.removeEventListener?.('rim:e2e-message', this.e2eMessageHandler);
   }
 }

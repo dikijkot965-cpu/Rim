@@ -158,3 +158,10 @@ test('GroupSettingsController surfaces repository errors', async () => {
   assert.equal(result, null);
   assert.match(messages.join(' '), /network down/);
 });
+
+test('group settings offer a one-tap Zladen add action and explain its E2E boundary', () => {
+  const html = renderGroupSettingsModal(createProjection(), 'owner-1');
+  assert.match(html, /data-rim-group-action="add-zladen"/);
+  assert.match(html, /Подключить Злыдю к группе/);
+  assert.match(html, /не читает сообщения и не отвечает/);
+});

@@ -69,7 +69,9 @@ export class ReadReceiptController {
     } catch { /* optional */ }
     const messages = this.getMessages?.() || [];
     for (const message of messages) {
-      if (!isOwnMessage(message, user.id)) continue;
+      // The legacy conversation_read_state table is not an E2E receipt channel.
+      // Never present its timestamps as receipts for device-local encrypted rows.
+      if (message?._rimLocalOnly || !isOwnMessage(message, user.id)) continue;
       const element = document.querySelector(`.message[data-id="${CSS.escape(String(message.id))}"]`);
       const meta = element?.querySelector('.message-meta');
       if (!meta) continue;

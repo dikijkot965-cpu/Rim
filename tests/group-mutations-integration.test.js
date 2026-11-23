@@ -15,5 +15,5 @@ test('app routes group mutation commands modularly', () => {
   ]) {
     assert.match(groups, new RegExp(name));
   }
-  assert.match(app, /4\.0\.0-iteration\.122/);
+  assert.match(app, /4\.1\.8-iteration\.163/);
 });

@@ -26,6 +26,7 @@ function escHtml(value) {
  */
 export function bindAdminSurface({
   client,
+  e2eDiagnostics = null,
   getUser,
   notify,
   logger,
@@ -145,6 +146,30 @@ export function bindAdminSurface({
       if (b) b.value = '';
     }
     return result;
+  };
+
+
+  win.rimLoadE2EDiagnostics = async () => {
+    const out = doc.getElementById('rimE2EDiagnostics');
+    if (!out) return;
+    await imperialSession.loadRole?.();
+    if (!imperialSession.isImperator()) { out.textContent = 'Доступ закрыт.'; return; }
+    out.textContent = 'Загрузка событий E2E…';
+    try {
+      const rows = await e2eDiagnostics?.listRecent?.({ limit: 100 });
+      if (!rows) throw new Error('Диагностический сборщик не подключён.');
+      const counts = new Map();
+      for (const row of rows) { const key = `${row.event}:${row.status}`; counts.set(key, (counts.get(key) || 0) + 1); }
+      const summary = [...counts.entries()].sort((a,b) => b[1]-a[1]).map(([key,count]) => `<span class="rim-update-muted">${escapeHtml(key)}: <b>${count}</b></span>`).join(' · ');
+      const errors = rows.filter(row => row.status === 'error').length;
+      const warnings = rows.filter(row => row.status === 'warning').length;
+      const latencies = rows.map(row => Number(row.latency_ms)).filter(value => Number.isFinite(value) && value >= 0);
+      const averageLatency = latencies.length ? Math.round(latencies.reduce((sum, value) => sum + value, 0) / latencies.length) : null;
+      const healthSummary = `<div class="rim-update-muted">Ошибок: <b>${errors}</b> · предупреждений: <b>${warnings}</b> · средняя измеренная задержка: <b>${averageLatency == null ? '—' : `${averageLatency} ms`}</b></div>`;
+      const details = rows.slice(0, 30).map(row => `<div class="rim-admin-user"><div><b>${escapeHtml(row.event)} · ${escapeHtml(row.status)}</b><small>${escapeHtml(row.created_at)} · user ${escapeHtml(String(row.user_id).slice(0,8))} · device ${escapeHtml(row.device_id)}</small><small>${escapeHtml(row.code || row.metadata?.phase || row.metadata?.verification || '—')} · ${row.latency_ms == null ? '—' : `${escapeHtml(row.latency_ms)} ms`}</small></div></div>`).join('');
+      out.innerHTML = `${healthSummary}<div class="rim-update-muted">Последние ${rows.length} событий. Сводка: ${summary || 'событий пока нет'}</div>${details || '<div class="empty-state">Диагностических событий пока нет.</div>'}`;
+      return rows;
+    } catch (error) { out.textContent = `Не удалось загрузить E2E-диагностику: ${error?.message || error}`; }
   };
 
   win.rimLoadStats = async () => {
@@ -371,6 +396,12 @@ export function bindAdminSurface({
         <div id="rimStats" style="margin-top:8px">Нажмите «Обновить статистику».</div>
       </div>
       <div class="card" style="margin-top:12px">
+        <h3>Лаборатория E2E · автоматическая диагностика</h3>
+        <p class="feature-small">События Signal SDK, Relay, шифрования и расшифровки. Содержимое сообщений, ключи и ciphertext сюда не записываются.</p>
+        <button class="action-btn" type="button" onclick="rimLoadE2EDiagnostics()">Обновить диагностику</button>
+        <div id="rimE2EDiagnostics" style="margin-top:8px">Загрузка…</div>
+      </div>
+      <div class="card" style="margin-top:12px">
         <h3>Пользователи</h3>
         <input id="rimAdminUserSearch" class="field" placeholder="Поиск по username / имени / email">
         <div style="display:flex;gap:8px;margin:8px 0;flex-wrap:wrap">
@@ -381,6 +412,7 @@ export function bindAdminSurface({
         <div id="rimAdminUsersList" class="ils-list"><div class="rim-update-muted">Введите запрос или покажите всех.</div></div>
       </div>
     `);
+    void win.rimLoadE2EDiagnostics?.();
   };
 
   lifecycle?.add?.(() => { win.__RIM_ADMIN_COMMANDS_OWNED = false; });

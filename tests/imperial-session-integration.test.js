@@ -12,5 +12,5 @@ test('app owns imperial session role projection', () => {
   assert.match(admin, /ImperialSessionController/);
   assert.match(admin, /__RIM_IMPERIAL_SESSION_OWNED\s*=\s*true/);
   assert.match(admin, /isImperator/);
-  assert.match(app, /4\.0\.0-iteration\.122/);
+  assert.match(app, /4\.1\.8-iteration\.163/);
 });

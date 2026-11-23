@@ -6,6 +6,14 @@
 import { escapeHtml } from '../core/html.js';
 import { resolveDeliveryStatus, shouldShowDeliveryTicks } from '../domain/delivery.js';
 
+function withTimeout(promise, timeoutMs, message) {
+  let timer;
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(message)), timeoutMs); })
+  ]).finally(() => clearTimeout(timer));
+}
+
 function formatTime(value) {
   if (!value) return '';
   try {
@@ -40,16 +48,16 @@ export function buildMessageArticleHtml(message, {
   const id = escapeHtml(message.id);
   const image = imageUrls[message.id] || imageUrls[String(message.id)];
 
-  return `<article class="message ${mine ? 'mine' : ''}" data-id="${id}" data-rim-msg="1">
+  return `<article class="message ${mine ? 'mine' : ''}" data-id="${id}" data-rim-msg="1"${message._rimLocalOnly ? ' data-rim-local-only="true" data-rim-e2e="true"' : ''}>
     ${!mine ? `<div class="message-author">${author}</div>` : ''}
     ${reply ? `<div class="reply-preview">Ответ на: ${escapeHtml(reply.body || 'Вложение')}</div>` : ''}
     <div class="message-body">${body}</div>
-    ${image ? `<img class="message-image" src="${escapeHtml(image)}" loading="lazy">` : ''}
+    ${image ? `<img class="message-image" src="${escapeHtml(image)}" loading="lazy">` : (message.image_path ? `<span class="rim-message-media-pending" data-rim-image-slot="${id}">Изображение загружается…</span>` : '')}
     ${message.sticker_id ? `<div class="message-sticker">${escapeHtml(message.sticker_id)}</div>` : ''}
     <div class="message-meta">
       ${message.edited_at ? 'изм. · ' : ''}${escapeHtml(formatTime(message.created_at || message.clientCreatedAt))}
       ${(() => {
-        if (!shouldShowDeliveryTicks(message, currentUserId)) return '';
+        if (message._rimLocalOnly || !shouldShowDeliveryTicks(message, currentUserId)) return '';
         const d = resolveDeliveryStatus(message, { peerReadAt, receiptsEnabled });
         return ` <span class="rim-send-check" data-rim-delivery="${escapeHtml(d.status)}" title="${escapeHtml(d.label)}" aria-label="${escapeHtml(d.label)}">${d.ticks}</span>`;
       })()}
@@ -92,6 +100,9 @@ export class MessageListRenderer {
     }
     const msg = event.target?.closest?.('.message[data-id]');
     if (!msg || !this.boundRoot?.contains?.(msg)) return;
+    // Decrypted E2E rows are device-local and have no server message ID.
+    // Do not expose legacy edit/delete/react/forward actions for them.
+    if (msg.dataset.rimLocalOnly === 'true') return;
     if (event.target?.closest?.('a,button,input,textarea,img')) return;
     this.#openMessageSheet(msg.dataset.id, msg);
   }
@@ -201,9 +212,7 @@ export class MessageListRenderer {
     this.#bindRoot(box);
     const user = this.getUser?.();
     const serverMessages = this.getMessages?.() || [];
-    const pending = (typeof this.getOutboxMessages === 'function'
-      ? (this.getOutboxMessages() || [])
-      : []) ;
+    const pending = typeof this.getOutboxMessages === 'function' ? (this.getOutboxMessages() || []) : [];
     const messages = [...serverMessages, ...pending];
     const nearBottom = (box.scrollHeight - box.scrollTop - box.clientHeight) < 100;
 
@@ -212,36 +221,59 @@ export class MessageListRenderer {
       return;
     }
 
+    // Paint the text timeline first. Media signing must never hold the entire
+    // conversation hostage on slow/blocked Storage networks (common on mobile).
+    let profiles = {};
     try {
-      const [profiles, imageUrls] = await Promise.all([
-        this.#loadProfiles(messages.map(message => message.sender_id)),
-        this.#loadImageUrls(messages)
-      ]);
-      if (sequence !== this.renderSequence) return;
-
-      box.innerHTML = messages.map(message => buildMessageArticleHtml(message, {
-        currentUserId: user?.id,
-        profiles,
-        messages,
-        imageUrls,
-        peerReadAt: this.peerReadAt ?? null,
-        receiptsEnabled: this.receiptsEnabled !== false
-      })).join('');
-
-      // Optional name colors (from legacy feature pack) without a second full pass.
-      for (const message of messages) {
-        const color = profiles[message.sender_id]?.name_color || profiles[String(message.sender_id)]?.name_color;
-        if (!color || !/^#[0-9a-fA-F]{6}$/.test(color)) continue;
-        const author = box.querySelector(`.message[data-id="${cssEscape(message.id)}"] .message-author`);
-        if (author) author.style.color = color;
-      }
-
-      if (nearBottom) box.scrollTop = box.scrollHeight;
+      profiles = await withTimeout(this.#loadProfiles(messages.map(message => message.sender_id)), 4500, 'profiles_timeout');
     } catch (error) {
-      if (sequence !== this.renderSequence) return;
-      this.logger?.warn?.('messages.render.failed', { message: error?.message });
-      box.innerHTML = `<div class="notice">Не удалось отрисовать сообщения: ${escapeHtml(error?.message || error)}</div>`;
+      this.logger?.warn?.('messages.profiles.degraded', { message: error?.message || String(error) });
     }
+    if (sequence !== this.renderSequence) return;
+
+    box.innerHTML = messages.map(message => buildMessageArticleHtml(message, {
+      currentUserId: user?.id, profiles: profiles || {}, messages, imageUrls: {},
+      peerReadAt: this.peerReadAt ?? null, receiptsEnabled: this.receiptsEnabled !== false
+    })).join('');
+
+    for (const message of messages) {
+      const color = profiles?.[message.sender_id]?.name_color || profiles?.[String(message.sender_id)]?.name_color;
+      if (!color || !/^#[0-9a-fA-F]{6}$/.test(color)) continue;
+      const author = box.querySelector(`.message[data-id="${cssEscape(message.id)}"] .message-author`);
+      if (author) author.style.color = color;
+    }
+    if (nearBottom) box.scrollTop = box.scrollHeight;
+
+    // Hydrate attachments asynchronously and with bounded concurrency/timeouts.
+    // A failed media URL leaves the text and the rest of the chat usable.
+    const imageMessages = messages.filter(message => message?.image_path);
+    if (imageMessages.length) void this.#hydrateImages(imageMessages, sequence, box);
+  }
+
+  async #hydrateImages(messages, sequence, box) {
+    let cursor = 0;
+    const worker = async () => {
+      while (cursor < messages.length) {
+        const message = messages[cursor++];
+        if (sequence !== this.renderSequence || this.disposed) return;
+        const slot = box.querySelector(`[data-rim-image-slot="${cssEscape(message.id)}"]`);
+        if (!slot) continue;
+        try {
+          const request = this.client.storage.from('chat-files').createSignedUrl(message.image_path, 1800);
+          const result = await withTimeout(request, 5000, 'media_url_timeout');
+          if (sequence !== this.renderSequence || this.disposed || !slot.isConnected) return;
+          if (result?.error || !result?.data?.signedUrl) { slot.textContent = 'Вложение временно недоступно'; continue; }
+          const image = this.document.createElement('img');
+          image.className = 'message-image'; image.loading = 'lazy'; image.alt = 'Изображение';
+          image.src = result.data.signedUrl; slot.replaceWith(image);
+        } catch (error) {
+          if (sequence !== this.renderSequence || this.disposed) return;
+          if (slot.isConnected) slot.textContent = 'Не удалось загрузить изображение';
+          this.logger?.warn?.('messages.media.hydration.failed', { messageId: message.id, message: error?.message || String(error) });
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(3, messages.length) }, () => worker()));
   }
 
   dispose() {

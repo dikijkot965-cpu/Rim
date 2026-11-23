@@ -15,7 +15,7 @@ test('app routes rimOpenGroupSettings to GroupSettingsController', () => {
   assert.match(groups, /GroupSettingsController/);
   assert.match(groups, /rimOpenGroupSettings/);
   assert.match(groups, /groupSettings\.open/);
-  assert.match(app, /4\.0\.0-iteration\.\d+/);
+  assert.match(app, /4\.1\.8-iteration\.163/);
 });
 
 test('legacy group mutation entrypoints remain present for delegated actions', () => {

@@ -6,3 +6,15 @@
 
 /assets/*
   Cache-Control: public, max-age=3600
+
+/assets/js/*
+  Content-Security-Policy: default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'
+
+/assets/js/e2e/*.js
+  Content-Security-Policy: default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'
+
+/assets/js/*.wasm
+  Content-Type: application/wasm
+
+/assets/js/e2e/*.wasm
+  Content-Type: application/wasm

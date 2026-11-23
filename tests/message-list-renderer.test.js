@@ -41,3 +41,13 @@ test('renderer paints empty state when no messages', async () => {
   assert.match(box.innerHTML, /пока нет сообщений/);
   renderer.dispose();
 });
+
+test('local E2E timeline rows are tagged and never show legacy server read receipts', () => {
+  const html = buildMessageArticleHtml({
+    id: 'e2e-1', sender_id: 'u1', body: 'private text', created_at: '2026-01-01T12:00:00Z',
+    _rimE2E: true, _rimLocalOnly: true, _rimEncrypted: true
+  }, { currentUserId: 'u1', profiles: {}, messages: [], peerReadAt: Date.now() + 100000 });
+  assert.match(html, /data-rim-local-only="true"/);
+  assert.match(html, /data-rim-e2e="true"/);
+  assert.doesNotMatch(html, /rim-send-check/);
+});

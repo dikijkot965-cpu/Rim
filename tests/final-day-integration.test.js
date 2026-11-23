@@ -14,5 +14,5 @@ test('app owns nav compose and cabinet routes', () => {
   assert.match(shell, /__RIM_NAV_PAGES_OWNED/);
   assert.match(shell, /__RIM_COMPOSE_CHAT_OWNED/);
   assert.match(shell, /__RIM_IMPERIAL_CABINET_OWNED/);
-  assert.match(app, /4\.0\.0-iteration\.122/);
+  assert.match(app, /4\.1\.8-iteration\.163/);
 });

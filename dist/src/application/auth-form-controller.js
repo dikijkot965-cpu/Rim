@@ -295,8 +295,14 @@ export class AuthFormController {
     }
     this.window.currentUser = result.user;
     this.#setStatus('Вход через Telegram выполнен. Загружаем RIM…');
-    await this.onSignedIn(result.user);
-    return Ok(result.user);
+    try {
+      await this.onSignedIn(result.user);
+      this.#setStatus('Вы вошли через Telegram. РИМ готов к работе.');
+      return Ok(result.user);
+    } catch (error) {
+      this.#setStatus(`Telegram подтвердил вход, но РИМ не смог загрузить данные: ${error?.message || error}`);
+      return Err(error);
+    }
   }
 
   signInWithGithub() {

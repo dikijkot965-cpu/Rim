@@ -15,7 +15,7 @@ test('app owns conversation shell after open', () => {
   assert.match(app, /bindConversationOpenSurface/);
   const openSurface = readFileSync(join(root, 'src/composition/conversation-open-surface.js'), 'utf8');
   assert.match(openSurface, /applyAfterSelection/);
-  assert.match(app, /4\.0\.0-iteration\.122/);
+  assert.match(app, /4\.1\.8-iteration\.163/);
 });
 
 test('legacy group settings button is gated when shell is owned', () => {

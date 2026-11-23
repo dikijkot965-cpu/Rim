@@ -17,5 +17,5 @@ test('app owns direct chat and privacy settings routes', () => {
   assert.match(social, /startChatWith/);
   assert.match(settings, /__RIM_PRIVACY_SETTINGS_OWNED\s*=\s*true/);
   assert.match(settings, /rimSavePrivacy/);
-  assert.match(app, /4\.0\.0-iteration\.122/);
+  assert.match(app, /4\.1\.8-iteration\.163/);
 });
