@@ -1,0 +1,198 @@
+name: Import RIM 4.1.8 iteration 174
+
+on:
+  push:
+    branches:
+      - import/iteration-174
+    paths:
+      - RIM_4.1.8_ITERATION_174_DESIGN_FIXED.zip
+      - .github/workflows/import-rim-174.yml
+
+permissions:
+  contents: write
+
+jobs:
+  import-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout staging branch
+        uses: actions/checkout@v4
+        with:
+          ref: import/iteration-174
+          fetch-depth: 0
+
+      - name: Validate archive, project root, and pinned Signal SDK
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path, PurePosixPath
+          from zipfile import ZipFile
+          import base64, hashlib, json, shutil, tarfile
+
+          archive = Path("RIM_4.1.8_ITERATION_174_DESIGN_FIXED.zip")
+          if not archive.is_file():
+              raise SystemExit("The iteration 174 ZIP is missing")
+          temp = Path("/tmp/rim174")
+          shutil.rmtree(temp, ignore_errors=True)
+          temp.mkdir(parents=True)
+
+          with ZipFile(archive) as zf:
+              infos = zf.infolist()
+              if not infos or len(infos) > 30000:
+                  raise SystemExit("Empty archive or unreasonable entry count")
+              total = 0
+              names = set()
+              for info in infos:
+                  name = info.filename.replace("\\\\", "/")
+                  p = PurePosixPath(name)
+                  if p.is_absolute() or ".." in p.parts or ".git" in p.parts:
+                      raise SystemExit(f"Unsafe ZIP path: {info.filename}")
+                  if ((info.external_attr >> 16) & 0o170000) == 0o120000:
+                      raise SystemExit(f"ZIP symlink rejected: {info.filename}")
+                  total += info.file_size
+                  if total > 500 * 1024 * 1024:
+                      raise SystemExit("Expanded archive exceeds 500 MiB")
+                  names.add(name)
+              roots = []
+              for name in names:
+                  if name.endswith("package.json"):
+                      prefix = name[:-len("package.json")]
+                      if prefix + "index.html" in names:
+                          roots.append(prefix)
+              roots = sorted(set(roots))
+              if len(roots) != 1:
+                  raise SystemExit(f"Expected exactly one project root, found: {roots}")
+              prefix = roots[0]
+              required = [
+                  "package.json", "package-lock.json", "index.html",
+                  "assets/", "src/", "supabase/", "cloudflare-pages/",
+                  "dist/", "docs/", "tests/", "vendor/open-e2ee-signal-protocol-sdk-14.7.0.tgz"
+              ]
+              for item in required:
+                  if item.endswith("/"):
+                      if not any(n.startswith(prefix + item) for n in names):
+                          raise SystemExit(f"Required directory missing: {item}")
+                  elif prefix + item not in names:
+                      raise SystemExit(f"Required file missing: {item}")
+
+              zf.extractall(temp)
+              project = temp / prefix
+              package = json.loads((project / "package.json").read_text())
+              if package.get("version") != "4.1.8-iteration.174":
+                  raise SystemExit(f"Unexpected package version: {package.get('version')}")
+              deps = package.get("dependencies", {})
+              dev = package.get("devDependencies", {})
+              expected = {
+                  "@open-e2ee/signal-protocol-sdk": "14.7.0",
+                  "idb": "8.0.3",
+                  "esbuild": "0.27.0"
+              }
+              actual = {
+                  "@open-e2ee/signal-protocol-sdk": deps.get("@open-e2ee/signal-protocol-sdk"),
+                  "idb": deps.get("idb"),
+                  "esbuild": dev.get("esbuild")
+              }
+              if actual != expected:
+                  raise SystemExit(f"Unexpected E2E dependency pins: {actual}")
+
+              lock = json.loads((project / "package-lock.json").read_text())
+              lock_deps = lock.get("packages", {})
+              for name, version in expected.items():
+                  key = "node_modules/" + name
+                  record = lock_deps.get(key)
+                  if not record or record.get("version") != version or not str(record.get("integrity", "")).startswith("sha512-"):
+                      raise SystemExit(f"Missing or unpinned lockfile entry: {key}")
+
+              sdk = project / "vendor/open-e2ee-signal-protocol-sdk-14.7.0.tgz"
+              digest = base64.b64encode(hashlib.sha512(sdk.read_bytes()).digest()).decode()
+              expected_digest = "kKJ0rn1Gxy1nXk3oYq4jVigmDUKcWlbpV7RmmSm8RrW7tRp0QJv01GHqIzHZdPm7WxqinoUgzMiBXB7qU/dB5w=="
+              if digest != expected_digest:
+                  raise SystemExit("Signal SDK vendor tarball SHA-512 does not match the pinned npm integrity")
+              with tarfile.open(sdk, "r:gz") as tf:
+                  member = tf.extractfile("package/package.json")
+                  if member is None:
+                      raise SystemExit("Signal SDK tarball has no package/package.json")
+                  sdk_package = json.loads(member.read())
+                  if sdk_package.get("version") != "14.7.0":
+                      raise SystemExit("Signal SDK tarball version mismatch")
+
+              for workflow in ("rim-e2e-sdk-download.yml", "rim-e2e-sdk-bootstrap.yml"):
+                  if not (project / ".github/workflows" / workflow).is_file():
+                      raise SystemExit(f"Missing SDK workflow in archive: {workflow}")
+
+          print(f"Validated {len(infos)} ZIP entries ({total} expanded bytes).")
+          print(f"Project root wrapper: {prefix}")
+          print(f"RIM version: {package['version']}")
+          print(f"Signal SDK: 14.7.0; SHA-512 integrity verified.")
+          print(f"Root contains {len(list(project.iterdir()))} entries.")
+          PY
+
+      - name: Replace repository project root and merge SDK workflows
+        shell: bash
+        run: |
+          PROJECT_ROOT="/tmp/rim174/RIM_4.1.8_ITERATION_174"
+          test -f "$PROJECT_ROOT/package.json"
+          rsync -a --delete \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='RIM_4.1.8_ITERATION_174_DESIGN_FIXED.zip' \
+            "$PROJECT_ROOT/" ./
+          mkdir -p .github/workflows
+          install -m 0644 "$PROJECT_ROOT/.github/workflows/rim-e2e-sdk-download.yml" .github/workflows/
+          install -m 0644 "$PROJECT_ROOT/.github/workflows/rim-e2e-sdk-bootstrap.yml" .github/workflows/
+          rm -f RIM_4.1.8_ITERATION_174_DESIGN_FIXED.zip
+          echo "Imported project root:"
+          find . -maxdepth 2 -type d | sort | head -100
+          echo "SDK tarball:"
+          ls -lh vendor/open-e2ee-signal-protocol-sdk-14.7.0.tgz
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install exact locked dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Verify architecture, syntax, unit and E2E tests
+        run: npm run verify
+
+      - name: Build Cloudflare and Pages assets
+        run: npm run build:cloudflare
+
+      - name: Verify public build boundaries and SDK assets
+        shell: bash
+        run: |
+          test ! -e dist/supabase
+          test ! -e dist/tests
+          test ! -e dist/docs
+          test -f dist/assets/js/e2e/sqlite-worker.js
+          test -f dist/assets/js/e2e/sqlite3.wasm
+          test -f cloudflare-pages/index.html
+          test -f vendor/open-e2ee-signal-protocol-sdk-14.7.0.tgz
+          node --input-type=module -e "import('@open-e2ee/signal-protocol-sdk').then(m => { if (typeof m.createSignalProtocolClient !== 'function') process.exit(2); console.log('Signal SDK entrypoint OK'); })"
+          test -f node_modules/@open-e2ee/signal-protocol-sdk/dist/local/store/web-sqlite/index.js
+          test -f node_modules/@open-e2ee/signal-protocol-sdk/dist/local/store/web/index.js
+
+      - name: Remove local dependency tree and temporary importer
+        shell: bash
+        run: |
+          rm -rf node_modules
+          rm -f .github/workflows/import-rim-174.yml
+          git status --short
+
+      - name: Commit verified iteration 174
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No imported project changes detected"
+            exit 1
+          fi
+          git commit -m "Import RIM 4.1.8 iteration 174 design fixed"
+          git push origin HEAD:import/iteration-174
