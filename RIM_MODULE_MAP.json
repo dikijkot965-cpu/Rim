@@ -1,5 +1,5 @@
 {
-  "version": "4.1.4-iteration.131",
+  "version": "4.1.8-iteration.174",
   "layers": {
     "core": [
       "src/core/config.js",
@@ -33,10 +33,12 @@
       "src/application/appearance-preferences-service.js",
       "src/application/auth-form-controller.js",
       "src/application/block-list-service.js",
+      "src/application/bot-platform-controller.js",
       "src/application/calls-placeholder-controller.js",
       "src/application/channel-command-service.js",
       "src/application/channel-directory-controller.js",
       "src/application/channel-feed-controller.js",
+      "src/application/channel-plaintext-policy.js",
       "src/application/channel-settings-controller.js",
       "src/application/chat-info-controller.js",
       "src/application/compose-chat-service.js",
@@ -48,6 +50,7 @@
       "src/application/conversation-open-service.js",
       "src/application/conversation-shell-controller.js",
       "src/application/conversation-state-controller.js",
+      "src/application/device-lock-service.js",
       "src/application/direct-chat-service.js",
       "src/application/forward-message-service.js",
       "src/application/group-command-service.js",
@@ -61,6 +64,7 @@
       "src/application/message-decorations-controller.js",
       "src/application/message-list-renderer.js",
       "src/application/message-outbox-service.js",
+      "src/application/message-search-controller.js",
       "src/application/message-timeline-controller.js",
       "src/application/navigation-pages-controller.js",
       "src/application/navigation-section-controller.js",
@@ -86,13 +90,16 @@
       "src/application/typing-presence-controller.js",
       "src/application/viewport-controller.js",
       "src/application/voice-message-controller.js",
-      "src/application/device-lock-service.js"
+      "src/application/zladen-bot-service.js",
+      "src/application/zladen-settings-controller.js"
     ],
     "infrastructure": [
       "src/infrastructure/supabase/channel-feed-repository.js",
       "src/infrastructure/supabase/channel-repository.js",
       "src/infrastructure/supabase/channel-settings-repository.js",
       "src/infrastructure/supabase/conversation-repository.js",
+      "src/infrastructure/supabase/e2e-device-repository.js",
+      "src/infrastructure/supabase/e2e-scope-repository.js",
       "src/infrastructure/supabase/group-repository.js",
       "src/infrastructure/supabase/message-repository.js",
       "src/infrastructure/supabase/profile-repository.js"
@@ -122,21 +129,32 @@
       "src/composition/settings-surface.js",
       "src/composition/shell-surface.js",
       "src/composition/social-surface.js"
+    ],
+    "security": [
+      "src/security/e2e/crypto-engine.js",
+      "src/security/e2e/e2e-timeline-adapter.js",
+      "src/security/e2e/identity-vault.js",
+      "src/security/e2e/local-message-store.js",
+      "src/security/e2e/scope-policy.js",
+      "src/security/e2e/signal-protocol-runtime.js",
+      "src/security/e2e/supabase-signal-relay.js",
+      "src/security/e2e/e2e-live-lab.js",
+      "src/security/e2e/e2e-diagnostics-reporter.js"
     ]
   },
   "legacy_compatibility": "assets/js/legacy/",
   "entrypoint": "index.html",
   "test_command": "npm test",
   "check_command": "npm run check",
-  "capacity_claim": "Not certified for 10k concurrent active users. Not a hyperscale (1B-user) architecture: see docs/CAPACITY_AND_SCALE.md. Requires staging load tests and explicit backend redesign before large-scale claims.",
+  "capacity_claim": "10,000 concurrent users remains a design target only; no load test has established capacity.",
   "tests": [
     "tests/*.test.js"
   ],
   "verification": {
     "command": "npm run verify",
-    "node_tests": 290,
-    "browser_e2e": "Not run; still priority",
-    "production_supabase_migration": "not applied",
+    "node_tests": 632,
+    "browser_e2e": "Not run on a real Android browser; no Playwright browser runtime is installed in the working environment.",
+    "production_supabase_migration": "E2E migrations through Iteration 162 are already applied to the active project; Iteration 163 adds no SQL migration.",
     "message_history": "newest-first cursor pagination, page size 50, incremental Realtime INSERT/UPDATE/DELETE",
     "message_commands": "text, sticker, image, edit and delete routed through application service; legacy renderer retained",
     "legacy_loader": "legacy stable message loader unified with modular paginated timeline",
@@ -193,6 +211,40 @@
       "24"
     ],
     "legacy_script_tags_remaining": [],
-    "runtime_bootstrap": "assets/js/rim-runtime-bootstrap.js"
+    "runtime_bootstrap": "assets/js/rim-runtime-bootstrap.js",
+    "e2e_crypto": "experimental primitives only; not integrated or enabled",
+    "chat_media_loading": "text paints before bounded asynchronous media URL hydration",
+    "device_lock": "4-digit PIN, configurable 0/1/5/10/30 minute auto-lock grace, progressive local retry delay; legacy 8-digit PIN remains accepted",
+    "e2e_scope_policy": "Direct conversations, private groups and private channels eligible; public channels excluded; required mode is trusted-deployment-only and rejects plaintext writes.",
+    "zladen_system_bot": "Client/source migrations 136–141 and rim-zladen Edge Function source are present, but production currently has only Iteration 135 bot foundations; Zladen migrations 136–141 are not applied and rim-zladen is not deployed. Do not claim production activation.",
+    "message_search": "Scoped plaintext-only conversation search with bounded context jump; server search explicitly refuses E2E/pending/unknown scopes. Local encrypted E2E search remains future work.",
+    "chat_startup": "Classic bootstrap waits for modular app readiness before authenticated initialization; 20-second visible timeout state prevents an endless initial chat-list placeholder.",
+    "browser_bundle": "Root index.html loads assets/js/rim-app.bundle.js; pinned Signal SDK is bundled and SQLite worker/WASM are same-origin root assets."
+  },
+  "iteration_135": {
+    "bot_runtime": "source workspace and isolated-vm runtime prepared; runtime host not deployed",
+    "e2e": "signed device identity and prekey directory foundation; not production E2E",
+    "social_feed": "additive feed/personalization schema applied"
+  },
+  "iteration_136": {
+    "e2e": "Scope schema, encrypted payload columns, per-device group key package table, pending-only RPC, RLS and fail-closed plaintext guards. Protocol SDK and message path are not integrated; E2E is OFF.",
+    "zladen": "First-party system-bot identity, per-user direct chat, welcome message, /start /help /commands /ping /id, owner-only profile editing UI. Full Iris feature parity not implemented.",
+    "deployment": "Migrations and rim-zladen Edge Function are local only. Requires RIM_OWNER_USER_ID secret before bot provisioning."
+  },
+  "iteration_138": {
+    "e2e": "Pinned OpenE2EE Signal Protocol SDK 14.7.0 and idb dependency; lazy browser IndexedDB client composition with strict post-quantum policy. Relay adapter and RIM send/read integration remain incomplete; readiness remains false.",
+    "zladen": "Additive profile, chat-rank, permission, command-alias, virtual-ledger, reputation, eight-tier award, notes, bookmarks, reports, polls, reminders, clans, declarative trigger, anti-spam and metadata-only statistics schema; initial commands include profile, balance, transfer, reputation, notes, report, rank, awards and anti-spam.",
+    "deployment": "New migration 138 is local only. SDK package install and esbuild bundling were not verified in this environment. No production database or deployment changed."
+  },
+  "iteration_142": {
+    "e2e": "Application-owned Supabase Signal Protocol relay adapter and Edge Function; authenticated primary-device bootstrap; canonical composite identity provisioning/rotation; EC+ML-KEM prekey publication and atomic consumption; ciphertext-only mailbox; idempotent delivery; Realtime wakeups and recovery pull; account-isolated encrypted OPFS/IndexedDB store; AES-256-GCM local content cache; real SDK post-quantum two-account round-trip passes against test-only in-memory relay. RIM chat composer/repository integration, Supabase staging execution, real browser two-account test and linked-device transfer remain incomplete. protocolReady remains false.",
+    "zladen": "No speculative new game or economy features in this iteration. Next work should map verified Iris functions to existing RIM modules before implementation.",
+    "deployment": "Iteration 142 SQL migration and rim-e2e-relay Edge Function are local only; no production database or deployment changed."
+  },
+  "iteration_163": {
+    "chat_startup": "Fixed session-restore/module-load race; modular chat loader and conversation-open entrypoints are ready before authenticated bootstrap.",
+    "message_search": "Added scoped plaintext message search with a bounded timeline context jump; E2E/pending/unknown scopes fail closed.",
+    "e2e": "Bundled pinned SDK 14.7.0 into the GitHub Pages root and included the SQLite worker/WASM. protocolReady remains false; two-account live test and secure multi-device linking remain incomplete.",
+    "zladen": "Found production gap: source migrations 136–141 and rim-zladen Edge Function were not deployed. Updated source Edge Function with fail-closed unique-superadmin owner resolution; no Zladen schema or identity was deployed/provisioned."
   }
 }

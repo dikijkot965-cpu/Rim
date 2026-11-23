@@ -13,5 +13,5 @@ test('app owns profile open and save routes', () => {
   assert.match(surface, /__RIM_PROFILE_OWNED\s*=\s*true/);
   assert.match(surface, /openProfile/);
   assert.match(surface, /saveProfile/);
-  assert.match(app, /4\.0\.0-iteration\.122/);
+  assert.match(app, /4\.1\.8-iteration\.163/);
 });

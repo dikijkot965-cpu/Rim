@@ -17,7 +17,7 @@ test('send path prefers local append over full reload', () => {
   assert.match(app, /bindMessageCommandsSurface/);
   assert.match(surface, /applyLocal:/);
   assert.match(entrypoints, /hydrateActivity/);
-  assert.match(app, /4\.0\.0-iteration\.122/);
+  assert.match(app, /4\.1\.8-iteration\.163/);
   const cmd = readFileSync(join(root, 'src/application/message-command-service.js'), 'utf8');
   assert.match(cmd, /applyLocal\(sentMessage/);
 });

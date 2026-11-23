@@ -119,26 +119,21 @@ export class NavigationPagesController {
     } catch {}
     const section = this.#ensureSection('toolsSection', 'Инструменты');
     this.#showOnly('toolsSection');
-    if (!section) {
-      const html = this.#gridHtml([
-        { action: 'newDirectChat', title: '✉ Новый чат', sub: 'Найти пользователя' },
-        { action: 'newGroupChat', title: '👥 Создать группу', sub: 'Новая групповая беседа' },
-        { action: 'createChannel', title: '▤ Создать канал', sub: 'Публичный или закрытый канал' },
-        { action: 'rimSearch', title: '⌕ Поиск', sub: 'Поиск по всему РИМу' },
-        { action: 'openPinnedMessages', title: '📌 Закреплённое', sub: 'Сохранённые сообщения текущего чата' },
-        { action: 'openNotificationSettings', title: '🔔 Уведомления', sub: 'Настройка оповещений' }
-      ]);
-      this.openPage?.('Инструменты', html);
-      return;
-    }
-    const body = section.querySelector('.rim-section-body') || section;
-    this.#paintGrid(body, [
+    const items = [
       { action: 'newDirectChat', title: '✉ Новый чат', sub: 'Найти пользователя' },
       { action: 'newGroupChat', title: '👥 Создать группу', sub: 'Новая групповая беседа' },
       { action: 'createChannel', title: '▤ Создать канал', sub: 'Публичный или закрытый канал' },
       { action: 'rimSearch', title: '⌕ Поиск', sub: 'Поиск по всему РИМу' },
       { action: 'openPinnedMessages', title: '📌 Закреплённое', sub: 'Сохранённые сообщения текущего чата' },
-      { action: 'openNotificationSettings', title: '🔔 Уведомления', sub: 'Настройка оповещений' }
-    ]);
+      { action: 'openNotificationSettings', title: '🔔 Уведомления', sub: 'Настройка оповещений' },
+      { action: 'rimOpenBots', title: '⌘ Боты и Царь-бот', sub: 'Создание, настройка и код ботов' }
+    ];
+    if (this.window?.isImperator?.() === true) items.push({ action: 'rimOpenZladenSettings', title: '⚙ Настроить Злыдю', sub: 'Имя, аватар и ссылка системного помощника' });
+    if (!section) {
+      this.openPage?.('Инструменты', this.#gridHtml(items));
+      return;
+    }
+    const body = section.querySelector('.rim-section-body') || section;
+    this.#paintGrid(body, items);
   }
 }

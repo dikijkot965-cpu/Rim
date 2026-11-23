@@ -25,6 +25,7 @@ test('Telegram OIDC start uses PKCE S256, state and nonce', async () => {
   assert.equal(target.pathname, '/auth');
   assert.equal(target.searchParams.get('client_id'), '9041438103');
   assert.equal(target.searchParams.get('response_type'), 'code');
+  assert.equal(target.searchParams.get('prompt'), 'login');
   assert.equal(target.searchParams.get('code_challenge_method'), 'S256');
   assert.ok(target.searchParams.get('state'));
   assert.ok(target.searchParams.get('nonce'));

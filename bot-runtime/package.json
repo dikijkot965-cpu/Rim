@@ -1,0 +1,9 @@
+{
+  "name": "rim-isolated-bot-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {"start": "node server.mjs", "check": "node --check server.mjs"},
+  "dependencies": {"@supabase/supabase-js": "^2.57.0", "isolated-vm": "^6.0.1"},
+  "engines": {"node": ">=20"}
+}

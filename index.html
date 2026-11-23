@@ -5,8 +5,8 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" name="viewport"/>
 <meta content="#17130e" name="theme-color"/>
-<meta content="Русский Императорский Мессенджер — имперская коммуникационная сеть" name="description"/>
-<title>Русский Императорский Мессенджер</title>
+<meta content="Римъ — имперская коммуникационная сеть" name="description"/>
+<title>Римъ</title>
 <link href="./manifest.json" rel="manifest"/>
 <link href="./icons/icon-192.png" rel="icon" sizes="192x192" type="image/png"/>
 <link href="./icons/icon-192.png" rel="apple-touch-icon"/>
@@ -60,33 +60,50 @@
 </div>
 <div id="app">
 <header class="topbar">
+<button class="rim-avatar-btn" id="rimAvatarBtn" onclick="openSettings()" title="Настройки" aria-label="Настройки">
+  <span class="rim-avatar-inner" id="rimAvatarInner">Р</span>
+</button>
 <div class="brand">
-<div class="brand-title">⚜ РУССКИЙ ИМПЕРАТОРСКИЙ МЕССЕНДЖЕР</div>
-<div class="brand-subtitle">🇷🇺 ИМПЕРСКАЯ КОММУНИКАЦИОННАЯ СЕТЬ</div>
+  <div class="brand-title">Римъ</div>
 </div>
-<button class="icon-btn" onclick="openSettings()" title="Настройки">⚙</button>
-<button class="icon-btn" onclick="openProfile()" title="Профиль">♙</button>
+<button class="icon-btn rim-search-btn" id="rimSearchBtn" onclick="openGlobalSearch()" title="Поиск" aria-label="Поиск">⌕</button>
 </header>
 <main class="main">
 <section class="sidebar" id="sidebar">
 <div class="tabbar">
 <button class="action-btn selected" id="tabChats" onclick="showSection('chats')">Чаты</button>
-<button class="action-btn" id="tabChannels" onclick="showSection('channels')">Каналы</button>
+<button class="action-btn" id="tabFeed" onclick="showSection('feed')">Лента</button>
 <button class="action-btn" id="tabMusic" onclick="showSection('music')">Музыка</button>
 </div>
 <div id="chatsSection" style="display:flex;flex:1;min-height:0;flex-direction:column">
-<div class="sidebar-head">
-<input class="search-input" id="chatSearch" oninput="filterChats()" placeholder="Поиск..."/>
-<button class="icon-btn" onclick="newDirectChat()" title="Новый чат">＋</button>
-<button class="icon-btn" onclick="newGroupChat()" title="Новая группа">♧</button>
+<div class="sidebar-head rim-chats-toolbar">
+  <button class="rim-create-handle" id="rimCreateHandle" type="button" title="Создать" aria-label="Создать чат, группу или канал">
+    <span class="rim-create-handle-icon">✎</span>
+  </button>
+  <!-- chatSearch kept in DOM for compatibility with existing filterChats / search controllers -->
+  <input class="search-input" id="chatSearch" oninput="filterChats()" placeholder="Поиск..." style="position:absolute;opacity:0;pointer-events:none;width:0;height:0" />
 </div>
 <div class="chat-list" id="chatList">
 <div class="loading">Загрузка переписок...</div>
 </div>
 </div>
-<div class="page-content hidden" id="channelsSection">
-<button class="primary-btn" onclick="createChannel()" style="width:100%;margin-bottom:12px">＋ Создать канал</button>
-<div id="channelList"></div>
+<div class="page-content hidden" id="feedSection">
+  <div class="rim-feed-header">
+    <div class="rim-feed-title">Лента</div>
+    <button class="rim-feed-compose-btn" id="rimFeedComposeBtn" type="button" title="Новый пост" aria-label="Новый пост">+</button>
+  </div>
+  <div class="rim-feed-tabs" id="rimFeedTabs">
+    <button type="button" class="rim-feed-tab selected" data-feed-mode="for_you">Для вас</button>
+    <button type="button" class="rim-feed-tab" data-feed-mode="following">Подписки</button>
+    <button type="button" class="rim-feed-tab" data-feed-mode="recommended">Рекомендации</button>
+  </div>
+  <div class="rim-feed-list" id="rimFeedList">
+    <div class="rim-feed-empty muted">Пока нет постов. Нажмите + чтобы создать первый.</div>
+  </div>
+</div>
+<!-- Channels are now shown inside the main chat list. Keep hidden container for compatibility. -->
+<div class="page-content hidden" id="channelsSection" style="display:none!important">
+  <div id="channelList"></div>
 </div>
 <div class="page-content hidden" id="musicSection">
 <div class="card">
@@ -104,6 +121,7 @@
 </div>
 <div id="musicList"></div>
 </div>
+
 </section>
 <section class="chat-window" id="chatWindow">
 <div class="chat-head">
@@ -113,6 +131,8 @@
 <div class="chat-head-name" id="chatHeadName">Переписка</div>
 <div class="chat-head-status" id="chatHeadStatus">Выберите чат</div>
 </div>
+<button class="icon-btn" id="rimE2EVerifyBtn" onclick="rimVerifyE2E()" title="Проверить или включить E2E" aria-label="Проверить или включить E2E" hidden>🔒</button>
+<button class="icon-btn" onclick="rimSearchInConversation()" title="Поиск по переписке" aria-label="Поиск по переписке">⌕</button>
 <button class="icon-btn" onclick="openChatInfo()">ⓘ</button>
 </div>
 <div class="messages" id="messages">
@@ -133,18 +153,319 @@
 <button class="sticker-choice" onclick="sendSticker('👍')">👍</button>
 <button class="sticker-choice" onclick="sendSticker('🚀')">🚀</button>
 </div>
-<div class="composer">
-<button class="rim-plus-btn" type="button" id="rimAttachBtn" title="Вложения">＋</button>
-<input accept="image/png,image/jpeg,image/webp,image/gif" hidden="" id="imageInput" onchange="sendImage(this.files[0])" type="file"/>
-<input accept="*/*" hidden="" id="fileInput" type="file"/>
-<textarea class="composer-input" id="messageInput" oninput="resizeComposer(this)" onkeydown="messageKeydown(event)" placeholder="Сообщение..." rows="1"></textarea>
-<button class="rim-mic-btn" type="button" id="rimVoiceBtn" title="Голосовое">🎤</button>
-<button class="send-btn" type="button" onclick="sendMessage()" title="Отправить">➤</button>
+<div class="composer grok-style">
+  <button class="rim-plus-btn" type="button" id="rimAttachBtn" title="Вложения" aria-label="Вложения">+</button>
+  <div class="composer-input-wrap">
+    <textarea class="composer-input" id="messageInput" oninput="resizeComposer(this)" onkeydown="messageKeydown(event)" placeholder="Сообщение..." rows="1"></textarea>
+  </div>
+  <button class="rim-mic-btn" type="button" id="rimVoiceBtn" title="Голосовое" aria-label="Голосовое сообщение">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+  </button>
+  <button class="send-btn" type="button" onclick="sendMessage()" title="Отправить" aria-label="Отправить">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+  </button>
+  <input accept="image/png,image/jpeg,image/webp,image/gif" hidden="" id="imageInput" onchange="sendImage(this.files[0])" type="file"/>
+  <input accept="*/*" hidden="" id="fileInput" type="file"/>
+</div>
+
+<!-- Grok-style attach menu -->
+<div class="rim-attach-menu hidden" id="rimAttachMenu">
+  <button type="button" class="rim-attach-item" data-action="camera">
+    <span class="rim-attach-icon">📷</span> Камера
+  </button>
+  <button type="button" class="rim-attach-item" data-action="gallery">
+    <span class="rim-attach-icon">🖼️</span> Галерея
+  </button>
+  <button type="button" class="rim-attach-item" data-action="file">
+    <span class="rim-attach-icon">📄</span> Файлы
+  </button>
+  <div class="rim-attach-sep"></div>
+  <button type="button" class="rim-attach-item" data-action="skills">
+    <span class="rim-attach-icon">🧩</span> Навыки
+  </button>
+  <button type="button" class="rim-attach-item" data-action="connectors">
+    <span class="rim-attach-icon">🔌</span> Коннекторы
+  </button>
 </div>
 </div>
 </section>
 </main>
 </div>
+
+<!-- ===== Feed Compose (X-style) ===== -->
+<div id="rimFeedComposeModal" class="rim-feed-compose-modal hidden" aria-hidden="true">
+  <div class="rim-feed-compose-backdrop" data-close-feed-compose></div>
+  <div class="rim-feed-compose-sheet">
+    <div class="rim-feed-compose-top">
+      <button type="button" class="rim-feed-compose-cancel" data-close-feed-compose>Отмена</button>
+      <div class="rim-feed-compose-heading">Новый пост</div>
+      <button type="button" class="rim-feed-compose-publish" id="rimFeedPublishBtn">Опубликовать</button>
+    </div>
+    <div class="rim-feed-compose-body">
+      <textarea id="rimFeedComposeText" class="rim-feed-compose-textarea" placeholder="Что у вас нового?" rows="6"></textarea>
+      <div class="rim-feed-compose-preview hidden" id="rimFeedComposePreview"></div>
+    </div>
+    <div class="rim-feed-compose-tools">
+      <button type="button" class="rim-feed-tool" id="rimFeedAddImage" title="Фото">🖼</button>
+      <button type="button" class="rim-feed-tool" id="rimFeedAddFile" title="Файл">📎</button>
+      <span class="rim-feed-compose-hint muted">Фото, видео, файлы</span>
+    </div>
+    <input type="file" id="rimFeedImageInput" accept="image/*,video/*" hidden />
+    <input type="file" id="rimFeedFileInput" accept="*/*" hidden />
+  </div>
+</div>
+
+<!-- ===== Feed Comments (VK-style sheet) ===== -->
+<div id="rimFeedCommentsSheet" class="rim-feed-comments-sheet hidden" aria-hidden="true">
+  <div class="rim-feed-comments-backdrop" data-close-feed-comments></div>
+  <div class="rim-feed-comments-panel">
+    <div class="rim-feed-comments-handle"></div>
+    <div class="rim-feed-comments-header">
+      <button type="button" class="rim-feed-comments-back" data-close-feed-comments>←</button>
+      <div class="rim-feed-comments-title">Комментарии</div>
+      <div style="width:36px"></div>
+    </div>
+    <!-- Scrollable: post summary + comments so user can scroll back to post -->
+    <div class="rim-feed-comments-scroll" id="rimFeedCommentsScroll">
+      <div class="rim-feed-comments-post-preview" id="rimFeedCommentsPostPreview"></div>
+      <div class="rim-feed-comments-list" id="rimFeedCommentsList"></div>
+    </div>
+    <div class="rim-feed-comments-composer">
+      <input type="text" id="rimFeedCommentInput" class="rim-feed-comment-input" placeholder="Написать комментарий..." />
+      <button type="button" id="rimFeedCommentSend" class="rim-feed-comment-send">➤</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Global Search overlay (TG-like) -->
+<div id="rimGlobalSearch" class="rim-global-search hidden" aria-hidden="true">
+  <div class="rim-global-search-top">
+    <button type="button" class="rim-global-search-back" id="rimGlobalSearchBack">←</button>
+    <input type="search" id="rimGlobalSearchInput" class="rim-global-search-input" placeholder="Поиск" autocomplete="off" />
+  </div>
+  <div class="rim-global-search-body">
+    <div class="rim-global-search-section-label">Недавние</div>
+    <div id="rimGlobalSearchRecent" class="rim-global-search-recent"></div>
+    <div class="rim-global-search-section-label">Результаты</div>
+    <div id="rimGlobalSearchResults" class="rim-global-search-results">
+      <div class="muted" style="padding:16px;text-align:center">Начните вводить запрос</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ===== Telegram-style Settings ===== -->
+<div id="rimTgSettings" class="rim-tg-settings hidden" aria-hidden="true">
+  <div class="rim-tg-settings-top">
+    <button type="button" class="rim-tg-back" id="rimTgSettingsBack">←</button>
+    <div class="rim-tg-settings-title">Настройки</div>
+    <div style="width:40px"></div>
+  </div>
+  <div class="rim-tg-settings-scroll">
+    <div class="rim-tg-profile-card" id="rimTgProfileCard">
+      <div class="rim-tg-profile-avatar" id="rimTgProfileAvatar">Р</div>
+      <div class="rim-tg-profile-info">
+        <div class="rim-tg-profile-name" id="rimTgProfileName">Пользователь</div>
+        <div class="rim-tg-profile-sub" id="rimTgProfileSub">Римъ</div>
+      </div>
+    </div>
+
+    <div class="rim-tg-section">
+      <button type="button" class="rim-tg-row" data-tg-action="account">
+        <span class="rim-tg-row-icon">👤</span>
+        <span class="rim-tg-row-label">Аккаунт</span>
+        <span class="rim-tg-row-chevron">›</span>
+      </button>
+      <button type="button" class="rim-tg-row" data-tg-action="privacy">
+        <span class="rim-tg-row-icon">🔒</span>
+        <span class="rim-tg-row-label">Конфиденциальность</span>
+        <span class="rim-tg-row-chevron">›</span>
+      </button>
+      <button type="button" class="rim-tg-row" data-tg-action="security">
+        <span class="rim-tg-row-icon">🛡️</span>
+        <span class="rim-tg-row-label">Безопасность</span>
+        <span class="rim-tg-row-chevron">›</span>
+      </button>
+    </div>
+
+    <div class="rim-tg-section">
+      <button type="button" class="rim-tg-row" data-tg-action="notifications">
+        <span class="rim-tg-row-icon">🔔</span>
+        <span class="rim-tg-row-label">Уведомления и звуки</span>
+        <span class="rim-tg-row-chevron">›</span>
+      </button>
+      <button type="button" class="rim-tg-row" data-tg-action="data">
+        <span class="rim-tg-row-icon">📁</span>
+        <span class="rim-tg-row-label">Данные и память</span>
+        <span class="rim-tg-row-chevron">›</span>
+      </button>
+      <button type="button" class="rim-tg-row" data-tg-action="folders">
+        <span class="rim-tg-row-icon">📂</span>
+        <span class="rim-tg-row-label">Папки с диалогами</span>
+        <span class="rim-tg-row-chevron">›</span>
+      </button>
+    </div>
+
+    <div class="rim-tg-section">
+      <button type="button" class="rim-tg-row" data-tg-action="appearance">
+        <span class="rim-tg-row-icon">🎨</span>
+        <span class="rim-tg-row-label">Оформление</span>
+        <span class="rim-tg-row-chevron">›</span>
+      </button>
+      <button type="button" class="rim-tg-row" data-tg-action="language">
+        <span class="rim-tg-row-icon">🌐</span>
+        <span class="rim-tg-row-label">Язык</span>
+        <span class="rim-tg-row-value" id="rimTgLangValue">Русский</span>
+        <span class="rim-tg-row-chevron">›</span>
+      </button>
+      <button type="button" class="rim-tg-row" data-tg-action="devices">
+        <span class="rim-tg-row-icon">💻</span>
+        <span class="rim-tg-row-label">Устройства</span>
+        <span class="rim-tg-row-chevron">›</span>
+      </button>
+    </div>
+
+    <div class="rim-tg-section">
+      <button type="button" class="rim-tg-row" data-tg-action="feed-prefs">
+        <span class="rim-tg-row-icon">📰</span>
+        <span class="rim-tg-row-label">Лента и рекомендации</span>
+        <span class="rim-tg-row-chevron">›</span>
+      </button>
+      <button type="button" class="rim-tg-row" data-tg-action="imperial">
+        <span class="rim-tg-row-icon">⚜</span>
+        <span class="rim-tg-row-label">Императорская панель</span>
+        <span class="rim-tg-row-chevron">›</span>
+      </button>
+    </div>
+
+    <div class="rim-tg-section">
+      <button type="button" class="rim-tg-row" data-tg-action="help">
+        <span class="rim-tg-row-icon">❓</span>
+        <span class="rim-tg-row-label">Помощь</span>
+        <span class="rim-tg-row-chevron">›</span>
+      </button>
+      <button type="button" class="rim-tg-row danger" data-tg-action="logout">
+        <span class="rim-tg-row-icon">🚪</span>
+        <span class="rim-tg-row-label">Выйти</span>
+      </button>
+    </div>
+
+    <div class="rim-tg-footnote muted">Римъ · без Stars</div>
+  </div>
+</div>
+
+<!-- ===== Imperial Panel (extended) ===== -->
+<div id="rimImperialPanel" class="rim-imperial-panel hidden" aria-hidden="true">
+  <div class="rim-imperial-top">
+    <button type="button" class="rim-tg-back" id="rimImperialBack">←</button>
+    <div class="rim-imperial-title">⚜ Императорская панель</div>
+    <div style="width:40px"></div>
+  </div>
+  <div class="rim-imperial-scroll">
+    <div id="rimImperialHome">
+      <div class="rim-imperial-hero">
+        <div class="rim-imperial-crest">⚜</div>
+        <div class="rim-imperial-hero-text">
+          <div class="rim-imperial-hero-title">Кабинет управления</div>
+          <div class="rim-imperial-hero-sub">Расширенный контроль сети Римъ</div>
+        </div>
+      </div>
+      <div class="rim-imperial-grid">
+        <button type="button" class="rim-imperial-card" data-imp="moderation">
+          <div class="rim-imperial-card-icon">⚖️</div>
+          <div class="rim-imperial-card-title">Модерация</div>
+          <div class="rim-imperial-card-sub">Жалобы, суть, переход к сообщению</div>
+        </button>
+        <button type="button" class="rim-imperial-card" data-imp="channels">
+          <div class="rim-imperial-card-icon">📢</div>
+          <div class="rim-imperial-card-title">Каналы империи</div>
+          <div class="rim-imperial-card-sub">Поиск, бан, ограничение публикаций</div>
+        </button>
+        <button type="button" class="rim-imperial-card" data-imp="users">
+          <div class="rim-imperial-card-icon">👥</div>
+          <div class="rim-imperial-card-title">Пользователи</div>
+          <div class="rim-imperial-card-sub">Мут и бан по сети</div>
+        </button>
+        <button type="button" class="rim-imperial-card" data-imp="feed-rank">
+          <div class="rim-imperial-card-icon">📊</div>
+          <div class="rim-imperial-card-title">Ранжирование ленты</div>
+          <div class="rim-imperial-card-sub">Веса, темы, подавления</div>
+        </button>
+        <button type="button" class="rim-imperial-card" data-imp="broadcast">
+          <div class="rim-imperial-card-icon">📯</div>
+          <div class="rim-imperial-card-title">Широковещание</div>
+          <div class="rim-imperial-card-sub">Имперские объявления</div>
+        </button>
+        <button type="button" class="rim-imperial-card" data-imp="analytics">
+          <div class="rim-imperial-card-icon">📈</div>
+          <div class="rim-imperial-card-title">Аналитика</div>
+          <div class="rim-imperial-card-sub">Активность, охват, пики</div>
+        </button>
+        <button type="button" class="rim-imperial-card" data-imp="security">
+          <div class="rim-imperial-card-icon">🔐</div>
+          <div class="rim-imperial-card-title">Безопасность сети</div>
+          <div class="rim-imperial-card-sub">Устройства, сессии, угрозы</div>
+        </button>
+        <button type="button" class="rim-imperial-card" data-imp="bots">
+          <div class="rim-imperial-card-icon">🤖</div>
+          <div class="rim-imperial-card-title">Боты и Зладень</div>
+          <div class="rim-imperial-card-sub">Платформа ботов</div>
+        </button>
+      </div>
+      <div class="rim-imperial-section-title">Быстрые переключатели</div>
+      <div class="rim-imperial-toggles">
+        <label class="rim-imperial-toggle"><input type="checkbox" id="impModerationStrict" /> Строгая модерация ленты</label>
+        <label class="rim-imperial-toggle"><input type="checkbox" id="impOfficialOnly" /> Приоритет официальных каналов</label>
+        <label class="rim-imperial-toggle"><input type="checkbox" id="impHideSensitive" checked /> Скрывать чувствительный контент</label>
+        <label class="rim-imperial-toggle"><input type="checkbox" id="impRecsEnabled" checked /> Рекомендации в ленте</label>
+      </div>
+      <div class="rim-imperial-section-title">Статус сети (локально)</div>
+      <div class="rim-imperial-stats" id="rimImperialStats">
+        <div class="rim-imperial-stat"><span>Постов в ленте</span><b id="impStatPosts">0</b></div>
+        <div class="rim-imperial-stat"><span>Комментариев</span><b id="impStatComments">0</b></div>
+        <div class="rim-imperial-stat"><span>Режим ленты</span><b id="impStatFeedMode">Для вас</b></div>
+      </div>
+    </div>
+
+    <!-- Sub-views -->
+    <div id="rimImpViewChannels" class="rim-imp-view hidden">
+      <div class="rim-imp-view-head">
+        <button type="button" class="rim-tg-back rim-imp-view-back" data-imp-back>←</button>
+        <div class="rim-imp-view-title">Каналы империи</div>
+      </div>
+      <div class="rim-imp-search-row">
+        <input type="search" id="rimImpChannelSearch" class="rim-imp-search" placeholder="Найти канал по названию или @username" />
+      </div>
+      <div id="rimImpChannelList" class="rim-imp-list"></div>
+    </div>
+
+    <div id="rimImpViewUsers" class="rim-imp-view hidden">
+      <div class="rim-imp-view-head">
+        <button type="button" class="rim-tg-back rim-imp-view-back" data-imp-back>←</button>
+        <div class="rim-imp-view-title">Пользователи</div>
+      </div>
+      <div class="rim-imp-search-row">
+        <input type="search" id="rimImpUserSearch" class="rim-imp-search" placeholder="Найти пользователя (@username или имя)" />
+      </div>
+      <div id="rimImpUserList" class="rim-imp-list"></div>
+    </div>
+
+    <div id="rimImpViewModeration" class="rim-imp-view hidden">
+      <div class="rim-imp-view-head">
+        <button type="button" class="rim-tg-back rim-imp-view-back" data-imp-back>←</button>
+        <div class="rim-imp-view-title">Модерация</div>
+      </div>
+      <div class="rim-imp-mod-filters">
+        <button type="button" class="rim-feed-tab selected" data-mod-filter="open">Открытые</button>
+        <button type="button" class="rim-feed-tab" data-mod-filter="resolved">Закрытые</button>
+        <button type="button" class="rim-feed-tab" data-mod-filter="all">Все</button>
+      </div>
+      <div id="rimImpModerationList" class="rim-imp-list"></div>
+    </div>
+  </div>
+</div>
+
 <div id="modalRoot"></div>
 <div id="toast"></div>
 <!-- Stage C: 02 legacy path retired — runtime lives in rim-runtime-bootstrap.js -->
@@ -207,6 +528,1725 @@ window.__RIM_LEGACY_CONTEXT = Object.freeze({
 });
 try { window.__rimMirrorLegacyState?.(); } catch (_) {}
 </script>
-<script type="module" src="./src/app.js"></script>
+<script type="module" src="./assets/js/rim-app.bundle.js"></script>
+
+<script>
+/* RIM Design Refresh bootstrap — topbar + Grok composer behavior */
+(function () {
+  function qs(sel, root) { return (root || document).querySelector(sel); }
+  function qsa(sel, root) { return Array.from((root || document).querySelectorAll(sel)); }
+
+  // Avatar initials from current user when available
+  function refreshAvatar() {
+    const inner = qs('#rimAvatarInner');
+    if (!inner) return;
+    try {
+      const u = window.currentUser || window.__RIM_LEGACY_CONTEXT?.getUser?.();
+      const name = (u?.display_name || u?.username || u?.email || 'Р').trim();
+      inner.textContent = (name[0] || 'Р').toUpperCase();
+    } catch (_) {}
+  }
+
+  // Attach menu toggle
+  function closeAttachMenu() {
+    const m = qs('#rimAttachMenu');
+    if (m) m.classList.add('hidden');
+  }
+
+  function toggleAttachMenu(e) {
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
+    const menu = qs('#rimAttachMenu');
+    if (!menu) return;
+    menu.classList.toggle('hidden');
+  }
+
+  function onAttachAction(action) {
+    closeAttachMenu();
+    if (action === 'camera' || action === 'gallery') {
+      qs('#imageInput')?.click?.();
+    } else if (action === 'file') {
+      qs('#fileInput')?.click?.();
+    } else if (action === 'skills') {
+      if (typeof toast === 'function') toast('Навыки — скоро');
+      else console.info('Skills placeholder');
+    } else if (action === 'connectors') {
+      if (typeof toast === 'function') toast('Коннекторы — скоро');
+      else console.info('Connectors placeholder');
+    }
+  }
+
+  // Global search overlay
+  const SEARCH_RECENT_KEY = 'rim_search_recent_v1';
+  function loadSearchRecent() {
+    try { return JSON.parse(localStorage.getItem(SEARCH_RECENT_KEY) || '[]'); } catch { return []; }
+  }
+  function pushSearchRecent(q) {
+    q = (q || '').trim();
+    if (!q) return;
+    let arr = loadSearchRecent().filter(x => x !== q);
+    arr.unshift(q);
+    arr = arr.slice(0, 12);
+    try { localStorage.setItem(SEARCH_RECENT_KEY, JSON.stringify(arr)); } catch {}
+  }
+
+  function renderSearchRecent() {
+    const box = qs('#rimGlobalSearchRecent');
+    if (!box) return;
+    const items = loadSearchRecent();
+    box.innerHTML = items.length
+      ? items.map(q => `<div class="rim-global-search-hit" data-recent="${escapeHtml(q)}"><div class="rim-global-search-hit-meta"><div class="rim-global-search-hit-title">${escapeHtml(q)}</div></div></div>`).join('')
+      : '<div class="muted" style="padding:8px 16px">Пусто</div>';
+    box.querySelectorAll('[data-recent]').forEach(el => {
+      el.addEventListener('click', () => {
+        const input = qs('#rimGlobalSearchInput');
+        if (input) {
+          input.value = el.getAttribute('data-recent') || '';
+          runGlobalSearch(input.value);
+        }
+      });
+    });
+  }
+
+  function runGlobalSearch(query) {
+    const results = qs('#rimGlobalSearchResults');
+    if (!results) return;
+    query = (query || '').trim().toLowerCase();
+    if (!query) {
+      results.innerHTML = '<div class="muted" style="padding:16px;text-align:center">Начните вводить запрос</div>';
+      return;
+    }
+    let convs = [];
+    try {
+      convs = (typeof conversations !== 'undefined' && conversations)
+        || window.conversations
+        || window.__RIM_LEGACY_CONTEXT?.getConversations?.()
+        || [];
+    } catch { convs = []; }
+
+    const hits = (convs || []).filter(c => {
+      const title = (c.title || c.name || c.username || c.display_name || '').toLowerCase();
+      const uname = (c.username || c.handle || '').toLowerCase();
+      return title.includes(query) || uname.includes(query) || String(c.id || '').includes(query);
+    }).slice(0, 40);
+
+    if (!hits.length) {
+      results.innerHTML = '<div class="muted" style="padding:16px;text-align:center">Ничего не найдено</div>';
+      return;
+    }
+    results.innerHTML = hits.map(c => {
+      const title = c.title || c.name || c.display_name || c.username || 'Чат';
+      const sub = c.username ? '@' + c.username : (c.type || c.kind || '');
+      const initial = (title[0] || '?').toUpperCase();
+      return `<div class="rim-global-search-hit" data-conv-id="${c.id}">
+        <div class="rim-global-search-hit-avatar">${initial}</div>
+        <div class="rim-global-search-hit-meta">
+          <div class="rim-global-search-hit-title">${escapeHtml(title)}</div>
+          <div class="rim-global-search-hit-sub">${escapeHtml(sub)}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    results.querySelectorAll('[data-conv-id]').forEach(el => {
+      el.addEventListener('click', () => {
+        const id = el.getAttribute('data-conv-id');
+        pushSearchRecent(query);
+        closeGlobalSearch();
+        try {
+          if (typeof window.openConversation === 'function') window.openConversation(id);
+          else if (typeof window.openChat === 'function') window.openChat(id);
+        } catch {}
+      });
+    });
+  }
+
+  window.openGlobalSearch = function openGlobalSearch() {
+    const overlay = qs('#rimGlobalSearch');
+    const input = qs('#rimGlobalSearchInput');
+    if (!overlay) return;
+    overlay.classList.remove('hidden');
+    overlay.setAttribute('aria-hidden', 'false');
+    renderSearchRecent();
+    runGlobalSearch('');
+    setTimeout(() => input?.focus(), 40);
+  };
+
+  function closeGlobalSearch() {
+    const overlay = qs('#rimGlobalSearch');
+    if (!overlay) return;
+    overlay.classList.add('hidden');
+    overlay.setAttribute('aria-hidden', 'true');
+  }
+
+  qs('#rimGlobalSearchBack')?.addEventListener('click', closeGlobalSearch);
+  qs('#rimGlobalSearchInput')?.addEventListener('input', (e) => runGlobalSearch(e.target.value));
+  qs('#rimGlobalSearchInput')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeGlobalSearch();
+    if (e.key === 'Enter') {
+      pushSearchRecent(e.target.value);
+    }
+  });
+
+
+  function bind() {
+    const plus = qs('#rimAttachBtn');
+    if (plus && !plus.dataset.rimDesignBound) {
+      plus.dataset.rimDesignBound = '1';
+      plus.addEventListener('click', toggleAttachMenu);
+    }
+
+    qsa('#rimAttachMenu .rim-attach-item').forEach(btn => {
+      if (btn.dataset.rimDesignBound) return;
+      btn.dataset.rimDesignBound = '1';
+      btn.addEventListener('click', () => onAttachAction(btn.getAttribute('data-action')));
+    });
+
+    // Close menu on outside click
+    document.addEventListener('click', (ev) => {
+      const menu = qs('#rimAttachMenu');
+      const plus = qs('#rimAttachBtn');
+      if (!menu || menu.classList.contains('hidden')) return;
+      if (menu.contains(ev.target) || plus?.contains(ev.target)) return;
+      closeAttachMenu();
+    });
+
+    refreshAvatar();
+    // Re-refresh when user changes
+    setInterval(refreshAvatar, 4000);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bind);
+  } else {
+    bind();
+  }
+
+  // --- Feed section support ---
+  const _origShowSection = window.showSection;
+  window.showSection = function(name) {
+    // Hide all known sections first if original exists
+    if (typeof _origShowSection === 'function') {
+      try { _origShowSection(name); } catch (e) { console.warn(e); }
+    }
+    const feed = document.getElementById('feedSection');
+    const chats = document.getElementById('chatsSection');
+    const music = document.getElementById('musicSection');
+    const channels = document.getElementById('channelsSection');
+
+    // Normalize tab selected state
+    document.querySelectorAll('.tabbar .action-btn').forEach(b => b.classList.remove('selected'));
+    const tabMap = { chats: 'tabChats', feed: 'tabFeed', music: 'tabMusic', channels: 'tabChannels' };
+    const tab = document.getElementById(tabMap[name]);
+    if (tab) tab.classList.add('selected');
+
+    if (name === 'feed') {
+      if (chats) chats.style.display = 'none';
+      if (music) music.classList.add('hidden');
+      if (channels) channels.classList.add('hidden');
+      if (feed) {
+        feed.classList.remove('hidden');
+        feed.style.display = 'flex';
+      }
+      return;
+    }
+
+    // Leaving feed
+    if (feed) {
+      feed.classList.add('hidden');
+      feed.style.display = 'none';
+    }
+    if (name === 'chats' && chats) {
+      chats.style.display = 'flex';
+    }
+  };
+
+  // Create handle (groups / channels / direct)
+  document.getElementById('rimCreateHandle')?.addEventListener('click', () => {
+    // Prefer existing flows
+    if (typeof window.newGroupChat === 'function' || typeof window.newDirectChat === 'function') {
+      // Simple action sheet
+      const existing = document.getElementById('rimCreateSheet');
+      if (existing) existing.remove();
+      const sheet = document.createElement('div');
+      sheet.id = 'rimCreateSheet';
+      sheet.className = 'rim-attach-menu'; // reuse style
+      sheet.style.bottom = 'auto';
+      sheet.style.top = '110px';
+      sheet.style.right = '12px';
+      sheet.style.left = 'auto';
+      sheet.innerHTML = `
+        <button type="button" class="rim-attach-item" data-create="direct">Новый чат</button>
+        <button type="button" class="rim-attach-item" data-create="group">Новая группа</button>
+        <button type="button" class="rim-attach-item" data-create="channel">Новый канал</button>
+      `;
+      sheet.addEventListener('click', (ev) => {
+        const btn = ev.target.closest('[data-create]');
+        if (!btn) return;
+        const action = btn.getAttribute('data-create');
+        sheet.remove();
+        if (action === 'direct' && typeof window.newDirectChat === 'function') window.newDirectChat();
+        else if (action === 'group' && typeof window.newGroupChat === 'function') window.newGroupChat();
+        else if (action === 'channel' && typeof window.createChannel === 'function') window.createChannel();
+        else if (typeof toast === 'function') toast('Функция пока недоступна');
+      });
+      document.body.appendChild(sheet);
+      setTimeout(() => {
+        const close = (e) => {
+          if (!sheet.contains(e.target) && e.target.id !== 'rimCreateHandle') {
+            sheet.remove();
+            document.removeEventListener('click', close);
+          }
+        };
+        document.addEventListener('click', close);
+      }, 10);
+    }
+  });
+
+
+  // ========== Feed (local until SQL) ==========
+  const FEED_KEY = 'rim_feed_posts_v1';
+  const FEED_COMMENTS_KEY = 'rim_feed_comments_v1';
+
+  function loadFeedPosts() {
+    try { return JSON.parse(localStorage.getItem(FEED_KEY) || '[]'); } catch { return []; }
+  }
+  function saveFeedPosts(posts) {
+    try { localStorage.setItem(FEED_KEY, JSON.stringify(posts)); } catch {}
+  }
+  function loadFeedComments() {
+    try { return JSON.parse(localStorage.getItem(FEED_COMMENTS_KEY) || '{}'); } catch { return {}; }
+  }
+  function saveFeedComments(map) {
+    try { localStorage.setItem(FEED_COMMENTS_KEY, JSON.stringify(map)); } catch {}
+  }
+
+  function currentUserLabel() {
+    try {
+      const u = window.currentUser || window.__RIM_LEGACY_CONTEXT?.getUser?.();
+      return (u?.display_name || u?.username || u?.email || 'Вы').toString();
+    } catch { return 'Вы'; }
+  }
+
+  function renderFeedList() {
+    if (window.renderFeedList && window.renderFeedList !== renderFeedList && window.__rimFeedRankReady) {
+      return window.renderFeedList();
+    }
+    const list = document.getElementById('rimFeedList');
+    if (!list) return;
+    const posts = loadFeedPosts();
+    if (!posts.length) {
+      list.innerHTML = '<div class="rim-feed-empty muted">Пока нет постов. Нажмите + чтобы создать первый.</div>';
+      return;
+    }
+    list.innerHTML = posts.map(p => {
+      const initial = (p.author || 'Р')[0].toUpperCase();
+      const views = p.views || 0;
+      const comments = (loadFeedComments()[p.id] || []).length;
+      const media = p.mediaUrl
+        ? `<div class="rim-feed-post-media"><img src="${p.mediaUrl}" alt="" /></div>`
+        : '';
+      return `<article class="rim-feed-post" data-post-id="${p.id}">
+        <div class="rim-feed-post-header">
+          <div class="rim-feed-post-avatar">${initial}</div>
+          <div class="rim-feed-post-meta">
+            <div class="rim-feed-post-author">${escapeHtml(p.author || 'Автор')}</div>
+            <div class="rim-feed-post-time">${formatFeedTime(p.createdAt)}</div>
+          </div>
+        </div>
+        <div class="rim-feed-post-body">${escapeHtml(p.text || '')}</div>
+        ${media}
+        <div class="rim-feed-post-stats">
+          <span class="rim-feed-stat" data-action="comments" data-post-id="${p.id}">💬 ${comments}</span>
+          <span class="rim-feed-stat">👁 ${views}</span>
+        </div>
+      </article>`;
+    }).join('');
+
+    list.querySelectorAll('[data-action="comments"]').forEach(el => {
+      el.addEventListener('click', () => openFeedComments(el.getAttribute('data-post-id')));
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function formatFeedTime(ts) {
+    if (!ts) return '';
+    try {
+      const d = new Date(ts);
+      return d.toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    } catch { return ''; }
+  }
+
+  function openFeedCompose() {
+    const modal = document.getElementById('rimFeedComposeModal');
+    const ta = document.getElementById('rimFeedComposeText');
+    const preview = document.getElementById('rimFeedComposePreview');
+    if (!modal) return;
+    if (ta) ta.value = '';
+    if (preview) {
+      preview.classList.add('hidden');
+      preview.innerHTML = '';
+    }
+    modal._pendingMedia = null;
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+    setTimeout(() => ta?.focus(), 50);
+  }
+
+  function closeFeedCompose() {
+    const modal = document.getElementById('rimFeedComposeModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
+  function publishFeedPost() {
+    const ta = document.getElementById('rimFeedComposeText');
+    const modal = document.getElementById('rimFeedComposeModal');
+    const text = (ta?.value || '').trim();
+    const mediaUrl = modal?._pendingMedia || null;
+    if (!text && !mediaUrl) {
+      if (typeof toast === 'function') toast('Напишите текст или добавьте медиа');
+      return;
+    }
+    const posts = loadFeedPosts();
+    const post = {
+      id: 'fp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+      author: currentUserLabel(),
+      text,
+      mediaUrl,
+      views: 0,
+      createdAt: Date.now()
+    };
+    posts.unshift(post);
+    saveFeedPosts(posts);
+    closeFeedCompose();
+    renderFeedList();
+    if (typeof toast === 'function') toast('Пост опубликован в ленту');
+  }
+
+  function openFeedComments(postId) {
+    const sheet = document.getElementById('rimFeedCommentsSheet');
+    const preview = document.getElementById('rimFeedCommentsPostPreview');
+    const list = document.getElementById('rimFeedCommentsList');
+    const posts = loadFeedPosts();
+    const post = posts.find(p => p.id === postId);
+    if (!sheet || !post) return;
+
+    // bump views lightly
+    post.views = (post.views || 0) + 1;
+    saveFeedPosts(posts);
+
+    preview.innerHTML = `
+      <div class="rim-feed-post-author">${escapeHtml(post.author)}</div>
+      <div class="rim-feed-post-body" style="margin:6px 0 0">${escapeHtml(post.text || '')}</div>
+    `;
+    const comments = loadFeedComments()[postId] || [];
+    list.innerHTML = comments.length
+      ? comments.map(c => `
+        <div class="rim-feed-comment">
+          <div class="rim-feed-comment-avatar">${(c.author || '?')[0].toUpperCase()}</div>
+          <div class="rim-feed-comment-body">
+            <div class="rim-feed-comment-author">${escapeHtml(c.author)}</div>
+            <div class="rim-feed-comment-text">${escapeHtml(c.text)}</div>
+            <div class="rim-feed-comment-time">${formatFeedTime(c.createdAt)}</div>
+          </div>
+        </div>`).join('')
+      : '<div class="muted" style="padding:20px 16px;text-align:center">Пока нет комментариев</div>';
+
+    sheet.dataset.postId = postId;
+    sheet.classList.remove('hidden');
+    sheet.setAttribute('aria-hidden', 'false');
+    renderFeedList(); // refresh counts
+  }
+
+  function closeFeedComments() {
+    const sheet = document.getElementById('rimFeedCommentsSheet');
+    if (!sheet) return;
+    sheet.classList.add('hidden');
+    sheet.setAttribute('aria-hidden', 'true');
+  }
+
+  function sendFeedComment() {
+    const sheet = document.getElementById('rimFeedCommentsSheet');
+    const input = document.getElementById('rimFeedCommentInput');
+    const postId = sheet?.dataset?.postId;
+    const text = (input?.value || '').trim();
+    if (!postId || !text) return;
+    const map = loadFeedComments();
+    if (!map[postId]) map[postId] = [];
+    map[postId].push({
+      id: 'fc_' + Date.now(),
+      author: currentUserLabel(),
+      text,
+      createdAt: Date.now()
+    });
+    saveFeedComments(map);
+    input.value = '';
+    openFeedComments(postId); // re-render
+  }
+
+  // Wire feed UI
+  document.getElementById('rimFeedComposeBtn')?.addEventListener('click', openFeedCompose);
+  document.querySelectorAll('[data-close-feed-compose]').forEach(el => el.addEventListener('click', closeFeedCompose));
+  document.getElementById('rimFeedPublishBtn')?.addEventListener('click', publishFeedPost);
+  document.querySelectorAll('[data-close-feed-comments]').forEach(el => el.addEventListener('click', closeFeedComments));
+  document.getElementById('rimFeedCommentSend')?.addEventListener('click', sendFeedComment);
+  document.getElementById('rimFeedCommentInput')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); sendFeedComment(); }
+  });
+
+  document.getElementById('rimFeedAddImage')?.addEventListener('click', () => {
+    document.getElementById('rimFeedImageInput')?.click();
+  });
+  document.getElementById('rimFeedAddFile')?.addEventListener('click', () => {
+    document.getElementById('rimFeedFileInput')?.click();
+  });
+  document.getElementById('rimFeedImageInput')?.addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const modal = document.getElementById('rimFeedComposeModal');
+      const preview = document.getElementById('rimFeedComposePreview');
+      if (modal) modal._pendingMedia = reader.result;
+      if (preview) {
+        preview.innerHTML = `<img src="${reader.result}" alt="" />`;
+        preview.classList.remove('hidden');
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // Re-render when opening feed
+  const _prevShow = window.showSection;
+  window.showSection = function(name) {
+    if (typeof _prevShow === 'function') {
+      try { _prevShow(name); } catch (e) {}
+    }
+    if (name === 'feed') renderFeedList();
+  };
+
+  // initial
+  setTimeout(renderFeedList, 500);
+
+
+  // ========== Channel ↔ Feed bridge (UI only, no SQL) ==========
+  const CHANNEL_FEED_PREF = 'rim_channel_also_to_feed';
+
+  function getChannelFeedPref() {
+    try { return localStorage.getItem(CHANNEL_FEED_PREF) === '1'; } catch { return false; }
+  }
+  function setChannelFeedPref(v) {
+    try { localStorage.setItem(CHANNEL_FEED_PREF, v ? '1' : '0'); } catch {}
+  }
+
+  // Floating preference chip near composer when in a channel-like context
+  function ensureChannelFeedChip() {
+    let chip = document.getElementById('rimChannelFeedChip');
+    if (chip) return chip;
+    const area = document.getElementById('composerArea');
+    if (!area) return null;
+    chip = document.createElement('div');
+    chip.id = 'rimChannelFeedChip';
+    chip.className = 'rim-channel-feed-chip hidden';
+    chip.innerHTML = `
+      <label class="rim-channel-feed-label">
+        <input type="checkbox" id="rimAlsoToFeed" />
+        Также в Ленту
+      </label>
+    `;
+    area.insertBefore(chip, area.firstChild);
+    const cb = chip.querySelector('#rimAlsoToFeed');
+    cb.checked = getChannelFeedPref();
+    cb.addEventListener('change', () => setChannelFeedPref(cb.checked));
+    return chip;
+  }
+
+  function updateChannelFeedChipVisibility() {
+    const chip = ensureChannelFeedChip();
+    if (!chip) return;
+    // Heuristic: show when active conversation looks like a channel
+    let isChannel = false;
+    try {
+      const conv = window.activeConversation || window.__RIM_LEGACY_CONTEXT?.getActiveConversation?.();
+      isChannel = !!(conv && (conv.type === 'channel' || conv.is_channel || conv.kind === 'channel'));
+    } catch {}
+    chip.classList.toggle('hidden', !isChannel);
+  }
+
+  // After a successful send in channel + pref → also create feed post (local)
+  function isActiveChannelConversation() {
+    try {
+      const conv = window.activeConversation || window.__RIM_LEGACY_CONTEXT?.getActiveConversation?.();
+      if (!conv) return false;
+      const t = String(conv.type || conv.kind || conv.conversation_type || '').toLowerCase();
+      return t === 'channel' || !!conv.is_channel || !!conv.channel_id;
+    } catch { return false; }
+  }
+
+  function wrapSendMessageForFeed() {
+    const orig = window.sendMessage;
+    if (typeof orig !== 'function' || orig._rimFeedWrapped) return;
+    window.sendMessage = async function(...args) {
+      // Capture text BEFORE send clears the composer
+      let pendingText = '';
+      let shouldMirror = false;
+      try {
+        shouldMirror = getChannelFeedPref() && isActiveChannelConversation();
+        if (shouldMirror) {
+          const ta = document.getElementById('messageInput');
+          pendingText = (ta?.value || '').trim();
+        }
+      } catch {}
+      const result = await orig.apply(this, args);
+      try {
+        if (shouldMirror && pendingText) {
+          window.rimAddMessageToFeed?.(pendingText, currentUserLabel());
+        }
+      } catch {}
+      return result;
+    };
+    window.sendMessage._rimFeedWrapped = true;
+  }
+  wrapSendMessageForFeed();
+  // Re-wrap later in case modular boot replaces sendMessage
+  setTimeout(wrapSendMessageForFeed, 1200);
+  setTimeout(wrapSendMessageForFeed, 3000);
+
+  // Expose helper for future "Add to feed" from message menu
+  window.rimAddMessageToFeed = function(text, author) {
+    if (!text) return;
+    const posts = loadFeedPosts();
+    posts.unshift({
+      id: 'fp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+      author: author || currentUserLabel(),
+      text: String(text).slice(0, 4000),
+      mediaUrl: null,
+      views: 0,
+      createdAt: Date.now(),
+      fromChannel: true
+    });
+    saveFeedPosts(posts);
+    if (typeof toast === 'function') toast('Добавлено в Ленту');
+    renderFeedList();
+  };
+
+  setInterval(updateChannelFeedChipVisibility, 1500);
+  setTimeout(updateChannelFeedChipVisibility, 1000);
+
+
+  // Resolve message text by id and publish to feed
+  window.rimAddMessageIdToFeed = function(messageId) {
+    if (!messageId) return;
+    let text = '';
+    let author = currentUserLabel();
+    try {
+      const msgs = (typeof messagesCache !== 'undefined' && messagesCache)
+        || window.messagesCache
+        || window.__RIM_LEGACY_CONTEXT?.getMessages?.()
+        || [];
+      const m = (msgs || []).find(x => String(x.id) === String(messageId) || String(x.client_id) === String(messageId));
+      if (m) {
+        text = m.body || m.text || m.content || m.message || '';
+        if (m.sender_name) author = m.sender_name;
+        else if (m.author_name) author = m.author_name;
+      }
+    } catch {}
+    // Fallback: try DOM
+    if (!text) {
+      const el = document.querySelector(`.message[data-id="${messageId}"] .msg-text, .message[data-id="${messageId}"] .text, .message[data-id="${messageId}"]`);
+      if (el) text = (el.innerText || el.textContent || '').trim();
+    }
+    if (!text) {
+      if (typeof toast === 'function') toast('Не удалось получить текст сообщения');
+      return;
+    }
+    window.rimAddMessageToFeed?.(text, author);
+  };
+
+
+  // ========== TG Settings + Imperial Panel + Feed modes ==========
+  const FEED_MODE_KEY = 'rim_feed_mode_v1';
+  const FEED_PREFS_KEY = 'rim_feed_prefs_v1';
+  const IMP_PREFS_KEY = 'rim_imperial_prefs_v1';
+
+  function getFeedMode() {
+    try { return localStorage.getItem(FEED_MODE_KEY) || 'for_you'; } catch { return 'for_you'; }
+  }
+  function setFeedMode(mode) {
+    try { localStorage.setItem(FEED_MODE_KEY, mode); } catch {}
+  }
+  function getFeedPrefs() {
+    try {
+      return Object.assign({
+        personalization: true,
+        recommendations: true,
+        sensitive: false,
+        officialBoost: false
+      }, JSON.parse(localStorage.getItem(FEED_PREFS_KEY) || '{}'));
+    } catch {
+      return { personalization: true, recommendations: true, sensitive: false, officialBoost: false };
+    }
+  }
+  function saveFeedPrefs(p) {
+    try { localStorage.setItem(FEED_PREFS_KEY, JSON.stringify(p)); } catch {}
+  }
+  function getImpPrefs() {
+    try {
+      return Object.assign({
+        moderationStrict: false,
+        officialOnly: false,
+        hideSensitive: true,
+        recsEnabled: true
+      }, JSON.parse(localStorage.getItem(IMP_PREFS_KEY) || '{}'));
+    } catch {
+      return { moderationStrict: false, officialOnly: false, hideSensitive: true, recsEnabled: true };
+    }
+  }
+  function saveImpPrefs(p) {
+    try { localStorage.setItem(IMP_PREFS_KEY, JSON.stringify(p)); } catch {}
+  }
+
+  // Rank/filter posts by mode (local personalization until SQL)
+  function rankFeedPosts(posts, mode) {
+    const prefs = getFeedPrefs();
+    const imp = getImpPrefs();
+    let list = (posts || []).slice();
+
+    if (mode === 'following') {
+      // Prefer own posts + fromChannel
+      list.sort((a, b) => {
+        const as = (a.author === currentUserLabel() || a.fromChannel) ? 1 : 0;
+        const bs = (b.author === currentUserLabel() || b.fromChannel) ? 1 : 0;
+        if (bs !== as) return bs - as;
+        return (b.createdAt || 0) - (a.createdAt || 0);
+      });
+    } else if (mode === 'recommended') {
+      if (!prefs.recommendations || !imp.recsEnabled) {
+        list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      } else {
+        // Simple engagement + recency score
+        list.sort((a, b) => {
+          const score = (p) => {
+            const comments = (loadFeedComments()[p.id] || []).length;
+            const views = p.views || 0;
+            const ageH = Math.max(1, (Date.now() - (p.createdAt || Date.now())) / 3600000);
+            let s = views * 0.5 + comments * 3 + (p.mediaUrl ? 2 : 0);
+            s = s / Math.sqrt(ageH);
+            if (imp.officialOnly && p.fromChannel) s *= 1.4;
+            if (prefs.officialBoost && p.fromChannel) s *= 1.2;
+            return s;
+          };
+          return score(b) - score(a);
+        });
+      }
+    } else {
+      // for_you — blend recency + light personalization
+      if (prefs.personalization) {
+        list.sort((a, b) => {
+          const score = (p) => {
+            const comments = (loadFeedComments()[p.id] || []).length;
+            const views = p.views || 0;
+            const ageH = Math.max(0.5, (Date.now() - (p.createdAt || Date.now())) / 3600000);
+            let s = 10 / Math.sqrt(ageH) + views * 0.3 + comments * 2;
+            if (p.author === currentUserLabel()) s += 1.5;
+            if (p.fromChannel && prefs.officialBoost) s += 2;
+            return s;
+          };
+          return score(b) - score(a);
+        });
+      } else {
+        list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      }
+    }
+    return list;
+  }
+
+  // Override renderFeedList ranking
+  const _renderFeedListOrig = typeof renderFeedList === 'function' ? renderFeedList : null;
+  window.__rimFeedRankReady = true;
+  window.renderFeedList = function() {
+    const list = document.getElementById('rimFeedList');
+    if (!list) return;
+    const mode = getFeedMode();
+    document.querySelectorAll('.rim-feed-tab').forEach(t => {
+      t.classList.toggle('selected', t.getAttribute('data-feed-mode') === mode);
+    });
+    const posts = rankFeedPosts(loadFeedPosts(), mode);
+    if (!posts.length) {
+      list.innerHTML = '<div class="rim-feed-empty muted">Пока нет постов. Нажмите + чтобы создать первый.</div>';
+      return;
+    }
+    list.innerHTML = posts.map(p => {
+      const initial = (p.author || 'Р')[0].toUpperCase();
+      const views = p.views || 0;
+      const comments = (loadFeedComments()[p.id] || []).length;
+      const media = p.mediaUrl
+        ? `<div class="rim-feed-post-media"><img src="${p.mediaUrl}" alt="" /></div>`
+        : '';
+      const badge = p.fromChannel ? '<span class="rim-feed-badge">канал</span>' : '';
+      return `<article class="rim-feed-post" data-post-id="${p.id}">
+        <div class="rim-feed-post-header">
+          <div class="rim-feed-post-avatar">${initial}</div>
+          <div class="rim-feed-post-meta">
+            <div class="rim-feed-post-author">${escapeHtml(p.author || 'Автор')} ${badge}</div>
+            <div class="rim-feed-post-time">${formatFeedTime(p.createdAt)}</div>
+          </div>
+        </div>
+        <div class="rim-feed-post-body">${escapeHtml(p.text || '')}</div>
+        ${media}
+        <div class="rim-feed-post-stats">
+          <span class="rim-feed-stat" data-action="comments" data-post-id="${p.id}">💬 ${comments}</span>
+          <span class="rim-feed-stat">👁 ${views}</span>
+        </div>
+      </article>`;
+    }).join('');
+    list.querySelectorAll('[data-action="comments"]').forEach(el => {
+      el.addEventListener('click', () => openFeedComments(el.getAttribute('data-post-id')));
+    });
+  };
+
+  // Feed tab clicks
+  document.getElementById('rimFeedTabs')?.addEventListener('click', (e) => {
+    const tab = e.target.closest('.rim-feed-tab');
+    if (!tab) return;
+    setFeedMode(tab.getAttribute('data-feed-mode') || 'for_you');
+    window.renderFeedList?.();
+  });
+
+  // --- TG Settings ---
+  function openTgSettings() {
+    const el = document.getElementById('rimTgSettings');
+    if (!el) return;
+    // profile
+    try {
+      const u = window.currentUser || window.__RIM_LEGACY_CONTEXT?.getUser?.();
+      const name = (u?.display_name || u?.username || u?.email || 'Пользователь').toString();
+      const sub = u?.username ? '@' + u.username : 'Римъ';
+      const av = document.getElementById('rimTgProfileAvatar');
+      const nm = document.getElementById('rimTgProfileName');
+      const sb = document.getElementById('rimTgProfileSub');
+      if (av) av.textContent = (name[0] || 'Р').toUpperCase();
+      if (nm) nm.textContent = name;
+      if (sb) sb.textContent = sub;
+    } catch {}
+    el.classList.remove('hidden');
+    el.setAttribute('aria-hidden', 'false');
+  }
+  function closeTgSettings() {
+    const el = document.getElementById('rimTgSettings');
+    if (!el) return;
+    el.classList.add('hidden');
+    el.setAttribute('aria-hidden', 'true');
+  }
+
+  // Prefer TG settings over old modal when avatar is used
+  const _openSettingsOrig = window.openSettings;
+  window.openSettings = function() {
+    openTgSettings();
+  };
+  // Keep access to legacy modal
+  window.openLegacySettings = function() {
+    if (typeof _openSettingsOrig === 'function') _openSettingsOrig();
+  };
+
+  document.getElementById('rimTgSettingsBack')?.addEventListener('click', closeTgSettings);
+
+  document.getElementById('rimTgSettings')?.addEventListener('click', (e) => {
+    const row = e.target.closest('[data-tg-action]');
+    if (!row) return;
+    const action = row.getAttribute('data-tg-action');
+    if (action === 'imperial') {
+      openImperialPanel();
+      return;
+    }
+    if (action === 'feed-prefs') {
+      const prefs = getFeedPrefs();
+      const next = confirm(
+        'Персонализация: ' + (prefs.personalization ? 'ВКЛ' : 'ВЫКЛ') +
+        '\\nРекомендации: ' + (prefs.recommendations ? 'ВКЛ' : 'ВЫКЛ') +
+        '\\n\\nОК = переключить персонализацию, Отмена = закрыть'
+      );
+      if (next) {
+        prefs.personalization = !prefs.personalization;
+        saveFeedPrefs(prefs);
+        if (typeof toast === 'function') toast('Персонализация: ' + (prefs.personalization ? 'вкл' : 'выкл'));
+        window.renderFeedList?.();
+      }
+      return;
+    }
+    if (action === 'appearance') {
+      closeTgSettings();
+      window.openLegacySettings?.();
+      return;
+    }
+    if (action === 'privacy' || action === 'security' || action === 'notifications') {
+      closeTgSettings();
+      window.openLegacySettings?.();
+      return;
+    }
+    if (action === 'logout') {
+      if (confirm('Выйти из аккаунта?')) {
+        try { window.signOut?.(); } catch {}
+        try { window.logout?.(); } catch {}
+      }
+      return;
+    }
+    if (typeof toast === 'function') toast('Раздел «' + (row.querySelector('.rim-tg-row-label')?.textContent || action) + '» — в разработке');
+  });
+
+  // --- Imperial Panel ---
+  function openImperialPanel() {
+    const el = document.getElementById('rimImperialPanel');
+    if (!el) return;
+    const imp = getImpPrefs();
+    const set = (id, v) => { const n = document.getElementById(id); if (n) n.checked = !!v; };
+    set('impModerationStrict', imp.moderationStrict);
+    set('impOfficialOnly', imp.officialOnly);
+    set('impHideSensitive', imp.hideSensitive);
+    set('impRecsEnabled', imp.recsEnabled);
+
+    // stats
+    const posts = loadFeedPosts();
+    const cmap = loadFeedComments();
+    let ccount = 0;
+    Object.values(cmap).forEach(arr => { ccount += (arr || []).length; });
+    const sp = document.getElementById('impStatPosts');
+    const sc = document.getElementById('impStatComments');
+    const sm = document.getElementById('impStatFeedMode');
+    if (sp) sp.textContent = String(posts.length);
+    if (sc) sc.textContent = String(ccount);
+    if (sm) sm.textContent = ({ for_you: 'Для вас', following: 'Подписки', recommended: 'Рекомендации' })[getFeedMode()] || getFeedMode();
+
+    el.classList.remove('hidden');
+    el.setAttribute('aria-hidden', 'false');
+  }
+  function closeImperialPanel() {
+    const el = document.getElementById('rimImperialPanel');
+    if (!el) return;
+    el.classList.add('hidden');
+    el.setAttribute('aria-hidden', 'true');
+  }
+  document.getElementById('rimImperialBack')?.addEventListener('click', closeImperialPanel);
+
+  function bindImpToggle(id, key) {
+    document.getElementById(id)?.addEventListener('change', (e) => {
+      const imp = getImpPrefs();
+      imp[key] = !!e.target.checked;
+      saveImpPrefs(imp);
+      // mirror into feed prefs where relevant
+      if (key === 'recsEnabled') {
+        const fp = getFeedPrefs();
+        fp.recommendations = imp.recsEnabled;
+        saveFeedPrefs(fp);
+      }
+      if (key === 'officialOnly') {
+        const fp = getFeedPrefs();
+        fp.officialBoost = imp.officialOnly;
+        saveFeedPrefs(fp);
+      }
+      window.renderFeedList?.();
+      if (typeof toast === 'function') toast('Сохранено');
+    });
+  }
+  bindImpToggle('impModerationStrict', 'moderationStrict');
+  bindImpToggle('impOfficialOnly', 'officialOnly');
+  bindImpToggle('impHideSensitive', 'hideSensitive');
+  bindImpToggle('impRecsEnabled', 'recsEnabled');
+
+
+  // ===== Imperial network stores (local until SQL) =====
+  const IMP_CHANNELS_KEY = 'rim_imp_channels_v1';
+  const IMP_USERS_KEY = 'rim_imp_users_v1';
+  const IMP_REPORTS_KEY = 'rim_imp_reports_v1';
+
+  function loadImpChannels() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(IMP_CHANNELS_KEY) || 'null');
+      if (Array.isArray(raw) && raw.length) return raw;
+    } catch {}
+    // Seed from known conversations that look like channels + demos
+    const seeded = [];
+    try {
+      const convs = window.conversations || window.__RIM_LEGACY_CONTEXT?.getConversations?.() || [];
+      (convs || []).forEach(c => {
+        const t = String(c.type || c.kind || '').toLowerCase();
+        if (t === 'channel' || c.is_channel) {
+          seeded.push({
+            id: String(c.id),
+            title: c.title || c.name || 'Канал',
+            username: c.username || '',
+            collapsed: false,
+            banned: false,
+            publishRestricted: false,
+            members: c.member_count || 0
+          });
+        }
+      });
+    } catch {}
+    if (!seeded.length) {
+      seeded.push(
+        { id: 'demo_ch_1', title: 'Официальный Римъ', username: 'rim_official', collapsed: false, banned: false, publishRestricted: false, members: 1280 },
+        { id: 'demo_ch_2', title: 'Вести империи', username: 'vesti', collapsed: false, banned: false, publishRestricted: true, members: 540 },
+        { id: 'demo_ch_3', title: 'Свободная трибуна', username: 'tribun', collapsed: true, banned: false, publishRestricted: false, members: 89 }
+      );
+    }
+    saveImpChannels(seeded);
+    return seeded;
+  }
+  function saveImpChannels(rows) {
+    try { localStorage.setItem(IMP_CHANNELS_KEY, JSON.stringify(rows)); } catch {}
+  }
+
+  function loadImpUsers() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(IMP_USERS_KEY) || 'null');
+      if (Array.isArray(raw) && raw.length) return raw;
+    } catch {}
+    const seeded = [
+      { id: 'u_demo_1', name: 'Александр', username: 'alex', muted: false, banned: false },
+      { id: 'u_demo_2', name: 'Мария', username: 'maria', muted: true, banned: false },
+      { id: 'u_demo_3', name: 'Иван', username: 'ivan', muted: false, banned: true }
+    ];
+    saveImpUsers(seeded);
+    return seeded;
+  }
+  function saveImpUsers(rows) {
+    try { localStorage.setItem(IMP_USERS_KEY, JSON.stringify(rows)); } catch {}
+  }
+
+  function loadImpReports() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(IMP_REPORTS_KEY) || 'null');
+      if (Array.isArray(raw) && raw.length) return raw;
+    } catch {}
+    // Demo reports — never from secret/direct-only policy
+    const seeded = [
+      {
+        id: 'rep_1',
+        status: 'open',
+        reason: 'Спам и реклама',
+        essence: 'Пользователь массово публикует ссылки на сторонние магазины в комментариях канала.',
+        scopeType: 'channel', // channel | group | public_chat — NOT direct/secret
+        scopeId: 'demo_ch_1',
+        scopeTitle: 'Официальный Римъ',
+        messageId: 'msg_demo_11',
+        messagePreview: 'Скидки только сегодня: http://spam.example/...',
+        reporter: 'maria',
+        targetUser: 'alex',
+        createdAt: Date.now() - 3600e3
+      },
+      {
+        id: 'rep_2',
+        status: 'open',
+        reason: 'Оскорбления',
+        essence: 'Грубые личные выпады в публичной группе, не секретный чат.',
+        scopeType: 'group',
+        scopeId: 'grp_demo_2',
+        scopeTitle: 'Городской совет',
+        messageId: 'msg_demo_22',
+        messagePreview: 'Да ты вообще...',
+        reporter: 'ivan',
+        targetUser: 'alex',
+        createdAt: Date.now() - 7200e3
+      },
+      {
+        id: 'rep_3',
+        status: 'resolved',
+        reason: 'Вводящая в заблуждение информация',
+        essence: 'Пост в канале с заведомо ложными сведениями о работе сети.',
+        scopeType: 'channel',
+        scopeId: 'demo_ch_2',
+        scopeTitle: 'Вести империи',
+        messageId: 'msg_demo_33',
+        messagePreview: 'Срочно: сеть отключат завтра...',
+        reporter: 'maria',
+        targetUser: 'vesti_mod',
+        createdAt: Date.now() - 86400e3
+      }
+    ];
+    saveImpReports(seeded);
+    return seeded;
+  }
+  function saveImpReports(rows) {
+    try { localStorage.setItem(IMP_REPORTS_KEY, JSON.stringify(rows)); } catch {}
+  }
+
+  function showImpHome() {
+    document.getElementById('rimImperialHome')?.classList.remove('hidden');
+    document.querySelectorAll('.rim-imp-view').forEach(v => v.classList.add('hidden'));
+  }
+  function showImpView(id) {
+    document.getElementById('rimImperialHome')?.classList.add('hidden');
+    document.querySelectorAll('.rim-imp-view').forEach(v => v.classList.add('hidden'));
+    document.getElementById(id)?.classList.remove('hidden');
+  }
+
+  function renderImpChannels(filter) {
+    const box = document.getElementById('rimImpChannelList');
+    if (!box) return;
+    const q = (filter || '').trim().toLowerCase();
+    let rows = loadImpChannels();
+    if (q) {
+      rows = rows.filter(c =>
+        (c.title || '').toLowerCase().includes(q) ||
+        (c.username || '').toLowerCase().includes(q) ||
+        String(c.id).includes(q)
+      );
+    }
+    if (!rows.length) {
+      box.innerHTML = '<div class="rim-imp-empty">Каналы не найдены</div>';
+      return;
+    }
+    box.innerHTML = rows.map(c => {
+      const badges = [
+        c.banned ? '<span class="rim-imp-badge red">бан</span>' : '',
+        c.publishRestricted ? '<span class="rim-imp-badge">публикации ограничены</span>' : '',
+        c.collapsed ? '<span class="rim-imp-badge gray">свёрнут</span>' : ''
+      ].join('');
+      return `<div class="rim-imp-item" data-ch-id="${c.id}">
+        <div class="rim-imp-item-top">
+          <div class="rim-imp-item-avatar">${(c.title || 'К')[0].toUpperCase()}</div>
+          <div class="rim-imp-item-meta">
+            <div class="rim-imp-item-title">${escapeHtml(c.title)} ${badges}</div>
+            <div class="rim-imp-item-sub">${c.username ? '@' + escapeHtml(c.username) : escapeHtml(c.id)} · ${c.members || 0} подп.</div>
+          </div>
+        </div>
+        <div class="rim-imp-item-actions">
+          <button type="button" class="rim-imp-btn" data-ch-act="collapse">${c.collapsed ? 'Развернуть' : 'Свернуть'}</button>
+          <button type="button" class="rim-imp-btn" data-ch-act="restrict">${c.publishRestricted ? 'Разрешить публикации' : 'Ограничить публикации'}</button>
+          <button type="button" class="rim-imp-btn danger" data-ch-act="ban">${c.banned ? 'Разбанить канал' : 'Забанить канал'}</button>
+          <button type="button" class="rim-imp-btn primary" data-ch-act="open">Открыть</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    box.querySelectorAll('.rim-imp-item').forEach(item => {
+      const id = item.getAttribute('data-ch-id');
+      item.querySelectorAll('[data-ch-act]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const act = btn.getAttribute('data-ch-act');
+          const all = loadImpChannels();
+          const row = all.find(x => String(x.id) === String(id));
+          if (!row) return;
+          if (act === 'collapse') row.collapsed = !row.collapsed;
+          if (act === 'restrict') row.publishRestricted = !row.publishRestricted;
+          if (act === 'ban') row.banned = !row.banned;
+          if (act === 'open') {
+            try {
+              if (typeof window.openConversation === 'function') window.openConversation(id);
+              else if (typeof window.openChannel === 'function') window.openChannel(id);
+              closeImperialPanel();
+              closeTgSettings();
+            } catch {}
+            return;
+          }
+          saveImpChannels(all);
+          renderImpChannels(document.getElementById('rimImpChannelSearch')?.value || '');
+          if (typeof toast === 'function') toast('Канал обновлён');
+        });
+      });
+    });
+  }
+
+  function renderImpUsers(filter) {
+    const box = document.getElementById('rimImpUserList');
+    if (!box) return;
+    const q = (filter || '').trim().toLowerCase();
+    let rows = loadImpUsers();
+    if (q) {
+      rows = rows.filter(u =>
+        (u.name || '').toLowerCase().includes(q) ||
+        (u.username || '').toLowerCase().includes(q) ||
+        String(u.id).includes(q)
+      );
+    }
+    if (!rows.length) {
+      box.innerHTML = '<div class="rim-imp-empty">Пользователи не найдены</div>';
+      return;
+    }
+    box.innerHTML = rows.map(u => {
+      const badges = [
+        u.banned ? '<span class="rim-imp-badge red">бан</span>' : '',
+        u.muted ? '<span class="rim-imp-badge gray">мут</span>' : ''
+      ].join('');
+      return `<div class="rim-imp-item" data-u-id="${u.id}">
+        <div class="rim-imp-item-top">
+          <div class="rim-imp-item-avatar">${(u.name || '?')[0].toUpperCase()}</div>
+          <div class="rim-imp-item-meta">
+            <div class="rim-imp-item-title">${escapeHtml(u.name)} ${badges}</div>
+            <div class="rim-imp-item-sub">@${escapeHtml(u.username || '—')}</div>
+          </div>
+        </div>
+        <div class="rim-imp-item-actions">
+          <button type="button" class="rim-imp-btn" data-u-act="mute">${u.muted ? 'Снять мут' : 'Мут'}</button>
+          <button type="button" class="rim-imp-btn danger" data-u-act="ban">${u.banned ? 'Разбан' : 'Бан'}</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    box.querySelectorAll('.rim-imp-item').forEach(item => {
+      const id = item.getAttribute('data-u-id');
+      item.querySelectorAll('[data-u-act]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const act = btn.getAttribute('data-u-act');
+          const all = loadImpUsers();
+          const row = all.find(x => String(x.id) === String(id));
+          if (!row) return;
+          if (act === 'mute') row.muted = !row.muted;
+          if (act === 'ban') row.banned = !row.banned;
+          saveImpUsers(all);
+          renderImpUsers(document.getElementById('rimImpUserSearch')?.value || '');
+          if (typeof toast === 'function') toast('Пользователь обновлён');
+        });
+      });
+    });
+  }
+
+  let _modFilter = 'open';
+  function renderImpModeration() {
+    const box = document.getElementById('rimImpModerationList');
+    if (!box) return;
+    let rows = loadImpReports();
+    if (_modFilter === 'open') rows = rows.filter(r => r.status === 'open');
+    if (_modFilter === 'resolved') rows = rows.filter(r => r.status === 'resolved');
+
+    // Policy: no reports from direct/secret
+    rows = rows.filter(r => r.scopeType !== 'direct' && r.scopeType !== 'secret');
+
+    if (!rows.length) {
+      box.innerHTML = '<div class="rim-imp-empty">Жалоб нет</div>';
+      return;
+    }
+
+    box.innerHTML = rows.map(r => {
+      const st = r.status === 'open' ? '<span class="rim-imp-badge red">открыта</span>' : '<span class="rim-imp-badge gray">закрыта</span>';
+      const scopeLabel = r.scopeType === 'channel' ? 'Канал' : r.scopeType === 'group' ? 'Группа' : 'Чат';
+      return `<div class="rim-imp-item" data-rep-id="${r.id}">
+        <div class="rim-imp-item-top">
+          <div class="rim-imp-item-avatar">⚖️</div>
+          <div class="rim-imp-item-meta">
+            <div class="rim-imp-item-title">${escapeHtml(r.reason)} ${st}</div>
+            <div class="rim-imp-item-sub">${scopeLabel}: ${escapeHtml(r.scopeTitle || r.scopeId)} · от @${escapeHtml(r.reporter || '—')} → @${escapeHtml(r.targetUser || '—')}</div>
+          </div>
+        </div>
+        <div class="rim-imp-item-body"><b>Суть:</b> ${escapeHtml(r.essence || '—')}</div>
+        <div class="rim-imp-item-body" style="opacity:.85"><b>Сообщение:</b> ${escapeHtml(r.messagePreview || '—')}</div>
+        <div class="rim-imp-item-actions">
+          <button type="button" class="rim-imp-btn primary" data-rep-act="goto-msg">К сообщению</button>
+          <button type="button" class="rim-imp-btn" data-rep-act="goto-chat">В чат</button>
+          ${r.status === 'open' ? '<button type="button" class="rim-imp-btn" data-rep-act="resolve">Закрыть жалобу</button>' : ''}
+          <button type="button" class="rim-imp-btn danger" data-rep-act="ban-user">Бан автора</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    box.querySelectorAll('.rim-imp-item').forEach(item => {
+      const id = item.getAttribute('data-rep-id');
+      item.querySelectorAll('[data-rep-act]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const act = btn.getAttribute('data-rep-act');
+          const all = loadImpReports();
+          const row = all.find(x => String(x.id) === String(id));
+          if (!row) return;
+
+          // Policy guard: never navigate into direct/secret from reports
+          if (row.scopeType === 'direct' || row.scopeType === 'secret') {
+            if (typeof toast === 'function') toast('Жалобы из ЛС и секретных чатов недоступны');
+            return;
+          }
+
+          if (act === 'goto-chat' || act === 'goto-msg') {
+            try {
+              if (typeof window.openConversation === 'function') window.openConversation(row.scopeId);
+              else if (typeof window.openChannel === 'function' && row.scopeType === 'channel') window.openChannel(row.scopeId);
+              closeImperialPanel();
+              closeTgSettings();
+              if (act === 'goto-msg' && row.messageId && typeof toast === 'function') {
+                toast('Открыт чат. Сообщение: ' + (row.messagePreview || row.messageId).slice(0, 80));
+              }
+            } catch (e) {
+              if (typeof toast === 'function') toast('Не удалось открыть чат');
+            }
+            return;
+          }
+          if (act === 'resolve') {
+            row.status = 'resolved';
+            saveImpReports(all);
+            if (row._remote || String(row.id).indexOf('rep_') !== 0) {
+              sbResolveReport(row.id);
+            }
+            renderImpModeration();
+            if (typeof toast === 'function') toast('Жалоба закрыта');
+            return;
+          }
+          if (act === 'ban-user') {
+            const users = loadImpUsers();
+            let u = users.find(x => x.username === row.targetUser || x.id === row.targetUser);
+            if (!u) {
+              u = { id: 'u_' + row.targetUser, name: row.targetUser, username: row.targetUser, muted: false, banned: true };
+              users.push(u);
+            } else {
+              u.banned = true;
+            }
+            saveImpUsers(users);
+            if (typeof toast === 'function') toast('Пользователь @' + row.targetUser + ' забанен');
+          }
+        });
+      });
+    });
+  }
+
+  document.getElementById('rimImpChannelSearch')?.addEventListener('input', (e) => renderImpChannels(e.target.value));
+  document.getElementById('rimImpUserSearch')?.addEventListener('input', (e) => renderImpUsers(e.target.value));
+  document.querySelectorAll('[data-mod-filter]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-mod-filter]').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      _modFilter = btn.getAttribute('data-mod-filter') || 'open';
+      renderImpModeration();
+    });
+  });
+  document.querySelectorAll('[data-imp-back]').forEach(btn => {
+    btn.addEventListener('click', showImpHome);
+  });
+
+  document.getElementById('rimImperialPanel')?.addEventListener('click', (e) => {
+    const card = e.target.closest('[data-imp]');
+    if (!card) return;
+    const key = card.getAttribute('data-imp');
+    if (key === 'channels') {
+      showImpView('rimImpViewChannels');
+      renderImpChannels('');
+      return;
+    }
+    if (key === 'users') {
+      showImpView('rimImpViewUsers');
+      renderImpUsers('');
+      return;
+    }
+    if (key === 'moderation') {
+      showImpView('rimImpViewModeration');
+      renderImpModeration();
+      return;
+    }
+    const titles = {
+      'feed-rank': 'Ранжирование ленты',
+      broadcast: 'Широковещание',
+      analytics: 'Аналитика',
+      security: 'Безопасность сети',
+      bots: 'Боты и Зладень',
+      decrees: 'Указы'
+    };
+    if (typeof toast === 'function') toast((titles[key] || key) + ' — модуль панели (UI готов, бэкенд позже)');
+  });
+
+  window.openImperialPanel = openImperialPanel;
+
+
+
+  // ========== Supabase bridge (feed + imperial) ==========
+  function rimDb() {
+    return window.db || window.supabaseClient || null;
+  }
+  function rimUserId() {
+    try {
+      const u = window.currentUser || window.__RIM_LEGACY_CONTEXT?.getUser?.();
+      return u?.id || u?.user_id || null;
+    } catch { return null; }
+  }
+
+  async function sbListFeedPosts(mode) {
+    const db = rimDb();
+    if (!db) return null;
+    try {
+      const { data, error } = await db
+        .from('feed_posts')
+        .select('id,author_id,title,body,content,text,visibility,created_at,published_at,deleted_at,is_pinned')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (error) { console.warn('feed_posts', error.message); return null; }
+      const rows = data || [];
+      const authorIds = [...new Set(rows.map(r => r.author_id).filter(Boolean))];
+      let profiles = {};
+      if (authorIds.length) {
+        const pr = await db.from('profiles').select('id,username,display_name').in('id', authorIds);
+        if (!pr.error) for (const p of pr.data || []) profiles[String(p.id)] = p;
+      }
+      return rows.map(r => {
+        const p = profiles[String(r.author_id)] || {};
+        return {
+          id: r.id,
+          author: p.display_name || p.username || 'Автор',
+          authorId: r.author_id,
+          text: r.body || r.content || r.text || r.title || '',
+          createdAt: Date.parse(r.published_at || r.created_at) || Date.now(),
+          views: 0,
+          mediaUrl: null,
+          fromChannel: false,
+          _remote: true
+        };
+      });
+    } catch (e) {
+      console.warn('sbListFeedPosts', e);
+      return null;
+    }
+  }
+
+  async function sbCreateFeedPost(text) {
+    const db = rimDb();
+    const uid = rimUserId();
+    if (!db || !uid || !text) return null;
+    const attempts = [
+      { author_id: uid, body: text, visibility: 'public' },
+      { author_id: uid, content: text, visibility: 'public' },
+      { author_id: uid, text: text, visibility: 'public' }
+    ];
+    for (const payload of attempts) {
+      try {
+        const { data, error } = await db.from('feed_posts').insert(payload).select('id,created_at').maybeSingle();
+        if (!error && data) return { id: data.id, createdAt: Date.parse(data.created_at) || Date.now(), _remote: true };
+      } catch {}
+    }
+    return null;
+  }
+
+  async function sbListComments(postId) {
+    const db = rimDb();
+    if (!db || !postId) return null;
+    try {
+      const { data, error } = await db
+        .from('feed_post_comments')
+        .select('id,post_id,author_id,user_id,body,content,text,created_at,deleted_at')
+        .eq('post_id', postId)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: true })
+        .limit(100);
+      if (error) return null;
+      const rows = data || [];
+      const ids = [...new Set(rows.map(r => r.author_id || r.user_id).filter(Boolean))];
+      let profiles = {};
+      if (ids.length) {
+        const pr = await db.from('profiles').select('id,username,display_name').in('id', ids);
+        if (!pr.error) for (const p of pr.data || []) profiles[String(p.id)] = p;
+      }
+      return rows.map(r => {
+        const uid = r.author_id || r.user_id;
+        const p = profiles[String(uid)] || {};
+        return {
+          id: r.id,
+          author: p.display_name || p.username || 'Пользователь',
+          text: r.body || r.content || r.text || '',
+          createdAt: Date.parse(r.created_at) || Date.now(),
+          _remote: true
+        };
+      });
+    } catch { return null; }
+  }
+
+  async function sbAddComment(postId, text) {
+    const db = rimDb();
+    const uid = rimUserId();
+    if (!db || !uid || !postId || !text) return null;
+    const attempts = [
+      { post_id: postId, author_id: uid, body: text },
+      { post_id: postId, user_id: uid, body: text },
+      { post_id: postId, author_id: uid, content: text }
+    ];
+    for (const payload of attempts) {
+      try {
+        const { data, error } = await db.from('feed_post_comments').insert(payload).select('id').maybeSingle();
+        if (!error && data) return data;
+      } catch {}
+    }
+    return null;
+  }
+
+  async function sbListChannels() {
+    const db = rimDb();
+    if (!db) return null;
+    try {
+      const { data, error } = await db
+        .from('channels')
+        .select('id,title,description,username,is_public,owner_id,created_at')
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (error) return null;
+      const rows = data || [];
+      const ids = rows.map(r => r.id);
+      let counts = {};
+      if (ids.length) {
+        const mr = await db.from('channel_members').select('channel_id').in('channel_id', ids);
+        if (!mr.error) for (const m of mr.data || []) counts[String(m.channel_id)] = (counts[String(m.channel_id)] || 0) + 1;
+      }
+      // merge local moderation flags
+      let flags = {};
+      try { flags = JSON.parse(localStorage.getItem('rim_imp_channel_flags_v1') || '{}'); } catch {}
+      return rows.map(c => {
+        const f = flags[String(c.id)] || {};
+        return {
+          id: c.id,
+          title: c.title || 'Канал',
+          username: c.username || '',
+          members: counts[String(c.id)] || 0,
+          collapsed: !!f.collapsed,
+          banned: !!f.banned,
+          publishRestricted: !!f.publishRestricted,
+          _remote: true
+        };
+      });
+    } catch { return null; }
+  }
+
+  function saveChannelFlags(channels) {
+    const flags = {};
+    (channels || []).forEach(c => {
+      flags[String(c.id)] = {
+        collapsed: !!c.collapsed,
+        banned: !!c.banned,
+        publishRestricted: !!c.publishRestricted
+      };
+    });
+    try { localStorage.setItem('rim_imp_channel_flags_v1', JSON.stringify(flags)); } catch {}
+  }
+
+  async function sbListUsers(query) {
+    const db = rimDb();
+    if (!db) return null;
+    try {
+      let q = db.from('profiles').select('id,username,display_name,created_at').limit(60);
+      if (query) q = q.or(`username.ilike.%${query}%,display_name.ilike.%${query}%`);
+      else q = q.order('created_at', { ascending: false });
+      const { data, error } = await q;
+      if (error) return null;
+      let flags = {};
+      try { flags = JSON.parse(localStorage.getItem('rim_imp_user_flags_v1') || '{}'); } catch {}
+      return (data || []).map(u => {
+        const f = flags[String(u.id)] || {};
+        return {
+          id: u.id,
+          name: u.display_name || u.username || 'Пользователь',
+          username: u.username || '',
+          muted: !!f.muted,
+          banned: !!f.banned,
+          _remote: true
+        };
+      });
+    } catch { return null; }
+  }
+
+  function saveUserFlags(users) {
+    const flags = {};
+    (users || []).forEach(u => {
+      flags[String(u.id)] = { muted: !!u.muted, banned: !!u.banned };
+    });
+    try { localStorage.setItem('rim_imp_user_flags_v1', JSON.stringify(flags)); } catch {}
+  }
+
+  async function sbListReports(status) {
+    const db = rimDb();
+    if (!db) return null;
+    try {
+      let q = db.from('rim_feed_post_reports')
+        .select('id,post_id,reporter_id,reason,details,status,created_at')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (status && status !== 'all') q = q.eq('status', status);
+      const { data, error } = await q;
+      if (error) { console.warn('reports', error.message); return null; }
+      const rows = data || [];
+      const postIds = [...new Set(rows.map(r => r.post_id).filter(Boolean))];
+      let posts = {};
+      if (postIds.length) {
+        const pr = await db.from('feed_posts').select('id,author_id,body,content,text,title').in('id', postIds);
+        if (!pr.error) for (const p of pr.data || []) posts[String(p.id)] = p;
+      }
+      const userIds = [...new Set(rows.flatMap(r => {
+        const p = posts[String(r.post_id)];
+        return [r.reporter_id, p?.author_id].filter(Boolean).map(String);
+      }))];
+      let profiles = {};
+      if (userIds.length) {
+        const ur = await db.from('profiles').select('id,username,display_name').in('id', userIds);
+        if (!ur.error) for (const u of ur.data || []) profiles[String(u.id)] = u;
+      }
+      return rows.map(r => {
+        const post = posts[String(r.post_id)] || {};
+        const reporter = profiles[String(r.reporter_id)] || {};
+        const author = profiles[String(post.author_id)] || {};
+        return {
+          id: r.id,
+          status: r.status || 'open',
+          reason: r.reason || 'Жалоба',
+          essence: r.details || r.reason || '',
+          scopeType: 'channel',
+          scopeId: r.post_id,
+          scopeTitle: 'Лента',
+          messageId: r.post_id,
+          messagePreview: post.body || post.content || post.text || post.title || '',
+          reporter: reporter.username || reporter.display_name || String(r.reporter_id || '').slice(0, 8),
+          targetUser: author.username || author.display_name || String(post.author_id || '').slice(0, 8),
+          createdAt: Date.parse(r.created_at) || Date.now(),
+          _remote: true
+        };
+      });
+    } catch (e) {
+      console.warn('sbListReports', e);
+      return null;
+    }
+  }
+
+  async function sbResolveReport(id) {
+    const db = rimDb();
+    if (!db || !id) return false;
+    try {
+      const { error } = await db.from('rim_feed_post_reports').update({ status: 'resolved' }).eq('id', id);
+      return !error;
+    } catch { return false; }
+  }
+
+  async function sbBlockUser(targetId) {
+    const db = rimDb();
+    const uid = rimUserId();
+    if (!db || !uid || !targetId) return false;
+    try {
+      const { error } = await db.from('user_blocks').upsert({ blocker_id: uid, blocked_id: targetId });
+      return !error;
+    } catch { return false; }
+  }
+
+  // Patch loaders to prefer Supabase
+  const _loadFeedPostsLocal = loadFeedPosts;
+  loadFeedPosts = function() { return _loadFeedPostsLocal(); };
+
+  const _renderFeedListWindow = window.renderFeedList;
+  window.renderFeedList = async function() {
+    const remote = await sbListFeedPosts(getFeedMode());
+    if (remote && remote.length) {
+      // merge remote into local cache for offline display
+      const local = _loadFeedPostsLocal();
+      const byId = new Map(local.map(p => [String(p.id), p]));
+      remote.forEach(p => { if (!byId.has(String(p.id))) byId.set(String(p.id), p); });
+      const merged = [...byId.values()];
+      saveFeedPosts(merged.filter(p => !p._remote).concat(remote));
+    }
+    if (typeof _renderFeedListWindow === 'function') return _renderFeedListWindow();
+  };
+
+  const _publishFeedPost = publishFeedPost;
+  publishFeedPost = async function() {
+    const ta = document.getElementById('rimFeedComposeText');
+    const modal = document.getElementById('rimFeedComposeModal');
+    const text = (ta?.value || '').trim();
+    const mediaUrl = modal?._pendingMedia || null;
+    if (!text && !mediaUrl) {
+      if (typeof toast === 'function') toast('Напишите текст или добавьте медиа');
+      return;
+    }
+    const remote = text ? await sbCreateFeedPost(text) : null;
+    if (remote) {
+      const posts = loadFeedPosts();
+      posts.unshift({
+        id: remote.id,
+        author: currentUserLabel(),
+        text,
+        mediaUrl,
+        views: 0,
+        createdAt: remote.createdAt,
+        _remote: true
+      });
+      saveFeedPosts(posts);
+      closeFeedCompose();
+      window.renderFeedList?.();
+      if (typeof toast === 'function') toast('Пост опубликован (Supabase)');
+      return;
+    }
+    return _publishFeedPost();
+  };
+
+  const _openFeedComments = openFeedComments;
+  openFeedComments = async function(postId) {
+    const remote = await sbListComments(postId);
+    if (remote) {
+      const map = loadFeedComments();
+      map[postId] = remote;
+      saveFeedComments(map);
+    }
+    return _openFeedComments(postId);
+  };
+
+  const _sendFeedComment = sendFeedComment;
+  sendFeedComment = async function() {
+    const sheet = document.getElementById('rimFeedCommentsSheet');
+    const input = document.getElementById('rimFeedCommentInput');
+    const postId = sheet?.dataset?.postId;
+    const text = (input?.value || '').trim();
+    if (!postId || !text) return;
+    const remote = await sbAddComment(postId, text);
+    if (remote) {
+      input.value = '';
+      openFeedComments(postId);
+      if (typeof toast === 'function') toast('Комментарий отправлен');
+      return;
+    }
+    return _sendFeedComment();
+  };
+
+  // Imperial: override renderers to use supabase
+  const _renderImpChannels = renderImpChannels;
+  renderImpChannels = async function(filter) {
+    const remote = await sbListChannels();
+    if (remote) {
+      saveImpChannels(remote);
+    }
+    return _renderImpChannels(filter);
+  };
+
+  // after channel flag toggles, persist flags
+  const _saveImpChannels = saveImpChannels;
+  saveImpChannels = function(rows) {
+    _saveImpChannels(rows);
+    saveChannelFlags(rows);
+  };
+
+  const _renderImpUsers = renderImpUsers;
+  renderImpUsers = async function(filter) {
+    const remote = await sbListUsers(filter || '');
+    if (remote) {
+      saveImpUsers(remote);
+    }
+    return _renderImpUsers(filter);
+  };
+
+  const _saveImpUsers = saveImpUsers;
+  saveImpUsers = function(rows) {
+    _saveImpUsers(rows);
+    saveUserFlags(rows);
+  };
+
+  const _renderImpModeration = renderImpModeration;
+  renderImpModeration = async function() {
+    const remote = await sbListReports(_modFilter === 'all' ? 'all' : _modFilter);
+    if (remote) {
+      // keep policy: no direct/secret
+      saveImpReports(remote.filter(r => r.scopeType !== 'direct' && r.scopeType !== 'secret'));
+    }
+    return _renderImpModeration();
+  };
+
+  // Also try after modular boot
+  setTimeout(bind, 800);
+  setTimeout(bind, 2500);
+})();
+</script>
+
 </body>
 </html>

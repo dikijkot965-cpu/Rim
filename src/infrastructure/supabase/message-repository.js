@@ -38,14 +38,28 @@ export class MessageRepository {
     this.pageSize = normalizeLimit(pageSize);
   }
 
+  async requestWithTimeout(query, timeoutMs = 12000) {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const request = controller && typeof query?.abortSignal === 'function' ? query.abortSignal(controller.signal) : query;
+    let timer;
+    try {
+      return await Promise.race([
+        request,
+        new Promise((_, reject) => { timer = setTimeout(() => { controller?.abort?.(); reject(new Error('Истекло время ожидания сервера переписок. Проверьте соединение и повторите попытку.')); }, timeoutMs); })
+      ]);
+    } finally { clearTimeout(timer); }
+  }
+
   async getLatest(conversationId, { limit = this.pageSize } = {}) {
     if (!conversationId) return Err(new Error('conversationId is required'));
-    const response = await this.client.from('chat_messages')
+    const query = this.client.from('chat_messages')
       .select('id,conversation_id,sender_id,body,image_path,reply_to_message_id,created_at,edited_at,sticker_id,topic_id,forwarded_from_user_id,forwarded_from_message_id,forwarded_hide_sender')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: false })
       .order('id', { ascending: false })
       .limit(normalizeLimit(limit));
+    let response;
+    try { response = await this.requestWithTimeout(query); } catch (error) { return Err(error); }
     if (response.error) return Err(response.error);
     return Ok((response.data || []).slice().reverse());
   }
@@ -56,15 +70,77 @@ export class MessageRepository {
     if (!Number.isFinite(stamp.getTime())) return Err(new Error('Invalid message cursor timestamp'));
     const safeId = String(cursor.id).replace(/[^a-zA-Z0-9-]/g, '');
     if (!safeId) return Err(new Error('Invalid message cursor id'));
-    const response = await this.client.from('chat_messages')
+    const query = this.client.from('chat_messages')
       .select('id,conversation_id,sender_id,body,image_path,reply_to_message_id,created_at,edited_at,sticker_id,topic_id,forwarded_from_user_id,forwarded_from_message_id,forwarded_hide_sender')
       .eq('conversation_id', conversationId)
       .or(`created_at.lt.${stamp.toISOString()},and(created_at.eq.${stamp.toISOString()},id.lt.${safeId})`)
       .order('created_at', { ascending: false })
       .order('id', { ascending: false })
       .limit(normalizeLimit(limit));
+    let response;
+    try { response = await this.requestWithTimeout(query); } catch (error) { return Err(error); }
     if (response.error) return Err(response.error);
     return Ok((response.data || []).slice().reverse());
+  }
+
+  async searchInConversation(conversationId, rawQuery, { limit = 30 } = {}) {
+    const search = String(rawQuery ?? '').trim().slice(0, 100);
+    if (!conversationId || search.length < 2) return Err(new Error('Для поиска нужно не менее двух символов.'));
+
+    // Fail closed: server-side body search is allowed only while the scope is
+    // explicitly plaintext. E2E/pending/unknown modes must never query body.
+    let scope;
+    try {
+      scope = await this.requestWithTimeout(this.client.from('conversations')
+        .select('id,e2e_mode').eq('id', conversationId).maybeSingle());
+    } catch (error) { return Err(error); }
+    if (scope.error) return Err(scope.error);
+    if (!scope.data || scope.data.e2e_mode !== 'off') {
+      return Err(new Error('Поиск по тексту на сервере отключён для E2E-переписок. Локальный E2E-поиск ещё не подключён.'));
+    }
+
+    // Escape SQL LIKE wildcards so the query is a literal substring search.
+    const literal = search.replace(/[\\%_]/g, '\\$&');
+    const query = this.client.from('chat_messages')
+      .select('id,conversation_id,sender_id,body,created_at,edited_at')
+      .eq('conversation_id', conversationId)
+      .ilike('body', `%${literal}%`)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(normalizeLimit(limit));
+    let response;
+    try { response = await this.requestWithTimeout(query); } catch (error) { return Err(error); }
+    if (response.error) return Err(response.error);
+    return Ok(response.data || []);
+  }
+
+  async getAround(conversationId, target, { limit = 25 } = {}) {
+    if (!conversationId || !target?.created_at || !target?.id) return Err(new Error('Для перехода к сообщению не хватает идентификатора или даты.'));
+    const stamp = new Date(target.created_at);
+    if (!Number.isFinite(stamp.getTime())) return Err(new Error('Некорректная дата найденного сообщения.'));
+    const safeId = String(target.id).replace(/[^a-zA-Z0-9-]/g, '');
+    if (!safeId) return Err(new Error('Некорректный идентификатор найденного сообщения.'));
+    const fields = 'id,conversation_id,sender_id,body,image_path,reply_to_message_id,created_at,edited_at,sticker_id,topic_id,forwarded_from_user_id,forwarded_from_message_id,forwarded_hide_sender';
+    const bounded = normalizeLimit(limit);
+    const beforeQuery = this.client.from('chat_messages').select(fields)
+      .eq('conversation_id', conversationId)
+      .or(`created_at.lt.${stamp.toISOString()},and(created_at.eq.${stamp.toISOString()},id.lt.${safeId})`)
+      .order('created_at', { ascending: false }).order('id', { ascending: false }).limit(bounded);
+    const afterQuery = this.client.from('chat_messages').select(fields)
+      .eq('conversation_id', conversationId)
+      .or(`created_at.gt.${stamp.toISOString()},and(created_at.eq.${stamp.toISOString()},id.gt.${safeId})`)
+      .order('created_at', { ascending: true }).order('id', { ascending: true }).limit(bounded);
+    let before, after;
+    try {
+      [before, after] = await Promise.all([
+        this.requestWithTimeout(beforeQuery),
+        this.requestWithTimeout(afterQuery)
+      ]);
+    } catch (error) { return Err(error); }
+    if (before.error) return Err(before.error);
+    if (after.error) return Err(after.error);
+    const rows = [...(before.data || []).slice().reverse(), target, ...(after.data || [])];
+    return Ok({ rows, hasOlder: (before.data || []).length === bounded });
   }
 
   async insert(payload) {

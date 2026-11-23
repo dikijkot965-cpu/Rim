@@ -103,3 +103,63 @@ test('offline replay uses an idempotent upsert and resolves the existing row on 
   assert.deepEqual(calls[0][2], { onConflict: 'sender_id,client_message_id', ignoreDuplicates: true });
   assert.ok(calls.some(call => call[0] === 'lookup-eq' && call[1] === 'client_message_id' && call[2] === 'obx_stable'));
 });
+
+test('message repository timeout helper rejects stalled PostgREST requests', async () => {
+  const repository = new MessageRepository({});
+  await assert.rejects(() => repository.requestWithTimeout(new Promise(() => {}), 10), /время ожидания/);
+});
+
+test('server-side conversation search is blocked unless the scope is explicitly plaintext', async () => {
+  const calls = [];
+  const scopeQuery = {
+    select() { return this; }, eq(...args) { calls.push(['scope-eq', ...args]); return this; },
+    maybeSingle() { return Promise.resolve({ data: { id: 'c1', e2e_mode: 'required' }, error: null }); }
+  };
+  const repository = new MessageRepository({ from(table) { calls.push(['from', table]); return scopeQuery; } });
+  const result = await repository.searchInConversation('c1', 'secret');
+  assert.equal(result.ok, false);
+  assert.match(result.error.message, /E2E/);
+  assert.deepEqual(calls.filter(row => row[0] === 'from').map(row => row[1]), ['conversations']);
+});
+
+test('plaintext conversation search escapes LIKE wildcards and stays conversation-scoped', async () => {
+  const calls = [];
+  const scopeQuery = {
+    select() { return this; }, eq(...args) { calls.push(['scope-eq', ...args]); return this; },
+    maybeSingle() { return Promise.resolve({ data: { id: 'c1', e2e_mode: 'off' }, error: null }); }
+  };
+  const messageQuery = {
+    select(fields) { calls.push(['select', fields]); return this; },
+    eq(...args) { calls.push(['eq', ...args]); return this; },
+    ilike(...args) { calls.push(['ilike', ...args]); return this; },
+    order(...args) { calls.push(['order', ...args]); return this; },
+    limit(value) { calls.push(['limit', value]); return Promise.resolve({ data: [{ id: 'm1', body: 'literal %_ value' }], error: null }); }
+  };
+  const repository = new MessageRepository({ from(table) { calls.push(['from', table]); return table === 'conversations' ? scopeQuery : messageQuery; } });
+  const result = await repository.searchInConversation('c1', ' %_ ', { limit: 12 });
+  assert.equal(result.ok, true);
+  assert.equal(result.value[0].id, 'm1');
+  assert.ok(calls.some(row => row[0] === 'eq' && row[1] === 'conversation_id' && row[2] === 'c1'));
+  assert.ok(calls.some(row => row[0] === 'ilike' && row[1] === 'body' && row[2] === '%\\%\\_%'));
+  assert.ok(calls.some(row => row[0] === 'limit' && row[1] === 12));
+});
+
+test('getAround loads a bounded chronological window around a search hit', async () => {
+  const calls = [];
+  const makeQuery = (kind) => ({
+    select() { return this; }, eq(...args) { calls.push([kind, 'eq', ...args]); return this; },
+    or(value) { calls.push([kind, 'or', value]); return this; },
+    order(...args) { calls.push([kind, 'order', ...args]); return this; },
+    limit(value) { calls.push([kind, 'limit', value]); return Promise.resolve({ data: kind === 'before'
+      ? [{ id: 'm0', created_at: '2026-11-12T09:59:00Z' }]
+      : [{ id: 'm2', created_at: '2026-11-12T10:01:00Z' }], error: null }); }
+  });
+  let queryNo = 0;
+  const repository = new MessageRepository({ from(table) { assert.equal(table, 'chat_messages'); return makeQuery(queryNo++ === 0 ? 'before' : 'after'); } });
+  const result = await repository.getAround('c1', { id: 'm1', conversation_id: 'c1', created_at: '2026-11-12T10:00:00Z', body: 'hit' }, { limit: 20 });
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.value.rows.map(row => row.id), ['m0', 'm1', 'm2']);
+  assert.equal(result.value.hasOlder, false);
+  assert.ok(calls.some(row => row[0] === 'before' && row[1] === 'or' && /id\.lt\.m1/.test(row[2])));
+  assert.ok(calls.some(row => row[0] === 'after' && row[1] === 'or' && /id\.gt\.m1/.test(row[2])));
+});

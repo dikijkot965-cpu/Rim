@@ -138,3 +138,47 @@ test('older-page locks are tracked independently per conversation', async () => 
   await second;
   assert.equal(f.controller.loadingOlder, false);
 });
+
+test('older-page cursor skips local E2E rows and uses the oldest server-backed message', async () => {
+  const f = fixture();
+  let cursor;
+  f.controller.repository.getBefore = async (_id, value) => { cursor = value; return { ok: true, value: [] }; };
+  f.controller.setMessages([
+    { id: 'e2e-local-oldest', conversation_id: 'c1', created_at: '2026-11-10T10:00:00Z', _rimLocalOnly: true },
+    { id: 'server-oldest', conversation_id: 'c1', created_at: '2026-11-11T10:00:00Z' },
+    { id: 'server-newest', conversation_id: 'c1', created_at: '2026-11-12T10:00:00Z' }
+  ]);
+  f.controller.hasOlder = true;
+  await f.controller.loadOlder();
+  assert.equal(cursor.id, 'server-oldest');
+});
+
+test('loadAround replaces the timeline with a bounded search-hit context', async () => {
+  const f = fixture();
+  f.controller.repository.getAround = async (_id, target) => ({ ok: true, value: {
+    rows: [{ id: 'before', conversation_id: 'c1', created_at: '2026-11-13T09:59:00Z' }, target, { id: 'after', conversation_id: 'c1', created_at: '2026-11-13T10:01:00Z' }],
+    hasOlder: true
+  } });
+  const result = await f.controller.loadAround({ id: 'hit', conversation_id: 'c1', created_at: '2026-11-13T10:00:00Z', body: 'found' });
+  assert.deepEqual(result.map(row => row.id), ['before', 'hit', 'after']);
+  assert.equal(f.controller.hasOlder, true);
+  assert.equal(f.rows[1].body, 'found');
+});
+
+test('private E2E group merges decrypted local rows into the normal conversation timeline', async () => {
+  let messages = [];
+  const conversation = { id: 'group-e2e-1', type: 'group', is_private: true, e2e_mode: 'required' };
+  const controller = new MessageTimelineController({
+    repository: { client: { async removeChannel() {} }, async getLatest() { return { ok: true, value: [] }; } },
+    getConversation: () => conversation,
+    getMessages: () => messages,
+    setMessages: value => { messages = value; },
+    loadLocalMessages: async () => [{ messageId: 'local-1', conversationId: conversation.id, senderId: 'user-a', body: 'secret group message', timestamp: Date.parse('2026-11-22T12:00:00Z') }],
+    getUser: () => ({ id: 'user-a' }), render: async () => {}, logger: { warn() {} }
+  });
+  await controller.loadLatest();
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].id, 'local-1');
+  assert.equal(messages[0]._rimEncrypted, true);
+  assert.equal(messages[0]._rimLocalOnly, true);
+});

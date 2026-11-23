@@ -148,3 +148,30 @@ test('forward copies image, attachment_path and attachment rows with cleanup lis
   assert.ok(storageCopies.length >= 2, `copies=${storageCopies.length}`);
   assert.ok(attachmentInserts.length >= 1, 'attachment meta inserted');
 });
+
+test('forward refuses a target conversation that requires E2E before copying attachments or inserting', async () => {
+  let copied = 0;
+  let inserted = 0;
+  const client = {
+    from(table) {
+      if (table === 'conversation_members') return { select() { return this; }, eq() { return this; }, maybeSingle: async () => ({ data: { conversation_id: 'target' }, error: null }) };
+      if (table === 'conversations') return { select() { return this; }, eq() { return this; }, maybeSingle: async () => ({ data: { id: 'target', type: 'direct' }, error: null }) };
+      if (table === 'chat_messages') return { insert() { inserted++; } };
+      throw new Error(`unexpected table ${table}`);
+    },
+    storage: { from() { return { copy: async () => { copied++; return { error: null }; }, remove: async () => ({ error: null }) }; } }
+  };
+  const service = new ForwardMessageService({
+    client,
+    e2eScopeRepository: { getScope: async () => ({ ok: true, value: { enabled: true } }) },
+    getUser: () => ({ id: 'u1' }),
+    getMessages: () => [{ id: 'source', sender_id: 'u2', body: 'private text', image_path: 'private.png' }],
+    getActiveConversation: () => ({ id: 'source-chat' }),
+    notify: () => {}
+  });
+  const result = await service.forward('source', 'target');
+  assert.equal(result.ok, false);
+  assert.match(result.error.message, /требует E2E/i);
+  assert.equal(copied, 0);
+  assert.equal(inserted, 0);
+});

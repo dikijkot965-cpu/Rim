@@ -66,7 +66,7 @@ export class ConversationRepository {
     for (const batch of chunks(ids, this.batchSize)) {
       const response = await this.client
         .from('conversations')
-        .select('id,type,title,description,created_at,created_by,is_private,avatar_path,invite_code')
+        .select('id,type,title,description,created_at,created_by,is_private,avatar_path,invite_code,is_secret,e2e_mode,e2e_epoch,e2e_protocol')
         .in('id', batch)
         .order('created_at', { ascending: false });
       if (response.error) return Err(response.error);

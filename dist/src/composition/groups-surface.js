@@ -104,6 +104,22 @@ export function bindGroupsSurface({
     return result;
   };
 
+  win.rimGroupAddZladen = async id => {
+    const zladen = container.get('zladenBot');
+    if (!zladen?.getPublicProfile) {
+      notify?.('Не удалось получить профиль Злыди.');
+      return null;
+    }
+    const profile = await zladen.getPublicProfile();
+    if (!profile?.ok || !profile.value?.username) {
+      notify?.(profile?.error?.message || 'Профиль Злыди пока недоступен.');
+      return profile;
+    }
+    const result = report(await groupCommands.addMember(id, profile.value.username));
+    if (result?.ok) notify?.('Злыдя добавлен в группу. Он представится первым сообщением.');
+    return result;
+  };
+
   win.rimGroupRemoveMember = async (id, userId) => report(await groupCommands.removeMember(id, userId));
 
   win.rimGroupSetRole = async (id, userId) => {

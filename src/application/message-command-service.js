@@ -14,7 +14,7 @@ const IMAGE_EXTENSIONS = MESSAGE_IMAGE_EXTENSIONS;
 
 /** Application boundary for message mutations. The legacy renderer remains responsible for presentation. */
 export class MessageCommandService {
-  constructor({ repository, storage, getUser, getConversation, getReplyTarget = () => null, getTopicId = () => null, getMessages = () => [], setMessages = null, canSend = async () => true, notify = () => {}, reload = async () => {}, applyLocal = null, clearReply = () => {}, onSent = null, notifyPush = null }) {
+  constructor({ repository, storage, getUser, getConversation, getReplyTarget = () => null, getTopicId = () => null, getMessages = () => [], setMessages = null, canSend = async () => true, e2eScopeRepository = null, e2eRuntime = null, notify = () => {}, reload = async () => {}, applyLocal = null, clearReply = () => {}, onSent = null, notifyPush = null }) {
     this.repository = repository;
     this.storage = storage;
     this.getUser = getUser;
@@ -24,6 +24,8 @@ export class MessageCommandService {
     this.getMessages = getMessages;
     this.setMessages = setMessages;
     this.canSend = canSend;
+    this.e2eScopeRepository = e2eScopeRepository;
+    this.e2eRuntime = e2eRuntime;
     this.notify = notify;
     this.reload = reload;
     this.applyLocal = applyLocal;
@@ -73,6 +75,52 @@ export class MessageCommandService {
     return (this.getMessages() || []).some(row => String(row.id) === String(messageId) && String(row.conversation_id) === String(conversationId));
   }
 
+  isLocalE2EMessage(messageId) {
+    return (this.getMessages() || []).some(row => String(row.id) === String(messageId) && (row._rimLocalOnly === true || row._rimE2E === true));
+  }
+
+  e2eScopeInput(conversation) {
+    if (!conversation?.id) return null;
+    if (conversation.type === 'direct') return { type: 'direct', id: conversation.id };
+    if (conversation.type === 'group') {
+      if (typeof conversation.is_private !== 'boolean') {
+        throw new Error('Не удалось подтвердить приватность групповой переписки; отправка открытого текста остановлена.');
+      }
+      return { type: 'group', id: conversation.id, is_private: conversation.is_private };
+    }
+    return null;
+  }
+
+  async inspectE2EScope(conversation, user) {
+    if (!this.e2eScopeRepository) return Ok({ enabled: false, scope: null });
+    let input;
+    try { input = this.e2eScopeInput(conversation); }
+    catch (error) { return Err(error); }
+    if (!input) return Ok({ enabled: false, scope: input });
+    const result = await this.e2eScopeRepository.getScope(input, user?.id);
+    return result.ok ? result : Err(result.error || new Error('Не удалось проверить режим E2E.'));
+  }
+
+  async canQueuePlaintextOutbox(conversation = this.getConversation?.(), user = this.getUser?.()) {
+    if (!conversation?.id || !user?.id) return Err(new Error('Нельзя сохранить сообщение в очереди без текущего аккаунта и переписки.'));
+    if (!['direct', 'group'].includes(conversation.type)) return Ok(true);
+    // Outbox v2 stores plaintext in localStorage. It must never be used for a
+    // scope that requires E2E, nor when scope lookup/privacy cannot be verified.
+    if (!this.e2eScopeRepository) return Err(new Error('Защищённая проверка режима переписки недоступна; открытый текст не сохранён в очереди.'));
+    const scope = await this.inspectE2EScope(conversation, user);
+    if (!scope.ok) return Err(scope.error);
+    if (scope.value?.enabled) return Err(new Error('Эта переписка требует E2E. Открытый текст не сохранён в офлайн-очереди.'));
+    return Ok(true);
+  }
+
+  async assertLegacyPayloadAllowed(conversation, user) {
+    if (!['direct', 'group'].includes(conversation?.type)) return Ok(true);
+    const scopeResult = await this.inspectE2EScope(conversation, user);
+    if (!scopeResult.ok) return Err(scopeResult.error);
+    if (scopeResult.value?.enabled) return Err(new Error(scopeResult.value.readiness?.reason || 'Эта переписка требует E2E. Вложение не отправлено открытым способом.'));
+    return Ok(true);
+  }
+
   assertSendPolicy(conversationId) {
     const key = String(conversationId || '');
     const recent = this.sendTimestampsByConversation.get(key) || [];
@@ -109,6 +157,7 @@ export class MessageCommandService {
     return this.exclusive(exclusiveKey, async () => {
       let user;
       let conversationId;
+      let conversationSnapshot = null;
       if (fromOutbox && options.conversationId) {
         user = this.getUser?.();
         if (!user?.id) return Err(new Error('Требуется вход в РИМ.'));
@@ -125,9 +174,84 @@ export class MessageCommandService {
         const context = await this.prepareSend();
         if (!context.ok) return context;
         user = context.value.user;
+        conversationSnapshot = context.value.conversation;
         conversationId = context.value.conversation.id;
         const policy = this.assertSendPolicy(conversationId);
         if (!policy.ok) return policy;
+      }
+      // E2E-required direct chats and private groups never fall through to
+      // the legacy plaintext `chat_messages.body` insert. The protected path
+      // verifies every participant and persists only in the encrypted local timeline.
+      const currentConversation = fromOutbox
+        ? { id: conversationId, type: options.conversationType || 'unknown', ...(typeof options.conversationIsPrivate === 'boolean' ? { is_private: options.conversationIsPrivate } : {}) }
+        : conversationSnapshot;
+      if (['direct', 'group'].includes(currentConversation?.type) && this.e2eScopeRepository) {
+        const scopeResult = await this.inspectE2EScope(currentConversation, user);
+        if (!scopeResult.ok) return Err(scopeResult.error || new Error('Не удалось проверить режим E2E этой переписки.'));
+        if (scopeResult.value?.enabled) {
+          let protectedScope = scopeResult.value;
+          let readiness = protectedScope.readiness;
+          // If every participant already has an active compatible device,
+          // establish a real encrypted challenge/ACK exchange automatically
+          // before allowing the first protected message. No plaintext fallback.
+          if (!readiness?.ready && Array.isArray(readiness?.missingUserIds) && readiness.missingUserIds.length === 0
+            && Array.isArray(protectedScope.memberUserIds) && this.e2eRuntime?.verifyScopeExchange) {
+            try {
+              await this.e2eRuntime.startIncoming();
+              await this.e2eRuntime.verifyScopeExchange({ type: currentConversation.type === 'direct' ? 'direct' : 'group', id: conversationId }, protectedScope.memberUserIds);
+              const refreshed = await this.inspectE2EScope(currentConversation, user);
+              if (!refreshed.ok) return Err(refreshed.error);
+              protectedScope = refreshed.value;
+              readiness = protectedScope.readiness;
+            } catch (error) {
+              return Err(new Error(`Автоматическая проверка E2E не завершилась: ${error?.message || error}. Открытый текст не отправлен.`));
+            }
+          }
+          if (!readiness?.ready) return Err(new Error(readiness?.reason || 'Эта переписка требует E2E, но защищённый протокол ещё не готов. Открытый текст не отправлен.'));
+          const isDirect = currentConversation.type === 'direct';
+          if (isDirect && (!protectedScope.peerUserId || !this.e2eRuntime?.sendDirect)) {
+            return Err(new Error('Для этой E2E-переписки не готов защищённый маршрут доставки. Открытый текст не отправлен.'));
+          }
+          if (!isDirect && (currentConversation.type !== 'group' || !this.e2eRuntime?.sendGroup || !Array.isArray(protectedScope.memberUserIds))) {
+            return Err(new Error('Для этой E2E-группы не готов защищённый маршрут доставки. Открытый текст не отправлен.'));
+          }
+          if (fromOutbox && options.expectedUserId && String(this.getUser?.()?.id) !== String(options.expectedUserId)) {
+            return Err(new Error('Аккаунт изменился во время проверки E2E. Отправка из очереди остановлена.'));
+          }
+          if (String(this.getUser?.()?.id || '') !== String(user.id)) {
+            return Err(new Error('Аккаунт изменился во время подготовки E2E-отправки. Сообщение не отправлено.'));
+          }
+          const encryptedOptions = { conversationId, replyTo: reply?.id || null, clientMessageId: fromOutbox ? (options.outboxId || null) : null };
+          const encryptedResult = isDirect
+            ? await this.e2eRuntime.sendDirect(protectedScope.peerUserId, body, encryptedOptions)
+            : await this.e2eRuntime.sendGroup(protectedScope.memberUserIds, body, encryptedOptions);
+          const messageId = String(encryptedResult?.messageId || encryptedResult?.id || '');
+          if (!messageId) return Err(new Error('SDK не вернул идентификатор защищённого сообщения.'));
+          if (String(this.getUser?.()?.id || '') !== String(user.id)) {
+            this.notify('E2E-сообщение было принято транспортом, но аккаунт сменился до сохранения локальной копии. Оно не добавлено в историю нового аккаунта; не отправляй его повторно.');
+            return Ok({ id: messageId, conversation_id: conversationId, _rimE2E: true, _rimLocalOnly: true, _rimAcceptedBeforeAccountSwitch: true });
+          }
+          let local = encryptedResult.localMessage || null;
+          try {
+            const localRows = await this.e2eRuntime.getLocalConversation(conversationId, { limit: 500 });
+            local = (localRows || []).find(row => String(row.messageId) === messageId) || local;
+          } catch { /* relay acceptance must not be reported as an unsent message */ }
+          if (!local) return Err(new Error('SDK подтвердил отправку, но не вернул локальную копию. Не повторяй отправку автоматически; проверь состояние переписки.'));
+          if (encryptedResult.localPersisted === false) this.notify('Сообщение принято E2E-доставкой, но локальная история не сохранилась на этом устройстве. Не отправляй его повторно.');
+          const sentMessage = {
+            id: messageId, conversation_id: conversationId, sender_id: String(user.id),
+            body: String(local.body || body), created_at: new Date(Number(local.timestamp || Date.now())).toISOString(),
+            reply_to_message_id: local.replyTo || null, _rimE2E: true, _rimLocalOnly: true, _rimEncrypted: true
+          };
+          this.clearReplyIfUnchanged(conversationId, reply?.id);
+          if (!fromOutbox) this.noteSuccessfulSend(conversationId);
+          await this.refreshIfCurrent(conversationId, sentMessage);
+          return Ok(sentMessage);
+        }
+      }
+
+      if (String(this.getUser?.()?.id || '') !== String(user.id)) {
+        return Err(new Error('Аккаунт изменился во время подготовки отправки. Сообщение не отправлено.'));
       }
       const result = await this.repository.insert({
         conversation_id: conversationId,
@@ -156,6 +280,8 @@ export class MessageCommandService {
       const { user, conversation } = context.value;
       const policy = this.assertSendPolicy(conversation.id);
       if (!policy.ok) return policy;
+      const e2ePolicy = await this.assertLegacyPayloadAllowed(conversation, user);
+      if (!e2ePolicy.ok) return e2ePolicy;
       const result = await this.repository.insert({
         conversation_id: conversation.id, sender_id: user.id, body: '', sticker_id: value,
         ...(topicId ? { topic_id: topicId } : {})
@@ -179,10 +305,21 @@ export class MessageCommandService {
       if (!context.ok) return context;
       if (!this.storage?.from) return Err(new Error('Хранилище файлов недоступно.'));
       const { user, conversation } = context.value;
-      const path = `${user.id}/${conversation.id}/${crypto.randomUUID()}.${IMAGE_EXTENSIONS[file.type]}`;
+      const userId = String(user.id);
+      const conversationId = String(conversation.id);
+      const contextIsCurrent = () => String(this.getUser?.()?.id || '') === userId
+        && String(this.getConversation?.()?.id || '') === conversationId;
+      const e2ePolicy = await this.assertLegacyPayloadAllowed(conversation, user);
+      if (!e2ePolicy.ok) return e2ePolicy;
+      if (!contextIsCurrent()) return Err(new Error('Аккаунт или переписка изменились во время проверки E2E. Фотография не отправлена.'));
+      const path = `${userId}/${conversationId}/${crypto.randomUUID()}.${IMAGE_EXTENSIONS[file.type]}`;
       this.notify('Загружаю фотографию...');
       const upload = await this.storage.from('chat-files').upload(path, file, { contentType: file.type, upsert: false });
       if (upload.error) return Err(upload.error);
+      if (!contextIsCurrent()) {
+        try { await this.storage.from('chat-files').remove([path]); } catch { /* best-effort orphan cleanup */ }
+        return Err(new Error('Аккаунт или переписка изменились во время загрузки. Фотография удалена из очереди отправки.'));
+      }
       const result = await this.repository.insert({
         conversation_id: conversation.id, sender_id: user.id, body: '', image_path: path,
         reply_to_message_id: reply?.id || null,
@@ -211,6 +348,7 @@ export class MessageCommandService {
     const context = this.context();
     if (!context.ok) return context;
     if (!this.messageInCurrentConversation(messageId, context.value.conversation.id)) return Err(new Error('Сообщение не найдено в открытой переписке.'));
+    if (this.isLocalE2EMessage(messageId)) return Err(new Error('E2E-сообщение хранится локально; изменение через старый серверный API запрещено.'));
     return this.exclusive(`message-mutation:${messageId}`, async () => {
       const result = await this.repository.update(messageId, context.value.user.id, body, context.value.conversation.id);
       if (result.ok) await this.refreshIfCurrent(context.value.conversation.id);
@@ -222,6 +360,7 @@ export class MessageCommandService {
     const context = this.context();
     if (!context.ok) return context;
     if (!this.messageInCurrentConversation(messageId, context.value.conversation.id)) return Err(new Error('Сообщение не найдено в открытой переписке.'));
+    if (this.isLocalE2EMessage(messageId)) return Err(new Error('E2E-сообщение хранится локально; удаление через старый серверный API запрещено.'));
     return this.exclusive(`message-mutation:${messageId}`, async () => {
       const result = await this.repository.remove(messageId, context.value.user.id, context.value.conversation.id);
       if (result.ok) await this.refreshIfCurrent(context.value.conversation.id);
@@ -238,6 +377,7 @@ export class MessageCommandService {
     if (!this.messageInCurrentConversation(messageId, context.value.conversation.id)) {
       return Err(new Error('Сообщение не найдено в открытой переписке.'));
     }
+    if (this.isLocalE2EMessage(messageId)) return Err(new Error('Реакции для локальных E2E-сообщений ещё не подключены.'));
     return this.exclusive(`message-react:${messageId}:${value}`, async () => {
       const result = await this.repository.react({
         messageId,

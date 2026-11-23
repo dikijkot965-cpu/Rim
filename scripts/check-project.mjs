@@ -101,7 +101,7 @@ else {
   const html = fs.readFileSync(htmlPath, 'utf8');
   for (const match of html.matchAll(/(?:src|href)="([^"]+)"/g)) {
     const reference = match[1];
-    if (/^(?:https?:|#|data:|\/|mailto:|tel:)/i.test(reference)) continue;
+    if (/^(?:https?:|#|data:|\/|mailto:|tel:)/i.test(reference) || reference.includes('${')) continue;
     const localPath = reference.split(/[?#]/, 1)[0];
     if (!localPath) continue;
     if (!fs.existsSync(path.join(root, localPath))) report(`Missing local HTML asset: ${reference}`);
@@ -109,7 +109,7 @@ else {
 }
 
 // Count src/ innerHTML review risks (interpolation without escape helper nearby).
-const SAFE_ESC = /escapeHtml|escapeAttr|escapeJsString|escHtml|sanitizeHtml|CSS\.escape/;
+const SAFE_ESC = /escapeHtml|escapeAttr|escapeJsString|escHtml|\besc\b|sanitizeHtml|CSS\.escape/;
 function countSrcInnerHtmlReview() {
   let review = 0;
   const srcRoot = path.join(root, 'src');

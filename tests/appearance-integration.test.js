@@ -13,5 +13,5 @@ test('app owns appearance preference routes', () => {
   assert.match(surface, /__RIM_APPEARANCE_OWNED\s*=\s*true/);
   assert.match(surface, /changeTheme/);
   assert.match(surface, /changeLanguage/);
-  assert.match(app, /4\.0\.0-iteration\.122/);
+  assert.match(app, /4\.1\.8-iteration\.163/);
 });

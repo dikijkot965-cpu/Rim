@@ -25,6 +25,9 @@ function createClient({
         return {
           createSignedUrl() {
             return Promise.resolve({ data: signedUrl ? { signedUrl } : null, error: null });
+          },
+          createSignedUrls(paths) {
+            return Promise.resolve({ data: (paths || []).map(path => ({ path, signedUrl: signedUrl || `https://example.com/${path}` })), error: null });
           }
         };
       }
@@ -91,6 +94,8 @@ test('channel shell loads narrow columns and bounded posts/polls', async () => {
   const postsCall = client.calls.find(call => call.table === 'channel_posts');
   const pollsCall = client.calls.find(call => call.table === 'channel_polls');
   assert.match(channelCall.columns, /id,title,description/);
+  assert.match(channelCall.columns, /e2e_mode/);
+  assert.match(channelCall.columns, /e2e_epoch/);
   assert.equal(postsCall.limit, 30);
   assert.equal(pollsCall.limit, 20);
   assert.deepEqual(postsCall.orders, [['created_at', { ascending: false }], ['id', { ascending: false }]]);
@@ -170,4 +175,61 @@ test('channel pin action uses the server-authorized RPC', async () => {
   const result = await new ChannelFeedRepository(client).pinPost('post-1', true);
   assert.equal(result.ok, true);
   assert.deepEqual(client.rpcCalls, [{ name: 'rim_channel_pin_post', args: { p_post_id: 'post-1', p_pinned: true } }]);
+});
+
+
+test('channel assets gallery signs media from the existing chat-files bucket and extracts links', async () => {
+  const client = createClient({
+    posts: [
+      { id: 'p1', body: 'Read https://example.com/story', image_path: 'channel/photo.jpg', created_at: '2026-01-01' },
+      { id: 'p2', body: 'No media', image_path: null, created_at: '2026-01-02' }
+    ],
+    signedUrl: 'https://cdn.example.com/photo.jpg'
+  });
+  const result = await new ChannelFeedRepository(client).getChannelAssets('ch1');
+  assert.equal(result.ok, true);
+  assert.equal(result.value.media.length, 1);
+  assert.equal(result.value.media[0].media_url, 'https://cdn.example.com/photo.jpg');
+  assert.equal(result.value.links[0].url, 'https://example.com/story');
+  assert.equal(result.value.links[0].postId, 'p1');
+});
+
+test('channel profile details degrade gracefully when optional admin statistics are unavailable', async () => {
+  const client = createClient();
+  const result = await new ChannelFeedRepository(client).getProfileDetails('ch1');
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.value.dailyStats, []);
+  assert.equal(result.value.scheduledCount, 0);
+  assert.equal(result.value.pendingCount, 0);
+});
+
+test('channel admin roster joins bounded member rows with profile data', async () => {
+  const client = createClient({
+    membership: [{ user_id: 'u1', role: 'admin', joined_at: '2026-01-01' }],
+    profiles: [{ id: 'u1', username: 'owner', display_name: 'Owner' }]
+  });
+  const result = await new ChannelFeedRepository(client).getAdminRoster('ch1');
+  assert.equal(result.ok, true);
+  assert.equal(result.value[0].profile.display_name, 'Owner');
+  assert.equal(result.value[0].role, 'admin');
+});
+
+test('channel join request decisions use an atomic server-side RPC', async () => {
+  const client = createClient();
+  const result = await new ChannelFeedRepository(client).reviewJoinRequest('request-1', 'approved');
+  assert.equal(result.ok, true);
+  assert.deepEqual(client.rpcCalls, [{
+    name: 'rim_channel_review_join_request',
+    args: { p_request_id: 'request-1', p_decision: 'approved' }
+  }]);
+});
+
+test('scheduled channel publication uses a single atomic server-side RPC', async () => {
+  const client = createClient();
+  const result = await new ChannelFeedRepository(client).publishScheduledPost('scheduled-1');
+  assert.equal(result.ok, true);
+  assert.deepEqual(client.rpcCalls, [{
+    name: 'rim_channel_publish_scheduled',
+    args: { p_scheduled_id: 'scheduled-1' }
+  }]);
 });

@@ -13,5 +13,5 @@ test('app routes admin notice, stats and users list modularly', () => {
   assert.match(admin, /rimAdminSendNotice/);
   assert.match(admin, /rimLoadStats/);
   assert.match(admin, /rimLoadAdminUsers/);
-  assert.match(app, /4\.0\.0-iteration\.122/);
+  assert.match(app, /4\.1\.8-iteration\.163/);
 });

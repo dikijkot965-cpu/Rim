@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { RIM_RADIO_STATIONS } from '../src/features/radio-player.js';
 
 test('radio catalogue contains requested Russian stations with secure HTTPS streams', () => {
@@ -25,4 +26,12 @@ test('radio catalogue expands with additional Russian-language stations', () => 
   for (const id of ['zvezda', 'radiovanya', 'radiomir', 'montecarlo', 'mcgold', 'dfm90']) {
     assert.ok(byId.has(id), `missing ${id}`);
   }
+});
+
+test('radio compact list defaults to Marusya FM, Detskoe Radio and Dorozhnoe Radio', () => {
+  assert.deepEqual(RIM_RADIO_STATIONS.slice(0, 3).map(station => station.id), ['marusya', 'detskoe', 'dorozhnoe']);
+  const source = fs.readFileSync(new URL('../src/features/radio-player.js', import.meta.url), 'utf8');
+  assert.match(source, /DEFAULT_FEATURED = \['marusya', 'detskoe', 'dorozhnoe'\]/);
+  assert.match(source, /data-radio-expand/);
+  assert.match(source, /data-radio-featured/);
 });

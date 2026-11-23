@@ -113,6 +113,7 @@ export function bindConversationOpenSurface({
       await afterBindings?.({ id, sequence, isCurrent, activeAfterOpen });
 
       const state = context?.getActiveConversation?.() || getActiveConversation?.();
+      if (state) events?.emit?.('conversation.opened', { conversation: state });
       if (state?.type !== 'direct') return;
       const resolved = await paintDirectPeerHeader({
         conversation: state,

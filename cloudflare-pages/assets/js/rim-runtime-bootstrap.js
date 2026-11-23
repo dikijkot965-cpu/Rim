@@ -12,6 +12,42 @@ const SUPABASE_URL = "https://xxvcsaomkyknudoaixbs.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8uEQ0o-7uF66sPZi8EVp5g_SDHXXJx0";
 window.RIM_SUPABASE_PUBLISHABLE_KEY = SUPABASE_KEY;
 
+// The classic bootstrap can finish Supabase getSession() before the large
+// modular application graph has loaded. Never initialize authenticated UI
+// against the temporary no-op loadConversations/openConversation shims.
+let __rimResolveModulesReady;
+let __rimModulesReadyResolved = false;
+window.__RIM_APP_MODULES_READY_STATE = 'loading';
+window.__RIM_APP_MODULES_READY_PROMISE = new Promise(resolve => {
+  __rimResolveModulesReady = resolve;
+});
+window.__rimMarkAppModulesReady = () => {
+  if (__rimModulesReadyResolved) return true;
+  __rimModulesReadyResolved = true;
+  window.__RIM_APP_MODULES_READY_STATE = 'ready';
+  try { __rimResolveModulesReady?.(true); } catch (_) { /* no-op */ }
+  return true;
+};
+
+async function waitForRimAppModulesReady(timeoutMs = 20000) {
+  if (window.__RIM_APP_MODULES_READY_STATE === 'ready') return true;
+  const promise = window.__RIM_APP_MODULES_READY_PROMISE;
+  if (!promise || typeof promise.then !== 'function') return true;
+  let timer = null;
+  const ready = await Promise.race([
+    promise,
+    new Promise(resolve => { timer = setTimeout(() => resolve(false), timeoutMs); })
+  ]);
+  if (timer !== null) clearTimeout(timer);
+  if (ready !== true) {
+    const message = 'Модули RIM не загрузились за 20 секунд. Обнови страницу; если ошибка повторится, проверь загрузку assets/js/rim-app.bundle.js.';
+    const list = document.getElementById('chatList');
+    if (list) list.innerHTML = `<div class="notice">${message}</div><button class="action-btn" type="button" onclick="location.reload()">Перезагрузить RIM</button>`;
+    throw new Error(message);
+  }
+  return true;
+}
+
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
  auth: {
   persistSession: true,
@@ -76,7 +112,7 @@ db.auth.onAuthStateChange((event,session)=>{if((event==='SIGNED_IN'||event==='TO
    STARTUP
 ===================================================== */
 
-async function initializeApp(){if(window.__RIM_APP_BOOTSTRAP_OWNED&&typeof window.initializeApp==='function'&&window.initializeApp!==initializeApp)return window.initializeApp();if(!currentUser||initializing)return;initializing=true;try{document.getElementById("authScreen")?.classList.add("hidden");document.getElementById("app")?.classList.remove("hidden");const results=await Promise.allSettled([loadProfile(),loadSettings(),loadConversations(),loadChannels()]);results.forEach((r,i)=>{if(r.status==='rejected')console.error('Ошибка загрузки раздела '+i,r.reason);});const st=document.getElementById("chatHeadStatus");if(st)st.textContent="На связи";}catch(error){console.error(error);toast("Ошибка запуска приложения: "+(error?.message||error));}finally{initializing=false;try{window.__rimMirrorLegacyState?.();}catch(_){}}}
+async function initializeApp(){await waitForRimAppModulesReady();if(window.__RIM_APP_BOOTSTRAP_OWNED&&typeof window.initializeApp==='function'&&window.initializeApp!==initializeApp)return window.initializeApp();if(!currentUser||initializing)return;initializing=true;try{document.getElementById("authScreen")?.classList.add("hidden");document.getElementById("app")?.classList.remove("hidden");const results=await Promise.allSettled([loadProfile(),loadSettings(),loadConversations(),loadChannels()]);results.forEach((r,i)=>{if(r.status==='rejected')console.error('Ошибка загрузки раздела '+i,r.reason);});const st=document.getElementById("chatHeadStatus");if(st)st.textContent="На связи";}catch(error){console.error(error);toast("Ошибка запуска приложения: "+(error?.message||error));}finally{initializing=false;try{window.__rimMirrorLegacyState?.();}catch(_){}}}
 
 async function loadProfile(){if(window.__RIM_PROFILE_OWNED&&typeof window.loadProfile==='function'&&window.loadProfile!==loadProfile)return window.loadProfile();if(!currentUser?.id)return;const {data,error}=await db.from('profiles').select('*').eq('id',currentUser.id).maybeSingle();if(error){console.error(error);return;}currentProfile=data;if(!data){const username='user_'+String(currentUser.id).slice(0,8);const {data:np}=await db.from('profiles').insert({id:currentUser.id,username,display_name:username}).select().single();if(np)currentProfile=np;}try{window.currentProfile=currentProfile;}catch(_){}}
 

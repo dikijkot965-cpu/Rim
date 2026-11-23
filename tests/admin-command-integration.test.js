@@ -12,5 +12,5 @@ test('app routes admin ads toggle and role updates through AdminCommandService',
   assert.match(admin, /AdminCommandService/);
   assert.match(admin, /rimToggleAds/);
   assert.match(admin, /rimAdminSetRole/);
-  assert.match(app, /4\.0\.0-iteration\.122/);
+  assert.match(app, /4\.1\.8-iteration\.163/);
 });

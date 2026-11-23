@@ -16,5 +16,5 @@ test('app owns session notifications member card and calls routes', () => {
   assert.match(shell, /__RIM_NOTIFICATION_PREFS_OWNED/);
   assert.match(shell, /__RIM_MEMBER_CARD_OWNED/);
   assert.match(shell, /__RIM_CALLS_PLACEHOLDER_OWNED/);
-  assert.match(app, /4\.0\.0-iteration\.122/);
+  assert.match(app, /4\.1\.8-iteration\.163/);
 });

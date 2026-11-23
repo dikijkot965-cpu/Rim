@@ -10,6 +10,7 @@ import { ForwardMessageService } from '../application/forward-message-service.js
  */
 export function bindSocialSurface({
   client,
+  e2eScopeRepository = null,
   getUser,
   getMessages,
   getConversations,
@@ -39,7 +40,8 @@ export function bindSocialSurface({
       <div><strong>${esc(name)}</strong><div class="muted">@${esc(profile.username || '')}</div></div></div>
       <p>${esc(profile.bio || 'Пользователь пока не добавил описание.')}</p>
       <div class="modal-actions"><button class="action-btn" onclick="closeModal()">Закрыть</button>
-      <button class="primary-btn" onclick="closeModal();startChatWith('${esc(profile.id)}')">Написать</button></div>`);
+      <button class="primary-btn" onclick="closeModal();startChatWith('${esc(profile.id)}')">Написать</button>
+      <button class="action-btn" onclick="closeModal();startSecretChatWith('${esc(profile.id)}')">🔒 Секретный чат E2E</button></div>`);
     },
     reloadConversations: async () => { await win.loadConversations?.(); },
     openConversation: async id => { await win.openConversation?.(id); },
@@ -57,7 +59,8 @@ export function bindSocialSurface({
       <div><strong>${esc(name)}</strong><div class="muted">@${esc(profile?.username || '')}</div></div></div>
       <p>${esc(profile?.bio || 'Пользователь пока не добавил описание.')}</p>
       <div class="modal-actions"><button class="action-btn" onclick="closeModal()">Закрыть</button>
-      <button class="primary-btn" onclick="closeModal();startChatWith('${esc(profile?.id)}')">Написать</button></div>`);
+      <button class="primary-btn" onclick="closeModal();startChatWith('${esc(profile?.id)}')">Написать</button>
+      <button class="action-btn" onclick="closeModal();startSecretChatWith('${esc(profile?.id)}')">🔒 Секретный чат E2E</button></div>`);
   };
   win.findUserByName = async username => {
     const result = await directChat.findByUsername(username);
@@ -67,6 +70,12 @@ export function bindSocialSurface({
   win.startChatWith = async userId => {
     const result = await directChat.startWith(userId);
     if (!result.ok) notify?.(result.error?.message || 'Не удалось начать чат.');
+    return result;
+  };
+  win.startSecretChatWith = async userId => {
+    const result = await directChat.startSecretWith(userId);
+    if (!result.ok) notify?.(result.error?.message || 'Не удалось создать секретный чат.');
+    else notify?.('Секретный чат создан. Открой его и нажми 🔒 в заголовке, чтобы проверить зашифрованный обмен.');
     return result;
   };
   lifecycle?.add?.(() => { win.__RIM_DIRECT_CHAT_OWNED = false; });
@@ -98,6 +107,7 @@ export function bindSocialSurface({
 
   const forwardMessages = new ForwardMessageService({
     client,
+    e2eScopeRepository,
     getUser,
     getMessages,
     getConversations,

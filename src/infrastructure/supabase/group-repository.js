@@ -24,7 +24,7 @@ export class GroupRepository {
     const [groupResult, membersResult] = await Promise.all([
       this.client
         .from('conversations')
-        .select('id,title,description,is_private,created_by,invite_code,avatar_path,type')
+        .select('id,title,description,is_private,created_by,invite_code,avatar_path,type,e2e_mode,e2e_epoch,e2e_protocol')
         .eq('id', conversationId)
         .single(),
       this.client

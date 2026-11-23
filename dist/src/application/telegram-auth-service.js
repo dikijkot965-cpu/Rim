@@ -92,6 +92,7 @@ export class TelegramAuthService {
       client_id: this.clientId,
       redirect_uri: redirectUri,
       response_type: 'code',
+      prompt: 'login',
       scope: 'openid profile',
       state,
       nonce,
@@ -108,6 +109,7 @@ export class TelegramAuthService {
     const state = url.searchParams.get('state');
     const providerError = url.searchParams.get('error');
     if (!code && !state && !providerError) return { handled: false };
+    try { this.window.__RIM_TELEGRAM_CALLBACK_SEEN = true; } catch { /* diagnostics only */ }
     if (this.processing) return { handled: true, ok: false };
     this.processing = true;
 
@@ -118,7 +120,10 @@ export class TelegramAuthService {
     this.window.history?.replaceState?.({}, '', cleanUrl.toString());
 
     try {
-      if (providerError) throw new Error('Вход через Telegram отменён или отклонён.');
+      if (providerError) {
+        const description = url.searchParams.get('error_description');
+        throw new Error(description ? `Telegram отклонил вход: ${description.slice(0, 180)}` : 'Вход через Telegram отменён или отклонён.');
+      }
       const raw = this.#storage().getItem(STORAGE_KEY);
       this.#storage().removeItem(STORAGE_KEY);
       if (!raw) throw new Error('Сессия входа Telegram не найдена. Начните вход заново.');
@@ -149,8 +154,10 @@ export class TelegramAuthService {
       const { data, error } = await this.client.auth.verifyOtp({ token_hash: payload.token_hash, type: 'magiclink' });
       if (error) throw error;
       if (!data?.user || !data?.session) throw new Error('Supabase не выдал действующую сессию.');
+      try { this.window.__RIM_TELEGRAM_CALLBACK_RESULT = 'session-established'; } catch { /* diagnostics only */ }
       return { handled: true, ok: true, user: data.user };
     } catch (error) {
+      try { this.window.__RIM_TELEGRAM_CALLBACK_RESULT = 'failed'; } catch { /* diagnostics only */ }
       return { handled: true, ok: false, error };
     } finally {
       this.processing = false;

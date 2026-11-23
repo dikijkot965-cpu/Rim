@@ -13,6 +13,7 @@ import { VoiceMessageController } from '../application/voice-message-controller.
  */
 export function bindChatRuntimeSurface({
   client,
+  e2eScopeRepository = null,
   getUser,
   getActiveConversation,
   getMessages,
@@ -76,6 +77,7 @@ export function bindChatRuntimeSurface({
 
   const voiceMessages = new VoiceMessageController({
     client,
+    e2eScopeRepository,
     getUser,
     getActiveConversation,
     notify,

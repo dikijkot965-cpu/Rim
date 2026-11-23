@@ -1,0 +1,24 @@
+services:
+  rim-bot-runtime:
+    build: .
+    restart: unless-stopped
+    environment:
+      PORT: "8787"
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      RIM_RUNTIME_INSTANCE: ${RIM_RUNTIME_INSTANCE:-rim-runtime-1}
+      RIM_RUNTIME_SHARED_SECRET: ${RIM_RUNTIME_SHARED_SECRET}
+      RIM_POLL_INTERVAL_MS: "1200"
+      RIM_BOT_MEMORY_MB: "64"
+      RIM_BOT_TIMEOUT_MS: "1500"
+    ports:
+      - "127.0.0.1:8787:8787"
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,noexec,nosuid
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    pids_limit: 64
+    mem_limit: 512m
+    cpus: 1.0

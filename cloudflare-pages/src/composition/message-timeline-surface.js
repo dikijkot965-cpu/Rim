@@ -4,6 +4,7 @@ import { escapeHtml } from '../core/html.js';
  */
 import { MessageTimelineController } from '../application/message-timeline-controller.js';
 import { ReplyTargetController } from '../application/reply-target-controller.js';
+import { MessageSearchController } from '../application/message-search-controller.js';
 
 /**
  * @param {object} deps
@@ -11,6 +12,8 @@ import { ReplyTargetController } from '../application/reply-target-controller.js
 export function bindMessageTimelineSurface({
   messageRepository,
   getActiveConversation,
+  loadLocalMessages = null,
+  getUser = null,
   getMessages,
   setMessages,
   setReplyTarget = () => {},
@@ -53,7 +56,9 @@ export function bindMessageTimelineSurface({
       updateHistoryButton();
     },
     logger,
-    pageSize
+    pageSize,
+    loadLocalMessages,
+    getUser
   });
   container?.value?.('timeline', timeline);
 
@@ -74,6 +79,18 @@ export function bindMessageTimelineSurface({
       messagesNode.parentNode.insertBefore(historyButton, messagesNode);
     }
   }
+
+  const messageSearch = new MessageSearchController({
+    repository: messageRepository,
+    getConversation: getActiveConversation,
+    timeline,
+    documentRef,
+    windowRef: win,
+    logger
+  });
+  win.rimSearchInConversation = () => messageSearch.open();
+  lifecycle?.add?.(() => { delete win.rimSearchInConversation; messageSearch.dispose(); });
+  container?.value?.('messageSearch', messageSearch);
 
   const replyTargets = new ReplyTargetController({
     getMessages,
@@ -109,9 +126,17 @@ export function bindMessageTimelineSurface({
   win.__RIM_MESSAGE_TIMELINE_OWNED = true;
   win.rimLoadMessagesStable = loadAndMarkActiveTimeline;
   win.loadMessages = loadAndMarkActiveTimeline;
+  const onE2EMessage = event => {
+    const message = event?.detail?.message;
+    const conversationId = message?.conversationId || message?.conversation_id;
+    if (!conversationId || String(getActiveConversation?.()?.id) !== String(conversationId)) return;
+    timeline.refreshLocalMessages(conversationId).catch(error => logger?.warn?.('e2e.timeline.refresh.failed', { message: error?.message || String(error) }));
+  };
+  win.addEventListener?.('rim:e2e-message', onE2EMessage);
   win.subscribeToMessages = () => timeline.subscribe();
   lifecycle?.add?.(() => {
     win.__RIM_MESSAGE_TIMELINE_OWNED = false;
+    win.removeEventListener?.('rim:e2e-message', onE2EMessage);
     timeline.unsubscribe();
   });
 

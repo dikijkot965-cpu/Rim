@@ -105,6 +105,7 @@ export class ChatInfoController {
       ? `<button class="action-btn rim-info-btn" type="button" onclick="addGroupMember()">＋ Добавить участника</button>`
       : '';
 
+
     this.showModal(`
   <div class="rim-info-card">
     <div class="rim-info-hero">

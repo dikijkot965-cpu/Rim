@@ -106,3 +106,18 @@ test('outbox preserves conversation type for server-side direct-chat policy chec
   assert.equal(received.conversationType, 'direct');
   assert.equal(received.expectedUserId, 'user-a');
 });
+
+test('outbox preserves private-group status for safe E2E scope checks on retry', async () => {
+  const mem = { data: {}, getItem(k) { return this.data[k] ?? null; }, setItem(k, v) { this.data[k] = String(v); } };
+  let received = null;
+  const service = new MessageOutboxService({
+    storage: mem,
+    getUserId: () => 'user-a',
+    sendText: async (_body, options) => { received = options; return { ok: true }; },
+    windowRef: { navigator: { onLine: true }, addEventListener() {}, removeEventListener() {} }
+  });
+  service.enqueueText({ userId: 'user-a', conversationId: 'g1', conversationType: 'group', conversationIsPrivate: false, body: 'queued' });
+  await service.flush();
+  assert.equal(received.conversationType, 'group');
+  assert.equal(received.conversationIsPrivate, false);
+});

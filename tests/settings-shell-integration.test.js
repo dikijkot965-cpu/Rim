@@ -12,5 +12,5 @@ test('app owns settings shell entrypoint', () => {
   assert.match(surface, /SettingsShellController/);
   assert.match(surface, /__RIM_SETTINGS_SHELL_OWNED\s*=\s*true/);
   assert.match(surface, /openSettings/);
-  assert.match(app, /4\.0\.0-iteration\.122/);
+  assert.match(app, /4\.1\.8-iteration\.163/);
 });

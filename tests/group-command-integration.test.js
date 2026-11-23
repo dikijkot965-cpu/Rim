@@ -13,5 +13,5 @@ test('app routes group create and channel role through command services', () => 
   assert.match(groups, /GroupCommandService/);
   assert.match(groups, /rimCreateGroup/);
   assert.match(channels, /setMemberRoleByUsername/);
-  assert.match(app, /4\.0\.0-iteration\.122/);
+  assert.match(app, /4\.1\.8-iteration\.163/);
 });

@@ -14,5 +14,5 @@ test('app routes openChannel and channel comments to ChannelFeedController', () 
   assert.match(c, /ChannelFeedController/);
   assert.match(c, /openChannel/);
   assert.match(c, /rimLoadChannelComments/);
-  assert.match(a, /4\.0\.0-iteration\.\d+/);
+  assert.match(a, /4\.1\.8-iteration\.163/);
 });

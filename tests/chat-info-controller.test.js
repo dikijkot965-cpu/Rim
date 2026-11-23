@@ -112,3 +112,4 @@ test('addGroupMember cancels on empty prompt', async () => {
   assert.equal(result.ok, true);
   assert.equal(result.value?.cancelled, true);
 });
+

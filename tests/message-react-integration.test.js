@@ -15,5 +15,5 @@ test('app routes react and reply through modular controllers', () => {
   assert.match(commands, /reactToMessage/);
   assert.match(timeline, /ReplyTargetController/);
   assert.match(timeline, /setReply/);
-  assert.match(app, /4\.0\.0-iteration\.122/);
+  assert.match(app, /4\.1\.8-iteration\.163/);
 });

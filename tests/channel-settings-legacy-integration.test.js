@@ -15,7 +15,7 @@ test('app routes rimOpenChannelSettings to ChannelSettingsController', () => {
   assert.match(composition, /ChannelSettingsController/);
   assert.match(composition, /rimOpenChannelSettings/);
   assert.match(composition, /channelSettings\.open|settings\.open/);
-  assert.match(app, /4\.0\.0-iteration\.\d+/);
+  assert.match(app, /4\.1\.8-iteration\.163/);
 });
 
 test('legacy channel settings mutations remain available', () => {

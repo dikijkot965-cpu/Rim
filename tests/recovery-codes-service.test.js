@@ -87,7 +87,11 @@ test('12-word phrase generation and validation is supported without network call
   assert.equal(phrase.split(' ').length, 12);
   assert.equal(await validateRecoveryPhrase(phrase, webcrypto), true);
   const words = phrase.split(' ');
-  words[0] = words[0] === RECOVERY_WORDS_12[0] ? RECOVERY_WORDS_12[1] : RECOVERY_WORDS_12[0];
+  // The final 11-bit word carries the four checksum bits in its high bits.
+  // Toggle the lowest checksum bit deterministically instead of changing random
+  // entropy (which has a 1/16 chance of coincidentally producing a valid sum).
+  const lastIndex = RECOVERY_WORDS_12.indexOf(words[11]);
+  words[11] = RECOVERY_WORDS_12[lastIndex ^ 1];
   assert.equal(await validateRecoveryPhrase(words.join(' '), webcrypto), false);
 });
 

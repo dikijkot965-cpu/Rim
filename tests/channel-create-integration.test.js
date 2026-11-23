@@ -14,5 +14,5 @@ test('app routes channel creation through ChannelCommandService', () => {
   assert.match(c, /channelCommands\.create|\.create\(\{/);
   assert.match(c, /rimCreateChannel/);
   assert.match(c, /createChannel/);
-  assert.match(a, /4\.0\.0-iteration\.122/);
+  assert.match(a, /4\.1\.8-iteration\.163/);
 });

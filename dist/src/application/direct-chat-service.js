@@ -59,6 +59,21 @@ export class DirectChatService {
     });
   }
 
+  async startSecretWith(userId) {
+    const user = this.getUser?.();
+    if (!user?.id) return Err(new Error('Требуется вход в РИМ.'));
+    if (!userId || String(userId) === String(user.id)) return Err(new Error('Нельзя создать секретный чат с самим собой.'));
+    return this.exclusive(`secret:${userId}`, async () => {
+      const { data, error } = await this.client.rpc('rim_create_secret_direct_chat', { p_other_user: userId });
+      if (error) return Err(error);
+      const conversationId = typeof data === 'string' ? data : data?.id;
+      if (!conversationId) return Err(new Error('Supabase не вернул ID секретного диалога.'));
+      await this.reloadConversations();
+      await this.openConversation(conversationId);
+      return Ok(conversationId);
+    });
+  }
+
   async startWith(userId) {
     const user = this.getUser?.();
     if (!user?.id) return Err(new Error('Требуется вход в РИМ.'));

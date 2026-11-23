@@ -257,3 +257,20 @@ test('getAccessibleConversation validates identifiers before touching Supabase',
   assert.match(result.error.message, /requires both/i);
   assert.equal(calls, 0);
 });
+
+
+test('conversation list selects E2E metadata for secret and private group scopes', async () => {
+  const calls = [];
+  const client = { from(table) {
+    const query = {
+      select(columns) { calls.push({ table, columns }); return query; },
+      eq() { return query; }, in() { return query; }, order() { return query; }, limit() { return query; },
+      then(resolve, reject) { const data = table === 'conversation_members' ? [{ conversation_id: 'secret-1' }] : [{ id: 'secret-1', type: 'direct', is_secret: true, e2e_mode: 'required' }]; return Promise.resolve({ data, error: null }).then(resolve, reject); }
+    };
+    return query;
+  } };
+  const result = await new ConversationRepository(client).listForUser('user-a');
+  assert.equal(result.ok, true);
+  const selection = calls.find(call => call.table === 'conversations')?.columns || '';
+  for (const field of ['is_secret', 'e2e_mode', 'e2e_epoch', 'e2e_protocol']) assert.match(selection, new RegExp(field));
+});

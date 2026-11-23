@@ -30,6 +30,7 @@ export function createOutboxItem(input = {}) {
       userId,
       conversationId,
       conversationType: String(input.conversationType || '').trim(),
+      conversationIsPrivate: typeof input.conversationIsPrivate === 'boolean' ? input.conversationIsPrivate : null,
       body,
       replyToMessageId: input.replyToMessageId ? String(input.replyToMessageId) : null,
       topicId: input.topicId ? String(input.topicId) : null,
