@@ -78,4 +78,15 @@ jobs:
                               print(f"  {n}: {relevant}")
                       except Exception as e:
                           print(f"  Could not parse {n}: {e}")
+              print("\\nKEY FILE CONTENTS:")
+              wanted = ("package.json", "rim-e2e-sdk-bootstrap.yml", "rim-e2e-sdk-download.yml",
+                        "e2e-signal-sdk-installation.test.js", "SDK_OFFLINE_BOOTSTRAP_NEXT_AI.md",
+                        "E2E_DEPENDENCY_BOOTSTRAP.md")
+              for n in names:
+                  if any(n.endswith(w) for w in wanted):
+                      print(f"\\n--- {n} ---")
+                      try:
+                          print(zf.read(n).decode("utf-8")[:24000])
+                      except Exception as e:
+                          print(f"Cannot read text: {e}")
           PY
