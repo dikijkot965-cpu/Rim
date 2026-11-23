@@ -160,7 +160,6 @@ jobs:
           rsync -a --checksum "$PROJECT_ROOT/" ./
           mkdir -p .github/workflows
           install -m 0644 "$PROJECT_ROOT/.github/workflows/rim-e2e-sdk-download.yml" .github/workflows/
-          install -m 0644 "$PROJECT_ROOT/.github/workflows/rim-e2e-sdk-bootstrap.yml" .github/workflows/
           test ! -e RIM_4.1.8_ITERATION_174_DESIGN_FIXED.zip
           echo "Imported project root:"
           find . -maxdepth 2 -type d | sort | head -100
