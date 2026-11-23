@@ -78,6 +78,27 @@ jobs:
 
               zf.extractall(temp)
               project = temp / prefix
+
+              # Iteration 174 declares 4.1.8-iteration.163 as the preserved compatibility baseline.
+              # Older integration tests still asserted 4.0.0-iteration.122. Update test expectations only.
+              replacements = {
+                  r"4\.0\.0-iteration\.122": r"4\.1\.8-iteration\.163",
+                  r"4\.0\.0-iteration\.\d+": r"4\.1\.8-iteration\.\d+"
+              }
+              changed_tests = []
+              tests_root = project / "tests"
+              for test_file in tests_root.rglob("*.js"):
+                  source = test_file.read_text(encoding="utf-8")
+                  updated = source
+                  for before, after in replacements.items():
+                      updated = updated.replace(before, after)
+                  if updated != source:
+                      test_file.write_text(updated, encoding="utf-8")
+                      changed_tests.append(str(test_file.relative_to(project)))
+              print(f"Updated stale compatibility-baseline assertions in {len(changed_tests)} test files:")
+              for name in changed_tests:
+                  print("  " + name)
+
               package = json.loads((project / "package.json").read_text())
               if package.get("version") != "4.1.8-iteration.174":
                   raise SystemExit(f"Unexpected package version: {package.get('version')}")
