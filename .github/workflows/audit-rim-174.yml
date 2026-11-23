@@ -67,6 +67,10 @@ jobs:
                   print("  " + n)
               if len(matches) > 500:
                   print(f"  ... {len(matches)-500} more")
+              print("\\nSAMPLE TEST SOURCE:")
+              sample = "RIM_4.1.8_ITERATION_174/tests/admin-command-integration.test.js"
+              if sample in names:
+                  print(zf.read(sample).decode("utf-8", errors="replace")[:5000])
               print("\\nTEST FILES CONTAINING LEGACY BASELINE TEXT:")
               for n in names:
                   if n.startswith("RIM_4.1.8_ITERATION_174/tests/") and n.endswith(".js"):
