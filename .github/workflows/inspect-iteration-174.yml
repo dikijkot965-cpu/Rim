@@ -1,0 +1,70 @@
+name: Inspect RIM iteration 174 archive
+
+on:
+  push:
+    branches:
+      - import/iteration-174-design-fixed
+    paths:
+      - .github/workflows/inspect-iteration-174.yml
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: import/iteration-174-design-fixed
+      - name: Inspect archive without changing project files
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path, PurePosixPath
+          from zipfile import ZipFile
+          import hashlib
+
+          archive = Path("RIM_4.1.8_ITERATION_174_DESIGN_FIXED.zip")
+          if not archive.is_file():
+              raise SystemExit("Iteration 174 ZIP not found at repository root")
+          out = Path("iteration-174-audit")
+          out.mkdir(exist_ok=True)
+          with ZipFile(archive) as z:
+              infos = z.infolist()
+              total = sum(i.file_size for i in infos)
+              lines = [
+                "# RIM iteration 174 archive audit",
+                "",
+                f"- Archive: {archive.name}",
+                f"- ZIP bytes: {archive.stat().st_size}",
+                f"- Entries: {len(infos)}",
+                f"- Uncompressed bytes: {total}",
+                "",
+                "## Archive paths",
+              ]
+              for i in infos:
+                p = PurePosixPath(i.filename.replace("\\\\", "/"))
+                if p.is_absolute() or ".." in p.parts or ".git" in p.parts:
+                  raise SystemExit(f"Unsafe archive path: {i.filename}")
+                lines.append(f"- {i.filename} ({i.file_size} bytes)")
+              candidates = [i for i in infos if i.filename.rstrip("/").split("/")[-1] == "package.json"]
+              if candidates:
+                for i in candidates:
+                  lines += ["", f"## {i.filename}", "", z.read(i).decode("utf-8")]
+              lines += ["", "## SDK / E2E candidate paths", ""]
+              matches = [i.filename for i in infos if any(k in i.filename.lower() for k in ("signal-protocol-sdk", "open-e2ee", "vendor/", "e2e", "signal"))]
+              lines.extend(f"- {p}" for p in matches)
+              if not matches:
+                lines.append("- No matching path names found")
+              (out / "AUDIT.md").write_text("\\n".join(lines), encoding="utf-8")
+              for i in infos:
+                if i.filename.endswith(("package.json", "package-lock.json", "npm-shrinkwrap.json")):
+                  (out / i.filename.replace("/", "__")).write_bytes(z.read(i))
+          PY
+          sha256sum RIM_4.1.8_ITERATION_174_DESIGN_FIXED.zip > iteration-174-audit/ARCHIVE_SHA256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rim-iteration-174-audit
+          path: iteration-174-audit/
+          retention-days: 7
