@@ -178,6 +178,18 @@ jobs:
       - name: Install exact locked dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: Diagnose test source selected by Node test runner
+        shell: bash
+        run: |
+          echo "admin-command-integration.test.js:"
+          nl -ba tests/admin-command-integration.test.js | sed -n '1,24p'
+          echo "Legacy baseline occurrences:"
+          grep -R -n -F '4.0.0-iteration.122' tests || true
+          echo "Current baseline occurrences:"
+          grep -R -n -F '4.1.8-iteration.163' tests | head -40 || true
+          echo "App compatibility marker:"
+          grep -n -E '4\\.1\\.8-iteration\\.163|4.0.0-iteration.122' src/app.js || true
+
       - name: Verify architecture, syntax, unit and E2E tests
         run: npm run verify
 
