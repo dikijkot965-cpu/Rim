@@ -67,6 +67,13 @@ jobs:
                   print("  " + n)
               if len(matches) > 500:
                   print(f"  ... {len(matches)-500} more")
+              print("\\nTEST FILES CONTAINING LEGACY BASELINE TEXT:")
+              for n in names:
+                  if n.startswith("RIM_4.1.8_ITERATION_174/tests/") and n.endswith(".js"):
+                      raw = zf.read(n).decode("utf-8", errors="replace")
+                      for line in raw.splitlines():
+                          if "4.0.0" in line or "4\\\\.0" in line:
+                              print(f"  {n}: {line!r}")
               print("\\nMANIFESTS:")
               for n in names:
                   if n.endswith("package.json") and ("node_modules" not in n):
