@@ -15,8 +15,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Verify architecture, syntax, and tests
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install exact locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Verify Signal SDK entrypoint and browser stores
+        shell: bash
+        run: |
+          node --input-type=module -e "import('@open-e2ee/signal-protocol-sdk').then(m => { if (typeof m.createSignalProtocolClient !== 'function') process.exit(2); console.log('Signal SDK entrypoint OK'); })"
+          test -f node_modules/@open-e2ee/signal-protocol-sdk/dist/local/store/web-sqlite/index.js
+          test -f node_modules/@open-e2ee/signal-protocol-sdk/dist/local/store/web/index.js
+      - name: Verify architecture, syntax, and unit tests
         run: npm run verify
+      - name: Verify Signal relay adapter round trips
+        run: npm run test:e2e:relay
       - name: Build Cloudflare public assets
         run: npm run build:cloudflare
       - name: Confirm private server code is not in public output
