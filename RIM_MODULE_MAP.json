@@ -152,8 +152,8 @@
     "tests/*.test.js"
   ],
   "verification": {
-    "command": "npm run verify",
-    "node_tests": 632,
+    "command": "CI: npm run check; npm run check:syntax; npm test; npm run build:cloudflare",
+    "node_tests": 679,
     "browser_e2e": "Not run on a real Android browser; no Playwright browser runtime is installed in the working environment.",
     "production_supabase_migration": "E2E migrations through Iteration 162 are already applied to the active project; Iteration 163 adds no SQL migration.",
     "message_history": "newest-first cursor pagination, page size 50, incremental Realtime INSERT/UPDATE/DELETE",
