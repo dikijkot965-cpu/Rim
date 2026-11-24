@@ -12,6 +12,23 @@ const SUPABASE_URL = "https://xxvcsaomkyknudoaixbs.supabase.co";
 const SUPABASE_KEY = "sb_publishable_8uEQ0o-7uF66sPZi8EVp5g_SDHXXJx0";
 window.RIM_SUPABASE_PUBLISHABLE_KEY = SUPABASE_KEY;
 
+// Capture Telegram's OAuth callback before Supabase initializes and scans the URL.
+try {
+  const callbackUrl = new URL(window.location.href);
+  const callbackCode = callbackUrl.searchParams.get('code');
+  const callbackError = callbackUrl.searchParams.get('error');
+  if (callbackCode || callbackError) {
+    window.__RIM_TELEGRAM_OIDC_CALLBACK = {
+      code: callbackCode,
+      state: callbackUrl.searchParams.get('state'),
+      error: callbackError,
+      error_description: callbackUrl.searchParams.get('error_description')
+    };
+    ['code', 'state', 'error', 'error_description'].forEach(key => callbackUrl.searchParams.delete(key));
+    window.history.replaceState({}, document.title, callbackUrl.pathname + callbackUrl.search + callbackUrl.hash);
+  }
+} catch (error) { console.warn('RIM Telegram callback URL capture failed:', error); }
+
 // The classic bootstrap can finish Supabase getSession() before the large
 // modular application graph has loaded. Never initialize authenticated UI
 // against the temporary no-op loadConversations/openConversation shims.
@@ -29,22 +46,29 @@ window.__rimMarkAppModulesReady = () => {
   return true;
 };
 
-async function waitForRimAppModulesReady(timeoutMs = 20000) {
-  if (window.__RIM_APP_MODULES_READY_STATE === 'ready') return true;
+async function waitForRimAppModulesReady(timeoutMs = 5000) {
+  const state = window.__RIM_APP_MODULES_READY_STATE;
+  if (state === 'ready' || state === 'fallback') return true;
   const promise = window.__RIM_APP_MODULES_READY_PROMISE;
   if (!promise || typeof promise.then !== 'function') return true;
-  let timer = null;
   const ready = await Promise.race([
     promise,
-    new Promise(resolve => { timer = setTimeout(() => resolve(false), timeoutMs); })
+    new Promise(resolve => setTimeout(() => resolve('fallback'), Math.min(timeoutMs, 5000)))
   ]);
-  if (timer !== null) clearTimeout(timer);
-  if (ready !== true) {
-    const message = 'Модули RIM не загрузились за 20 секунд. Обнови страницу; если ошибка повторится, проверь загрузку assets/js/rim-app.bundle.js.';
-    const list = document.getElementById('chatList');
-    if (list) list.innerHTML = `<div class="notice">${message}</div><button class="action-btn" type="button" onclick="location.reload()">Перезагрузить RIM</button>`;
-    throw new Error(message);
+  if (ready === true) return true;
+
+  // The deployed repository can contain an empty/unbuilt app bundle. Do not
+  // strand a valid Supabase session behind an unresolved module-ready promise:
+  // continue with the tested classic bootstrap and show a visible warning.
+  window.__RIM_APP_MODULES_READY_STATE = 'fallback';
+  window.__RIM_APP_BOOTSTRAP_FALLBACK = true;
+  if (!__rimModulesReadyResolved) {
+    __rimModulesReadyResolved = true;
+    try { __rimResolveModulesReady?.(true); } catch (_) { /* no-op */ }
   }
+  console.warn('RIM modular bundle did not signal readiness; using classic bootstrap fallback.');
+  const status = document.getElementById('authStatus');
+  if (status && !window.currentUser) status.textContent = 'Модульный интерфейс не загрузился. Выполняется безопасный запуск базового режима.';
   return true;
 }
 
@@ -97,7 +121,120 @@ window.startRegistration=startRegistration;
 window.showLoginForm=showLoginForm;
 window.rimResetPassword=rimResetPassword;
 
-async function signIn(){if(window.__RIM_AUTH_FORM_OWNED&&typeof window.signIn==='function'&&window.signIn!==signIn)return window.signIn();const email=document.getElementById('authEmail')?.value?.trim();const password=document.getElementById('authPassword')?.value;const status=document.getElementById('authStatus');if(!email||!password){if(status)status.textContent='Заполни электронную почту и пароль.';return;}if(status)status.textContent='Выполняется вход...';const {data,error}=await db.auth.signInWithPassword({email,password});if(error){if(status)status.textContent=error.message;return;}currentUser=data.user;window.currentUser=data.user;await initializeApp();}
+// Telegram OIDC (PKCE). The callback is captured before Supabase client
+// initialization so detectSessionInUrl cannot mistake Telegram's code for a
+// Supabase OAuth code.
+const RIM_TELEGRAM_CLIENT_ID = '9041438103';
+const RIM_TELEGRAM_CALLBACK_KEY = 'rim_telegram_oidc_v1';
+function rimBase64Url(bytes) {
+  return btoa(String.fromCharCode(...bytes)).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/g, '');
+}
+function rimRandomUrlToken(size = 48) {
+  return rimBase64Url(crypto.getRandomValues(new Uint8Array(size)));
+}
+function rimTelegramRedirectUri() {
+  const configured = window.RIM_TELEGRAM_REDIRECT_URI ||
+    document.querySelector('meta[name="rim-telegram-redirect-uri"]')?.content;
+  return configured || (window.location.origin + window.location.pathname);
+}
+async function signInWithTelegram() {
+  const button = document.getElementById('telegramAuthBtn');
+  const status = document.getElementById('authStatus');
+  if (button) button.disabled = true;
+  try {
+    if (!window.crypto?.subtle) throw new Error('Для защищённого входа Telegram требуется современный браузер.');
+    const redirectUri = rimTelegramRedirectUri();
+    const verifier = rimRandomUrlToken(48);
+    const nonce = rimRandomUrlToken(32);
+    const state = rimRandomUrlToken(32);
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+    const challenge = rimBase64Url(new Uint8Array(digest));
+    sessionStorage.setItem(RIM_TELEGRAM_CALLBACK_KEY, JSON.stringify({ verifier, nonce, state, redirectUri }));
+    const authUrl = new URL('https://oauth.telegram.org/auth');
+    authUrl.search = new URLSearchParams({
+      client_id: RIM_TELEGRAM_CLIENT_ID,
+      redirect_uri: redirectUri,
+      response_type: 'code',
+      scope: 'openid profile',
+      state,
+      nonce,
+      code_challenge: challenge,
+      code_challenge_method: 'S256'
+    }).toString();
+    if (status) status.textContent = 'Переход к защищённой авторизации Telegram…';
+    window.location.assign(authUrl.toString());
+  } catch (error) {
+    if (status) status.textContent = error?.message || 'Не удалось начать вход через Telegram.';
+    if (button) button.disabled = false;
+    console.error('RIM Telegram sign-in:', error);
+  }
+}
+window.signInWithTelegram = signInWithTelegram;
+
+async function rimHandleTelegramCallback() {
+  const callback = window.__RIM_TELEGRAM_OIDC_CALLBACK;
+  if (!callback) return false;
+  const status = document.getElementById('authStatus');
+  let stored = null;
+  try { stored = JSON.parse(sessionStorage.getItem(RIM_TELEGRAM_CALLBACK_KEY) || 'null'); } catch (_) {}
+  try { sessionStorage.removeItem(RIM_TELEGRAM_CALLBACK_KEY); } catch (_) {}
+  if (callback.error) {
+    if (status) status.textContent = callback.error_description || 'Вход через Telegram отменён или отклонён.';
+    return true;
+  }
+  if (!callback.code || !callback.state || !stored || stored.state !== callback.state) {
+    if (status) status.textContent = 'Проверка состояния Telegram OAuth не пройдена. Начните вход заново.';
+    return true;
+  }
+  if (status) status.textContent = 'Подтверждаем аккаунт Telegram…';
+  try {
+    const { data, error } = await db.functions.invoke('telegram-auth', {
+      body: {
+        code: callback.code,
+        code_verifier: stored.verifier,
+        nonce: stored.nonce,
+        redirect_uri: stored.redirectUri
+      }
+    });
+    if (error) throw error;
+    if (!data?.token_hash) throw new Error(data?.message || data?.error || 'Сервер не вернул токен входа.');
+    const { data: verified, error: verifyError } = await db.auth.verifyOtp({
+      token_hash: data.token_hash,
+      type: 'magiclink'
+    });
+    if (verifyError) throw verifyError;
+    if (!verified?.user) throw new Error('Supabase не создал пользовательскую сессию.');
+    currentUser = verified.user;
+    window.currentUser = verified.user;
+    await initializeApp();
+    return true;
+  } catch (error) {
+    console.error('RIM Telegram callback:', error);
+    if (status) status.textContent = error?.message || 'Не удалось завершить вход через Telegram.';
+    return true;
+  }
+}
+
+async function signIn(){
+ if(window.__RIM_AUTH_FORM_OWNED&&typeof window.signIn==='function'&&window.signIn!==signIn)return window.signIn();
+ const email=document.getElementById('authEmail')?.value?.trim();
+ const password=document.getElementById('authPassword')?.value;
+ const status=document.getElementById('authStatus');
+ const button=document.getElementById('loginBtn');
+ if(!email||!password){if(status)status.textContent='Заполни электронную почту и пароль.';return;}
+ if(button)button.disabled=true;
+ if(status)status.textContent='Выполняется вход…';
+ try {
+  const {data,error}=await db.auth.signInWithPassword({email,password});
+  if(error)throw error;
+  if(!data?.user)throw new Error('Supabase не вернул пользователя после входа.');
+  currentUser=data.user;window.currentUser=data.user;
+  await initializeApp();
+ } catch(error) {
+  console.error('RIM email sign-in:',error);
+  if(status)status.textContent=error?.message||'Не удалось выполнить вход.';
+ } finally { if(button)button.disabled=false; }
+}
 
 async function signUp(){if(window.__RIM_AUTH_FORM_OWNED&&typeof window.signUp==='function'&&window.signUp!==signUp)return window.signUp();const email=(document.getElementById('authEmail')?.value||'').trim().toLowerCase();const password=document.getElementById('authPassword')?.value||'';const confirm=document.getElementById('authPasswordConfirm')?.value||'';const status=document.getElementById('authStatus');if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){if(status)status.textContent='Введите действующий адрес электронной почты.';return;}if(password.length<8){if(status)status.textContent='Пароль должен быть не короче 8 символов.';return;}if(confirm&&confirm!==password){if(status)status.textContent='Пароли не совпадают.';return;}if(status)status.textContent='Создаём аккаунт...';const {data,error}=await db.auth.signUp({email,password});if(error){if(status)status.textContent=error.message;return;}if(data.session){currentUser=data.user;window.currentUser=data.user;await initializeApp();}else{if(status)status.textContent='Регистрация создана. Проверь почту и подтверди адрес.';showLoginForm();}}
 async function signInWithGoogle(){if(window.__RIM_AUTH_FORM_OWNED&&typeof window.signInWithGoogle==='function'&&window.signInWithGoogle!==signInWithGoogle)return window.signInWithGoogle();toast('Модуль входа через Google ещё загружается.');}
@@ -112,7 +249,36 @@ db.auth.onAuthStateChange((event,session)=>{if((event==='SIGNED_IN'||event==='TO
    STARTUP
 ===================================================== */
 
-async function initializeApp(){await waitForRimAppModulesReady();if(window.__RIM_APP_BOOTSTRAP_OWNED&&typeof window.initializeApp==='function'&&window.initializeApp!==initializeApp)return window.initializeApp();if(!currentUser||initializing)return;initializing=true;try{document.getElementById("authScreen")?.classList.add("hidden");document.getElementById("app")?.classList.remove("hidden");const results=await Promise.allSettled([loadProfile(),loadSettings(),loadConversations(),loadChannels()]);results.forEach((r,i)=>{if(r.status==='rejected')console.error('Ошибка загрузки раздела '+i,r.reason);});const st=document.getElementById("chatHeadStatus");if(st)st.textContent="На связи";}catch(error){console.error(error);toast("Ошибка запуска приложения: "+(error?.message||error));}finally{initializing=false;try{window.__rimMirrorLegacyState?.();}catch(_){}}}
+async function ensureZladenInstalled(){
+ if(!currentUser?.id||window.__RIM_ZLADEN_INSTALL_DONE||window.__RIM_ZLADEN_INSTALL_RUNNING)return;
+ window.__RIM_ZLADEN_INSTALL_RUNNING=true;
+ try{
+  const {data,error}=await db.functions.invoke('rim-zladen',{body:{action:'install'}});
+  if(error)throw error;
+  if(!data?.ok)throw new Error(data?.error||'zladen_install_failed');
+  window.__RIM_ZLADEN_INSTALL_DONE=true;
+  await loadConversations();
+  if(typeof window.renderConversationList==='function')window.renderConversationList();
+  console.info('RIM Zladen installed:',data.result?.conversation_id||'ready');
+ }catch(error){console.warn('RIM Zladen auto-install deferred:',error?.message||error);}
+ finally{window.__RIM_ZLADEN_INSTALL_RUNNING=false;}
+}
+
+async function initializeApp(){
+ await waitForRimAppModulesReady();
+ if(window.__RIM_APP_BOOTSTRAP_OWNED&&typeof window.initializeApp==='function'&&window.initializeApp!==initializeApp)return window.initializeApp();
+ if(!currentUser||initializing)return;
+ initializing=true;
+ try{
+  document.getElementById('authScreen')?.classList.add('hidden');
+  document.getElementById('app')?.classList.remove('hidden');
+  const results=await Promise.allSettled([loadProfile(),loadSettings(),loadConversations(),loadChannels()]);
+  results.forEach((r,i)=>{if(r.status==='rejected')console.error('Ошибка загрузки раздела '+i,r.reason);});
+  const st=document.getElementById('chatHeadStatus');if(st)st.textContent='На связи';
+  void ensureZladenInstalled();
+ }catch(error){console.error(error);toast('Ошибка запуска приложения: '+(error?.message||error));}
+ finally{initializing=false;try{window.__rimMirrorLegacyState?.();}catch(_){}}
+}
 
 async function loadProfile(){if(window.__RIM_PROFILE_OWNED&&typeof window.loadProfile==='function'&&window.loadProfile!==loadProfile)return window.loadProfile();if(!currentUser?.id)return;const {data,error}=await db.from('profiles').select('*').eq('id',currentUser.id).maybeSingle();if(error){console.error(error);return;}currentProfile=data;if(!data){const username='user_'+String(currentUser.id).slice(0,8);const {data:np}=await db.from('profiles').insert({id:currentUser.id,username,display_name:username}).select().single();if(np)currentProfile=np;}try{window.currentProfile=currentProfile;}catch(_){}}
 
@@ -273,6 +439,7 @@ async function registerServiceWorker(){if(!("serviceWorker" in navigator))return
 
 (async function start(){
   updateViewport();registerServiceWorker();
+  if(await rimHandleTelegramCallback())return;
   const {data,error}=await db.auth.getSession();
   if(error){const s=document.getElementById("authStatus");if(s)s.textContent=error.message;return;}
   if(data.session?.user){currentUser=data.session.user;window.currentUser=currentUser;await initializeApp();}
