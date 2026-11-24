@@ -21,6 +21,8 @@ jobs:
         run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
       - name: Install exact locked dependencies
         run: npm ci --no-audit --no-fund
+      - name: Build Cloudflare public assets
+        run: npm run build:cloudflare
       - name: Verify Signal SDK entrypoint and browser stores
         shell: bash
         run: |
@@ -31,7 +33,5 @@ jobs:
         run: npm run verify
       - name: Verify Signal relay adapter round trips
         run: npm run test:e2e:relay
-      - name: Build Cloudflare public assets
-        run: npm run build:cloudflare
       - name: Confirm private server code is not in public output
         run: test ! -e dist/supabase && test ! -e dist/tests && test ! -e dist/docs
