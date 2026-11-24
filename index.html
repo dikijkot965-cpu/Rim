@@ -1869,7 +1869,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     try {
       const { data, error } = await db
         .from('feed_posts')
-        .select('id,author_id,title,body,content,text,visibility,created_at,published_at,deleted_at,is_pinned')
+        .select('id,author_id,title,body,media_paths,visibility,comments_enabled,created_at,published_at,deleted_at,is_pinned')
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -1906,9 +1906,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     const uid = rimUserId();
     if (!db || !uid || !text) return null;
     const attempts = [
-      { author_id: uid, body: text, visibility: 'public' },
-      { author_id: uid, content: text, visibility: 'public' },
-      { author_id: uid, text: text, visibility: 'public' }
+      { author_id: uid, body: text, visibility: 'public', comments_enabled: true }
     ];
     for (const payload of attempts) {
       try {
@@ -1925,7 +1923,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     try {
       const { data, error } = await db
         .from('feed_post_comments')
-        .select('id,post_id,author_id,user_id,body,content,text,created_at,deleted_at')
+        .select('id,post_id,author_id,body,created_at,edited_at,parent_comment_id,deleted_at')
         .eq('post_id', postId)
         .is('deleted_at', null)
         .order('created_at', { ascending: true })
@@ -1939,12 +1937,12 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
         if (!pr.error) for (const p of pr.data || []) profiles[String(p.id)] = p;
       }
       return rows.map(r => {
-        const uid = r.author_id || r.user_id;
+        const uid = r.author_id;
         const p = profiles[String(uid)] || {};
         return {
           id: r.id,
           author: p.display_name || p.username || 'Пользователь',
-          text: r.body || r.content || r.text || '',
+          text: r.body || '',
           createdAt: Date.parse(r.created_at) || Date.now(),
           _remote: true
         };
@@ -1957,9 +1955,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     const uid = rimUserId();
     if (!db || !uid || !postId || !text) return null;
     const attempts = [
-      { post_id: postId, author_id: uid, body: text },
-      { post_id: postId, user_id: uid, body: text },
-      { post_id: postId, author_id: uid, content: text }
+      { post_id: postId, author_id: uid, body: text }
     ];
     for (const payload of attempts) {
       try {
@@ -2066,7 +2062,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       const postIds = [...new Set(rows.map(r => r.post_id).filter(Boolean))];
       let posts = {};
       if (postIds.length) {
-        const pr = await db.from('feed_posts').select('id,author_id,body,content,text,title').in('id', postIds);
+        const pr = await db.from('feed_posts').select('id,author_id,body,title').in('id', postIds);
         if (!pr.error) for (const p of pr.data || []) posts[String(p.id)] = p;
       }
       const userIds = [...new Set(rows.flatMap(r => {
@@ -2091,7 +2087,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
           scopeId: r.post_id,
           scopeTitle: 'Лента',
           messageId: r.post_id,
-          messagePreview: post.body || post.content || post.text || post.title || '',
+          messagePreview: post.body || post.title || '',
           reporter: reporter.username || reporter.display_name || String(r.reporter_id || '').slice(0, 8),
           targetUser: author.username || author.display_name || String(post.author_id || '').slice(0, 8),
           createdAt: Date.parse(r.created_at) || Date.now(),
