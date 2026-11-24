@@ -389,6 +389,8 @@ export class AuthFormController {
   bindGlobals() {
     const win = this.window;
     win.__RIM_AUTH_FORM_OWNED = true;
+    win.__RIM_AUTH_BUILD_ID = '4.1.8.178-AUTHFIX3';
+    win.__RIM_SET_BUILD_STATUS?.('auth','подключён · AuthFormController 178-AUTHFIX3');
     win.showLoginForm = () => this.showLoginForm();
     win.startRegistration = () => this.startRegistration();
     win.rimTogglePassword = (id, button) => this.togglePassword(id, button);
