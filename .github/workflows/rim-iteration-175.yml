@@ -1,0 +1,46 @@
+name: RIM Iteration 175 validation
+
+on:
+  push:
+    branches:
+      - iteration-175-auth-feed-zladen
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "index.html"
+      - "assets/js/**"
+      - "src/**"
+      - "supabase/migrations/**"
+      - "package.json"
+      - "package-lock.json"
+      - "scripts/**"
+      - ".github/workflows/rim-iteration-175.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.12.0"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Project integrity
+        run: npm run check
+      - name: JavaScript syntax
+        run: npm run check:syntax
+      - name: Unit and integration tests
+        run: npm test
+      - name: HTML safety audit
+        run: npm run audit:html
+      - name: Cloudflare Pages and Worker build
+        run: npm run build:cloudflare
