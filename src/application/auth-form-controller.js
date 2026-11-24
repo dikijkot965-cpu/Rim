@@ -7,6 +7,14 @@ import { Err, Ok } from '../core/result.js';
 import { TelegramAuthService } from './telegram-auth-service.js';
 import { RecoveryCodesService } from './recovery-codes-service.js';
 
+function withTimeout(promise, milliseconds, message) {
+  let timer;
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(message)), milliseconds); })
+  ]).finally(() => { if (timer !== undefined) clearTimeout(timer); });
+}
+
 /**
  * Owns auth form UX transitions + credential validation.
  * Network calls stay in the injected client (Supabase auth).
@@ -114,24 +122,42 @@ export class AuthFormController {
     if (button) button.disabled = true;
     this.#setStatus('Проверяем данные…');
     try {
-      const { data, error } = await this.client.auth.signInWithPassword({
-        email: parsed.email,
-        password: parsed.password
-      });
+      const { data, error } = await withTimeout(
+        this.client.auth.signInWithPassword({ email: parsed.email, password: parsed.password }),
+        15000,
+        'Сервер авторизации не ответил за 15 секунд. Проверьте соединение и повторите попытку.'
+      );
       if (error) {
-        const m = error.message || '';
-        if (/invalid login credentials/i.test(m)) {
+        const message = error.message || '';
+        if (/invalid login credentials/i.test(message)) {
           this.#setStatus('Почта или пароль неверны. Проверьте данные и попробуйте ещё раз.');
-        } else if (/email not confirmed/i.test(m)) {
+        } else if (/email not confirmed/i.test(message)) {
           this.#setStatus('Сначала подтвердите адрес электронной почты по ссылке из письма.');
         } else {
-          this.#setStatus(m);
+          this.#setStatus(message || 'Не удалось выполнить вход.');
         }
         return Err(error);
       }
+      if (!data?.user) throw new Error('Supabase не вернул пользователя после входа.');
+      this.window.__RIM_LEGACY_CONTEXT?.setUser?.(data.user);
       this.window.currentUser = data.user;
-      await this.onSignedIn(data.user);
+      try {
+        await withTimeout(
+          this.onSignedIn(data.user),
+          20000,
+          'Вход выполнен, но загрузка RIM занимает слишком много времени. Обновите страницу.'
+        );
+      } catch (bootstrapError) {
+        this.logger?.warn?.('auth.post_login_bootstrap.slow_or_failed', { message: bootstrapError?.message });
+        this.#setStatus('Вход выполнен. RIM продолжает загружать данные; при необходимости обновите страницу.');
+        return Ok(data.user);
+      }
+      this.#setStatus('Вход выполнен. Добро пожаловать в РИМ.');
       return Ok(data.user);
+    } catch (error) {
+      this.logger?.warn?.('auth.email_sign_in.failed', { message: error?.message || String(error) });
+      this.#setStatus(error?.message || 'Не удалось выполнить вход. Попробуйте ещё раз.');
+      return Err(error);
     } finally {
       this.busy = false;
       if (button) button.disabled = false;
@@ -168,7 +194,8 @@ export class AuthFormController {
         return Err(error);
       }
       if (data.session) {
-        this.window.currentUser = data.user;
+        this.window.__RIM_LEGACY_CONTEXT?.setUser?.(data.user);
+      this.window.currentUser = data.user;
         await this.onSignedIn(data.user);
       } else {
         this.#setStatus('Регистрация создана. Проверь почту и подтверди адрес.');
@@ -209,6 +236,7 @@ export class AuthFormController {
     this.#setStatus('Проверяем секретную фразу и подготавливаем защищённую сессию…');
     try {
       const user = await this.recoveryCodes.seedLogin(phrase);
+      this.window.__RIM_LEGACY_CONTEXT?.setUser?.(user);
       this.window.currentUser = user;
       const input = this.#el('rimSeedLoginPhrase');
       if (input) input.value = '';
@@ -233,6 +261,7 @@ export class AuthFormController {
     this.#setStatus('Проверяем секретную фразу RIM…');
     try {
       const user = await this.recoveryCodes.redeemPhrase(phrase);
+      this.window.__RIM_LEGACY_CONTEXT?.setUser?.(user);
       this.window.currentUser = user;
       this.#setStatus('Доступ восстановлен. Загружаем RIM…');
       await this.onSignedIn(user);
@@ -255,6 +284,7 @@ export class AuthFormController {
     this.#setStatus('Проверяем одноразовый код восстановления…');
     try {
       const user = await this.recoveryCodes.redeem(code);
+      this.window.__RIM_LEGACY_CONTEXT?.setUser?.(user);
       this.window.currentUser = user;
       this.#setStatus('Доступ восстановлен. Загружаем RIM…');
       await this.onSignedIn(user);
@@ -293,6 +323,7 @@ export class AuthFormController {
       this.#setStatus(result.error?.message || 'Вход через Telegram не выполнен.');
       return Err(result.error || new Error('Telegram sign-in failed'));
     }
+    this.window.__RIM_LEGACY_CONTEXT?.setUser?.(result.user);
     this.window.currentUser = result.user;
     this.#setStatus('Вход через Telegram выполнен. Загружаем RIM…');
     try {
