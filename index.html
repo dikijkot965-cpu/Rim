@@ -2194,7 +2194,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
   const _renderFeedListWindow = window.renderFeedList;
   window.renderFeedList = async function() {
     const remote = await sbListFeedPosts(getFeedMode());
-    if (remote && remote.length) {
+    if (remote) {
       // merge remote into local cache for offline display
       const local = _loadFeedPostsLocal();
       const byId = new Map(local.filter(p => !p._remote).map(p => [String(p.id), p]));
