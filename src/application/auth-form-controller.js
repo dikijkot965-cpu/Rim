@@ -139,6 +139,7 @@ export class AuthFormController {
         return Err(error);
       }
       if (!data?.user) throw new Error('Supabase не вернул пользователя после входа.');
+      this.window.__RIM_LEGACY_CONTEXT?.setUser?.(data.user);
       this.window.currentUser = data.user;
       try {
         await withTimeout(
@@ -193,7 +194,8 @@ export class AuthFormController {
         return Err(error);
       }
       if (data.session) {
-        this.window.currentUser = data.user;
+        this.window.__RIM_LEGACY_CONTEXT?.setUser?.(data.user);
+      this.window.currentUser = data.user;
         await this.onSignedIn(data.user);
       } else {
         this.#setStatus('Регистрация создана. Проверь почту и подтверди адрес.');
@@ -234,6 +236,7 @@ export class AuthFormController {
     this.#setStatus('Проверяем секретную фразу и подготавливаем защищённую сессию…');
     try {
       const user = await this.recoveryCodes.seedLogin(phrase);
+      this.window.__RIM_LEGACY_CONTEXT?.setUser?.(user);
       this.window.currentUser = user;
       const input = this.#el('rimSeedLoginPhrase');
       if (input) input.value = '';
@@ -258,6 +261,7 @@ export class AuthFormController {
     this.#setStatus('Проверяем секретную фразу RIM…');
     try {
       const user = await this.recoveryCodes.redeemPhrase(phrase);
+      this.window.__RIM_LEGACY_CONTEXT?.setUser?.(user);
       this.window.currentUser = user;
       this.#setStatus('Доступ восстановлен. Загружаем RIM…');
       await this.onSignedIn(user);
@@ -280,6 +284,7 @@ export class AuthFormController {
     this.#setStatus('Проверяем одноразовый код восстановления…');
     try {
       const user = await this.recoveryCodes.redeem(code);
+      this.window.__RIM_LEGACY_CONTEXT?.setUser?.(user);
       this.window.currentUser = user;
       this.#setStatus('Доступ восстановлен. Загружаем RIM…');
       await this.onSignedIn(user);
@@ -318,6 +323,7 @@ export class AuthFormController {
       this.#setStatus(result.error?.message || 'Вход через Telegram не выполнен.');
       return Err(result.error || new Error('Telegram sign-in failed'));
     }
+    this.window.__RIM_LEGACY_CONTEXT?.setUser?.(result.user);
     this.window.currentUser = result.user;
     this.#setStatus('Вход через Telegram выполнен. Загружаем RIM…');
     try {
