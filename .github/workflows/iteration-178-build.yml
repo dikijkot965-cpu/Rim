@@ -10,6 +10,7 @@ on:
       - 'tests/auth-form-controller-session-sync.test.js'
       - 'tests/iteration-175-auth-feed-zladen.test.js'
       - '.github/workflows/iteration-178-build.yml'
+      - 'index.html'
   pull_request:
     branches: [main]
   workflow_dispatch:
