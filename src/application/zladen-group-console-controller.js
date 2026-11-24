@@ -24,7 +24,7 @@ export function buildZladenTriggerCommand({ name, matchType, matchValue, actionT
   else if (actionType === 'grant') {
     const rawPoints = String(actionValue ?? '').trim();
     const points = Number(rawPoints);
-    if (!/^\\d+$/.test(rawPoints) || !Number.isInteger(points) || points < 1 || points > 1000) throw new Error('Награда должна быть от 1 до 1000 жетонов.');
+    if (!/^\d+$/.test(rawPoints) || !Number.isInteger(points) || points < 1 || points > 1000) throw new Error('Награда должна быть от 1 до 1000 жетонов.');
     action = 'grant:' + points;
   } else throw new Error('Неизвестное действие триггера.');
   return '/trigger add ' + triggerName + ' | ' + matchType + ':' + value + ' | ' + action;
