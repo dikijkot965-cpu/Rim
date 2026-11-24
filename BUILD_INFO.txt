@@ -1,8 +1,5 @@
-RIM 4.1.8 — Iteration 174
-Base: RIM_4.1.8_ITERATION_173_DIRECT_E2E.zip
-Changes: fixed unique per-recipient Signal SDK timestamps in private group/channel fan-out; added three-account encrypted Signal SDK round-trip tests; expanded opt-in E2E Live Lab to secret direct chats, private groups and closed channels.
-Build: Cloudflare Worker build passed (167 assets); Cloudflare Pages output passed (168 Pages-only files).
-Validation: project check passed; syntax check passed; full Node test suite 662/662 passed; focused SDK tests 3/3 passed; relay adapter integration tests 2/2 passed.
-Production: Supabase was inspected read-only. Required E2E RPCs/schema and rim-e2e-relay v2 are present. No production SQL migration or Edge Function was changed in this iteration. Read-only counts: 0 registered E2E devices, 0 secret direct conversations, 3 private groups currently E2E off, 0 E2E-required private channels. Live two-real-account production E2E remains unverified.
-
-Patch overlay (2026-11-23): canonicalized Grok redesign into root index.html; fixed dynamic template URL validation; removed duplicate feed-compose stub. See docs/ITERATION_174_PATCH_REPORT.md.
+RIM 4.1.8 — Iteration 178 (Zladen + durable channel/feed bridge + creator drafts)
+Base: RIM 4.1.8 Iteration 177.
+Build: GitHub Actions; includes pinned Signal SDK dependencies and Cloudflare output.
+Production SQL: 20261124102503 channel/feed crossposts; 20261124103001 Zladen content filters; 20261124103102 filter hardening.
+E2E: no protocol, relay, key, SDK or message-path changes.

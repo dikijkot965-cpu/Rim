@@ -1,9 +1,9 @@
 {
   "name": "rim-messenger",
-  "version": "4.1.8-iteration.174",
+  "version": "4.1.8-iteration.178",
   "private": true,
   "type": "module",
-  "description": "RIM messenger — Zladen community platform foundation and Signal Protocol SDK integration",
+  "description": "RIM messenger — Zladen community platform, personalized social feed and imperial administration controls",
   "scripts": {
     "test": "node --test --test-concurrency=1 tests/*.test.js",
     "check": "node scripts/check-project.mjs",

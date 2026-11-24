@@ -1,5 +1,5 @@
 {
-  "version": "4.1.8-iteration.174",
+  "version": "4.1.8-iteration.178",
   "layers": {
     "core": [
       "src/core/config.js",
@@ -91,7 +91,8 @@
       "src/application/viewport-controller.js",
       "src/application/voice-message-controller.js",
       "src/application/zladen-bot-service.js",
-      "src/application/zladen-settings-controller.js"
+      "src/application/zladen-settings-controller.js",
+      "src/application/zladen-group-console-controller.js"
     ],
     "infrastructure": [
       "src/infrastructure/supabase/channel-feed-repository.js",
@@ -151,8 +152,8 @@
     "tests/*.test.js"
   ],
   "verification": {
-    "command": "npm run verify",
-    "node_tests": 632,
+    "command": "CI: npm run check; npm run check:syntax; npm test; npm run build:cloudflare",
+    "node_tests": 697,
     "browser_e2e": "Not run on a real Android browser; no Playwright browser runtime is installed in the working environment.",
     "production_supabase_migration": "E2E migrations through Iteration 162 are already applied to the active project; Iteration 163 adds no SQL migration.",
     "message_history": "newest-first cursor pagination, page size 50, incremental Realtime INSERT/UPDATE/DELETE",
@@ -212,14 +213,17 @@
     ],
     "legacy_script_tags_remaining": [],
     "runtime_bootstrap": "assets/js/rim-runtime-bootstrap.js",
-    "e2e_crypto": "experimental primitives only; not integrated or enabled",
+    "e2e_crypto": "Signal SDK 14.7.0 and RIM Supabase Relay are connected to protected message paths; secret direct chats require e2e_mode=required and encrypted challenge/ACK readiness; no plaintext fallback for required scopes. Live two-account acceptance remains outstanding.",
     "chat_media_loading": "text paints before bounded asynchronous media URL hydration",
     "device_lock": "4-digit PIN, configurable 0/1/5/10/30 minute auto-lock grace, progressive local retry delay; legacy 8-digit PIN remains accepted",
     "e2e_scope_policy": "Direct conversations, private groups and private channels eligible; public channels excluded; required mode is trusted-deployment-only and rejects plaintext writes.",
-    "zladen_system_bot": "Client/source migrations 136–141 and rim-zladen Edge Function source are present, but production currently has only Iteration 135 bot foundations; Zladen migrations 136–141 are not applied and rim-zladen is not deployed. Do not claim production activation.",
+    "zladen_system_bot": "Production has Zladen command, moderation, economy, trigger, clan and reminder handlers; migrations 136–141, 170 and 171 are applied, pg_cron runs the reminder dispatcher every minute, and rim-zladen Edge Function is ACTIVE. Iteration 176 adds the group admin command console and trigger forms.",
     "message_search": "Scoped plaintext-only conversation search with bounded context jump; server search explicitly refuses E2E/pending/unknown scopes. Local encrypted E2E search remains future work.",
     "chat_startup": "Classic bootstrap waits for modular app readiness before authenticated initialization; 20-second visible timeout state prevents an endless initial chat-list placeholder.",
-    "browser_bundle": "Root index.html loads assets/js/rim-app.bundle.js; pinned Signal SDK is bundled and SQLite worker/WASM are same-origin root assets."
+    "browser_bundle": "Root index.html loads assets/js/rim-app.bundle.js; pinned Signal SDK is bundled and SQLite worker/WASM are same-origin root assets.",
+    "zladen_social_games": "Iteration 177: safe group mini-games and neutral social actions; no wagering or E2E execution.",
+    "imperial_controls": "Iteration 177: superadmin-only searchable channel/group directory, server-enforced media controls, and configurable welcome notifications.",
+    "feed_personalization": "Iteration 177: topic preferences, muted topics/authors, personalized ranking and feed event telemetry."
   },
   "iteration_135": {
     "bot_runtime": "source workspace and isolated-vm runtime prepared; runtime host not deployed",
@@ -234,7 +238,7 @@
   "iteration_138": {
     "e2e": "Pinned OpenE2EE Signal Protocol SDK 14.7.0 and idb dependency; lazy browser IndexedDB client composition with strict post-quantum policy. Relay adapter and RIM send/read integration remain incomplete; readiness remains false.",
     "zladen": "Additive profile, chat-rank, permission, command-alias, virtual-ledger, reputation, eight-tier award, notes, bookmarks, reports, polls, reminders, clans, declarative trigger, anti-spam and metadata-only statistics schema; initial commands include profile, balance, transfer, reputation, notes, report, rank, awards and anti-spam.",
-    "deployment": "New migration 138 is local only. SDK package install and esbuild bundling were not verified in this environment. No production database or deployment changed."
+    "deployment": "Migrations 136–141 and the rim-zladen Edge Function are active in production. The command/economy/triggers platform is live; remaining parity work is feature coverage and UI polish."
   },
   "iteration_142": {
     "e2e": "Application-owned Supabase Signal Protocol relay adapter and Edge Function; authenticated primary-device bootstrap; canonical composite identity provisioning/rotation; EC+ML-KEM prekey publication and atomic consumption; ciphertext-only mailbox; idempotent delivery; Realtime wakeups and recovery pull; account-isolated encrypted OPFS/IndexedDB store; AES-256-GCM local content cache; real SDK post-quantum two-account round-trip passes against test-only in-memory relay. RIM chat composer/repository integration, Supabase staging execution, real browser two-account test and linked-device transfer remain incomplete. protocolReady remains false.",
@@ -246,5 +250,27 @@
     "message_search": "Added scoped plaintext message search with a bounded timeline context jump; E2E/pending/unknown scopes fail closed.",
     "e2e": "Bundled pinned SDK 14.7.0 into the GitHub Pages root and included the SQLite worker/WASM. protocolReady remains false; two-account live test and secure multi-device linking remain incomplete.",
     "zladen": "Found production gap: source migrations 136–141 and rim-zladen Edge Function were not deployed. Updated source Edge Function with fail-closed unique-superadmin owner resolution; no Zladen schema or identity was deployed/provisioned."
+  },
+  "iteration_176": {
+    "zladen": "Group admin command console with server-validated command shortcuts, safe trigger creation/deletion forms, join greetings, and fail-closed behavior for E2E required/pending groups. Existing production commands cover moderation, rank/permissions, virtual points, shop/inventory/market, polls, reminders and clans.",
+    "feed": "Private feed-media bucket with per-post visibility-aware Storage RLS, image/video/audio/PDF/text uploads, signed URLs, saved-post collection tab, existing following/recommended feeds, likes and comments.",
+    "database": "Production pg_cron enabled; reminder scheduler migration 171 applied; feed-media storage migration applied; migration files aligned to actual Supabase history.",
+    "e2e": "No Signal Protocol, relay, device-key, encryption, or E2E schema changes. Bot command console refuses required and pending E2E groups.",
+    "known_limits": "No real-device Android smoke test yet; no real-account Zladen group acceptance test yet. Feed media limited to 25 MB and allowlisted MIME types."
+  },
+  "iteration_177": {
+    "zladen": "Added group mini-games (/games, /roll, /random, /choose, /yesno, /percent, /who, /pair, /say), neutral social actions, and activity stats; no wagers; fail closed in E2E pending/required.",
+    "feed": "Multiple inline attachments, paste/drop, bold/italic, post topics, explicit interest preferences, personalized ranking and muted topics/authors.",
+    "imperial": "Server-backed searchable channel/group directory, collapsible cards, per-space image/video controls enforced by Storage RLS, welcome notifications and admin system notices.",
+    "sdk": "Restored exact SDK 14.7.0 from verified offline bootstrap artifact; npm dependencies restored; root lockfile unchanged.",
+    "e2e": "Signal Protocol and E2E SQL unchanged; relay integration tests pass."
+  },
+  "node_tests": 697,
+  "iteration_178": {
+    "zladen": "Configurable link and administrator-defined word/phrase filters with server-side pre-insert enforcement, metadata-only audit and E2E scope exclusion.",
+    "feed": "Public channel posts can be cross-posted into the home feed manually or during publish; source IDs are unique and server-validated. Home feed text/topics autosave per account.",
+    "privacy": "Private and E2E channels are excluded from cross-posting.",
+    "e2e": "No E2E implementation, relay, key, SDK or message-path changes in this iteration.",
+    "database": "Production migrations 20261124102503, 20261124103001 and 20261124103102 applied."
   }
 }

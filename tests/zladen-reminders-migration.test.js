@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-const migration = fs.readFileSync(new URL('../supabase/migrations/20261122150000_rim_iteration_171_zladen_reminders_scheduler.sql', import.meta.url), 'utf8');
+const migration = fs.readFileSync(new URL('../supabase/migrations/20261124085719_rim_iteration_171_zladen_reminders_scheduler.sql', import.meta.url), 'utf8');
 
 test('Zladen reminder command replaces the old non-functional stub', () => {
   assert.match(migration, /v_command='remind'/i);
