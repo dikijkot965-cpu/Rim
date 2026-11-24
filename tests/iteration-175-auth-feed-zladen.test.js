@@ -18,8 +18,8 @@ function between(source, start, end) {
   return source.slice(a, b);
 }
 
-test('Iteration 175 package version is consistent', () => {
-  assert.equal(packageJson.version, '4.1.8-iteration.175');
+test('Iteration 176 retains the Iteration 175 auth/feed integration baseline', () => {
+  assert.equal(packageJson.version, '4.1.8-iteration.176');
 });
 
 test('Telegram login has a callable OIDC PKCE handler and validates callback state', () => {
