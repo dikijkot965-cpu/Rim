@@ -40,6 +40,7 @@
       const result = await (await service()).handleCallback();
       if (!result.handled) return;
       if (!result.ok) throw result.error || new Error('Вход через Telegram не выполнен.');
+      window.__RIM_LEGACY_CONTEXT?.setUser?.(result.user);
       window.currentUser = result.user;
       status('Вход через Telegram выполнен. Загружаем RIM…');
       await window.initializeApp?.();
