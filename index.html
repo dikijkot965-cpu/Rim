@@ -861,8 +861,14 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       const initial = (p.author || 'Р')[0].toUpperCase();
       const views = p.views || 0;
       const comments = Number.isFinite(Number(p.commentsCount)) ? Number(p.commentsCount) : (loadFeedComments()[p.id] || []).length;
-      const media = p.mediaUrl
-        ? `<div class="rim-feed-post-media"><img src="${p.mediaUrl}" alt="" /></div>`
+      const safeMediaUrl = p.mediaUrl ? escapeHtml(p.mediaUrl) : '';
+      const media = safeMediaUrl
+        ? '<div class="rim-feed-post-media">' +
+          (p.mediaType === 'video' ? '<video src="' + safeMediaUrl + '" controls playsinline preload="metadata"></video>' :
+           p.mediaType === 'audio' ? '<audio src="' + safeMediaUrl + '" controls preload="metadata"></audio>' :
+           p.mediaType === 'document' ? '<a href="' + safeMediaUrl + '" target="_blank" rel="noopener noreferrer">📎 ' + escapeHtml(p.mediaName || 'Открыть файл') + '</a>' :
+           '<img src="' + safeMediaUrl + '" alt="' + escapeHtml(p.mediaName || '') + '" loading="lazy" />') +
+          '</div>'
         : '';
       return `<article class="rim-feed-post" data-post-id="${p.id}">
         <div class="rim-feed-post-header">
@@ -876,6 +882,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
         ${media}
         <div class="rim-feed-post-stats">
           <button type="button" class="rim-feed-stat rim-feed-like" data-action="like" data-post-id="${p.id}" aria-pressed="${p.likedByMe ? 'true' : 'false'}">${p.likedByMe ? '♥' : '♡'} ${Number(p.likesCount || 0)}</button>
+          <button type="button" class="rim-feed-stat rim-feed-save" data-action="save" data-post-id="${p.id}" aria-pressed="${p.savedByMe ? 'true' : 'false'}">${p.savedByMe ? '🔖' : '♧'} Сохранить</button>
           <button type="button" class="rim-feed-stat" data-action="comments" data-post-id="${p.id}">💬 ${comments}</button>
           <span class="rim-feed-stat">👁 ${views}</span>
         </div>
@@ -902,6 +909,20 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
           });
           saveFeedPosts(posts);
           renderFeedList();
+        } finally { el.disabled = false; }
+      });
+    });
+    list.querySelectorAll('[data-action="save"]').forEach(el => {
+      el.addEventListener('click', async () => {
+        const postId = el.getAttribute('data-post-id');
+        el.disabled = true;
+        try {
+          const result = await sbToggleFeedSave(postId);
+          if (!result) { if (typeof toast === 'function') toast('Не удалось сохранить публикацию'); return; }
+          const posts = loadFeedPosts().map(post => String(post.id) === String(postId) ? { ...post, savedByMe: result.saved } : post);
+          saveFeedPosts(posts);
+          renderFeedList();
+          if (typeof toast === 'function') toast(result.saved ? 'Публикация сохранена' : 'Публикация удалена из сохранённого');
         } finally { el.disabled = false; }
       });
     });
@@ -933,7 +954,14 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       preview.classList.add('hidden');
       preview.innerHTML = '';
     }
+    if (modal._pendingPreviewUrl) URL.revokeObjectURL(modal._pendingPreviewUrl);
+    modal._pendingPreviewUrl = null;
+    modal._pendingFile = null;
     modal._pendingMedia = null;
+    const imageInput = document.getElementById('rimFeedImageInput');
+    const fileInput = document.getElementById('rimFeedFileInput');
+    if (imageInput) imageInput.value = '';
+    if (fileInput) fileInput.value = '';
     modal.classList.remove('hidden');
     modal.setAttribute('aria-hidden', 'false');
     setTimeout(() => ta?.focus(), 50);
@@ -944,6 +972,13 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     if (!modal) return;
     modal.classList.add('hidden');
     modal.setAttribute('aria-hidden', 'true');
+    if (modal._pendingPreviewUrl) URL.revokeObjectURL(modal._pendingPreviewUrl);
+    modal._pendingPreviewUrl = null;
+    modal._pendingFile = null;
+    const imageInput = document.getElementById('rimFeedImageInput');
+    const fileInput = document.getElementById('rimFeedFileInput');
+    if (imageInput) imageInput.value = '';
+    if (fileInput) fileInput.value = '';
   }
 
   function publishFeedPost() {
@@ -1048,21 +1083,24 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
   document.getElementById('rimFeedAddFile')?.addEventListener('click', () => {
     document.getElementById('rimFeedFileInput')?.click();
   });
-  document.getElementById('rimFeedImageInput')?.addEventListener('change', (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const modal = document.getElementById('rimFeedComposeModal');
-      const preview = document.getElementById('rimFeedComposePreview');
-      if (modal) modal._pendingMedia = reader.result;
-      if (preview) {
-        preview.innerHTML = `<img src="${reader.result}" alt="" />`;
-        preview.classList.remove('hidden');
-      }
-    };
-    reader.readAsDataURL(file);
-  });
+  function setFeedPendingFile(file) {
+    const modal = document.getElementById('rimFeedComposeModal');
+    const preview = document.getElementById('rimFeedComposePreview');
+    if (!modal || !file) return;
+    if (modal._pendingPreviewUrl) URL.revokeObjectURL(modal._pendingPreviewUrl);
+    modal._pendingFile = file;
+    modal._pendingPreviewUrl = URL.createObjectURL(file);
+    if (preview) {
+      const mime = String(file.type || '');
+      if (mime.startsWith('image/')) preview.innerHTML = '<img src="' + modal._pendingPreviewUrl + '" alt="" />';
+      else if (mime.startsWith('video/')) preview.innerHTML = '<video src="' + modal._pendingPreviewUrl + '" controls playsinline></video>';
+      else if (mime.startsWith('audio/')) preview.innerHTML = '<audio src="' + modal._pendingPreviewUrl + '" controls></audio>';
+      else preview.textContent = '📎 ' + String(file.name || 'Файл') + ' · ' + (file.size / 1024 / 1024).toFixed(1) + ' МБ';
+      preview.classList.remove('hidden');
+    }
+  }
+  document.getElementById('rimFeedImageInput')?.addEventListener('change', e => setFeedPendingFile(e.target.files?.[0]));
+  document.getElementById('rimFeedFileInput')?.addEventListener('change', e => setFeedPendingFile(e.target.files?.[0]));
 
   // Re-render when opening feed
   const _prevShow = window.showSection;
@@ -1930,6 +1968,8 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       let profiles = {};
       let likes = {};
       let commentCounts = {};
+      let mediaByPost = {};
+      let savedByPost = {};
       if (authorIds.length) {
         const pr = await db.from('profiles').select('id,username,display_name').in('id', authorIds);
         if (!pr.error) for (const p of pr.data || []) profiles[String(p.id)] = p;
@@ -1951,6 +1991,20 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
         const cr = await db.from('feed_post_comments').select('post_id').in('post_id', postIds).is('deleted_at', null);
         if (!cr.error) for (const item of cr.data || []) commentCounts[String(item.post_id)] = (commentCounts[String(item.post_id)] || 0) + 1;
         else console.warn('feed_post_comments', cr.error.message);
+        const mr = await db.from('rim_feed_post_media').select('post_id,storage_path,media_type,alt_text,sort_order').in('post_id', postIds).order('sort_order', { ascending: true });
+        if (!mr.error && (mr.data || []).length) {
+          const paths = [...new Set(mr.data.map(item => item.storage_path).filter(Boolean))];
+          const signed = paths.length ? await db.storage.from('feed-media').createSignedUrls(paths, 1800) : { data: [] };
+          const urls = new Map((signed.data || []).filter(item => item.path && item.signedUrl).map(item => [item.path, item.signedUrl]));
+          for (const item of mr.data || []) {
+            const url = urls.get(item.storage_path);
+            if (url && !mediaByPost[String(item.post_id)]) mediaByPost[String(item.post_id)] = { url, media_type: item.media_type, alt_text: item.alt_text || '' };
+          }
+        }
+        if (uid) {
+          const sr = await db.from('rim_feed_post_saves').select('post_id').eq('user_id', uid).in('post_id', postIds);
+          if (!sr.error) for (const item of sr.data || []) savedByPost[String(item.post_id)] = true;
+        }
       }
       const result = rows.map(r => {
         const p = profiles[String(r.author_id)] || {};
@@ -1965,7 +2019,10 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
           likesCount: like.count,
           likedByMe: like.likedByMe,
           commentsCount: commentCounts[String(r.id)] || 0,
-          mediaUrl: null,
+          mediaUrl: mediaByPost[String(r.id)]?.url || null,
+          mediaType: mediaByPost[String(r.id)]?.media_type || null,
+          mediaName: mediaByPost[String(r.id)]?.alt_text || '',
+          savedByMe: !!savedByPost[String(r.id)],
           fromChannel: false,
           isPinned: !!r.is_pinned,
           _remote: true
@@ -1982,17 +2039,58 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
   async function sbCreateFeedPost(text) {
     const db = rimDb();
     const uid = rimUserId();
-    if (!db || !uid || !text) return null;
-    const attempts = [
-      { author_id: uid, body: text, visibility: 'public', comments_enabled: true }
-    ];
-    for (const payload of attempts) {
-      try {
-        const { data, error } = await db.from('feed_posts').insert(payload).select('id,created_at').maybeSingle();
-        if (!error && data) return { id: data.id, createdAt: Date.parse(data.created_at) || Date.now(), _remote: true };
-      } catch {}
+    if (!db || !uid) return null;
+    try {
+      const { data, error } = await db.from('feed_posts').insert({
+        author_id: uid,
+        body: String(text || '').slice(0, 8000),
+        visibility: 'public',
+        comments_enabled: true,
+        published_at: new Date().toISOString()
+      }).select('id,created_at').maybeSingle();
+      if (error || !data) { console.warn('feed post create', error?.message); return null; }
+      return { id: data.id, createdAt: Date.parse(data.created_at) || Date.now(), _remote: true };
+    } catch (error) { console.warn('feed post create', error); return null; }
+  }
+
+  async function sbUploadFeedMedia(postId, file) {
+    const db = rimDb();
+    const uid = rimUserId();
+    if (!db || !uid || !postId || !file) return null;
+    const mime = String(file.type || '').toLowerCase();
+    const type = mime.startsWith('image/') ? 'image' : mime.startsWith('video/') ? 'video' : mime.startsWith('audio/') ? 'audio' : (mime === 'application/pdf' || mime === 'text/plain') ? 'document' : '';
+    const extensions = {
+      'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif',
+      'video/mp4':'mp4','video/webm':'webm','video/quicktime':'mov',
+      'audio/mpeg':'mp3','audio/mp4':'m4a','audio/ogg':'ogg','audio/wav':'wav','audio/webm':'webm',
+      'application/pdf':'pdf','text/plain':'txt'
+    };
+    if (!type || !extensions[mime]) { if (typeof toast === 'function') toast('Этот формат файла не поддерживается лентой.'); return null; }
+    if (file.size <= 0 || file.size > 25 * 1024 * 1024) { if (typeof toast === 'function') toast('Размер файла должен быть от 1 байта до 25 МБ.'); return null; }
+    const uuid = globalThis.crypto?.randomUUID?.() || (Date.now() + '-' + Math.random().toString(36).slice(2));
+    const path = uid + '/' + postId + '/' + uuid + '.' + extensions[mime];
+    const storage = db.storage.from('feed-media');
+    const upload = await storage.upload(path, file, { contentType: mime, cacheControl: '3600', upsert: false });
+    if (upload.error) { console.warn('feed media upload', upload.error.message); return null; }
+    const metadata = await db.from('rim_feed_post_media').insert({
+      post_id: postId, owner_id: uid, storage_path: path, media_type: type,
+      mime_type: mime, byte_size: file.size, alt_text: String(file.name || '').slice(0, 240), sort_order: 0
+    });
+    if (metadata.error) {
+      await storage.remove([path]);
+      console.warn('feed media metadata', metadata.error.message);
+      return null;
     }
-    return null;
+    const update = await db.from('feed_posts').update({ media_paths: [path] }).eq('id', postId).eq('author_id', uid);
+    if (update.error) {
+      await db.from('rim_feed_post_media').delete().eq('post_id', postId).eq('owner_id', uid);
+      await storage.remove([path]);
+      console.warn('feed media path update', update.error.message);
+      return null;
+    }
+    const signed = await storage.createSignedUrl(path, 1800);
+    if (signed.error || !signed.data?.signedUrl) return null;
+    return { path, url: signed.data.signedUrl, mediaType: type, mediaName: String(file.name || '').slice(0, 240) };
   }
 
   async function sbToggleFeedLike(postId) {
@@ -2009,6 +2107,22 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     const added = await db.from('feed_post_likes').insert({ post_id: postId, user_id: uid });
     if (added.error) { console.warn('feed like', added.error.message); return null; }
     return { liked: true };
+  }
+
+  async function sbToggleFeedSave(postId) {
+    const db = rimDb();
+    const uid = rimUserId();
+    if (!db || !uid || !postId) return null;
+    const existing = await db.from('rim_feed_post_saves').select('post_id').eq('post_id', postId).eq('user_id', uid).maybeSingle();
+    if (existing.error) { console.warn('feed save lookup', existing.error.message); return null; }
+    if (existing.data) {
+      const removed = await db.from('rim_feed_post_saves').delete().eq('post_id', postId).eq('user_id', uid);
+      if (removed.error) return null;
+      return { saved: false };
+    }
+    const added = await db.from('rim_feed_post_saves').insert({ post_id: postId, user_id: uid, collection_name: 'saved' });
+    if (added.error) { console.warn('feed save', added.error.message); return null; }
+    return { saved: true };
   }
 
   async function sbListComments(postId) {
@@ -2242,24 +2356,33 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     }
     const hasRemoteSession = !!rimDb() && !!rimUserId();
     if (hasRemoteSession) {
-      if (mediaUrl) {
-        if (typeof toast === 'function') toast('Загрузка медиа в ленту пока не подключена. Опубликуйте текст без вложения.');
+      const file = modal?._pendingFile || null;
+      const remote = (text || file) ? await sbCreateFeedPost(text) : null;
+      if (!remote) {
+        if (typeof toast === 'function') toast('Не удалось создать публикацию в Supabase. Проверьте соединение и права доступа.');
         return;
       }
-      const remote = text ? await sbCreateFeedPost(text) : null;
-      if (!remote) {
-        if (typeof toast === 'function') toast('Не удалось опубликовать пост в Supabase. Проверьте соединение и права доступа.');
-        return;
+      let media = null;
+      if (file) {
+        media = await sbUploadFeedMedia(remote.id, file);
+        if (!media) {
+          await rimDb().from('feed_posts').delete().eq('id', remote.id).eq('author_id', rimUserId());
+          if (typeof toast === 'function') toast('Не удалось загрузить вложение. Публикация отменена.');
+          return;
+        }
       }
       const posts = loadFeedPosts();
       posts.unshift({
         id: remote.id,
         author: currentUserLabel(),
         text,
-        mediaUrl: null,
+        mediaUrl: media?.url || null,
+        mediaType: media?.mediaType || null,
+        mediaName: media?.mediaName || '',
         views: 0,
         likesCount: 0,
         likedByMe: false,
+        savedByMe: false,
         commentsCount: 0,
         createdAt: remote.createdAt,
         _remote: true
@@ -2268,6 +2391,10 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       closeFeedCompose();
       window.renderFeedList?.();
       if (typeof toast === 'function') toast('Пост опубликован в Supabase');
+      return;
+    }
+    if (modal?._pendingFile) {
+      if (typeof toast === 'function') toast('Для загрузки медиа необходимо войти в аккаунт РИМ.');
       return;
     }
     return _publishFeedPost();
