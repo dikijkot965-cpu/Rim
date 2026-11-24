@@ -20,9 +20,7 @@
 .rim-build-stamp-status{display:block;margin-top:7px;overflow-wrap:anywhere}
 .rim-build-stamp button{margin-top:8px;padding:6px 9px;border:1px solid rgba(194,155,82,.45);border-radius:7px;background:transparent;color:inherit;font:inherit}
 </style>
-<script>
-(()=>{const id='4.1.8.178-AUTHFIX3';window.__RIM_BUILD_ID=id;window.__RIM_BUILD_DIAGNOSTICS={html:'loaded',runtime:'waiting',modules:'waiting',auth:'waiting'};window.__RIM_SET_BUILD_STATUS=(key,value)=>{try{window.__RIM_BUILD_DIAGNOSTICS[key]=String(value);const el=document.getElementById('rimBuildStampStatus');if(el)el.textContent=Object.entries(window.__RIM_BUILD_DIAGNOSTICS).map(([k,v])=>k.toUpperCase()+': '+v).join(' · ');}catch{}};window.addEventListener('error',e=>{const detail=e?.message||e?.filename||'неизвестная ошибка';window.__RIM_SET_BUILD_STATUS?.('error',String(detail).slice(0,180));});window.addEventListener('unhandledrejection',e=>{const detail=e?.reason?.message||e?.reason||'unhandled rejection';window.__RIM_SET_BUILD_STATUS?.('error',String(detail).slice(0,180));});document.addEventListener('DOMContentLoaded',()=>window.__RIM_SET_BUILD_STATUS?.('html','BUILD '+id+' загружен'));})();
-</script>
+<script src="./assets/js/rim-build-diagnostics.js?v=4.1.8.178-authfix3"></script>
 <script src="./assets/js/supabase-client.bundle.js?v=4.1.8.178-authfix3"></script>
 
 
