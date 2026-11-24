@@ -160,6 +160,9 @@ export class ChannelFeedController {
       case 'share-post':
         void this.sharePost(postId);
         break;
+      case 'to-feed':
+        void this.publishPostToHomeFeed(postId);
+        break;
       case 'choose-media':
         this.document?.getElementById?.('rimChannelPostMedia')?.click?.();
         break;
@@ -190,9 +193,8 @@ export class ChannelFeedController {
   }
 
   #onChange(event) {
-    const input=event.target?.closest?.('#rimChannelPostMedia');if(!input)return;
-    const label=this.document?.getElementById?.('rimChannelPostMediaName');
-    if(label)label.textContent=input.files?.[0]?`${input.files[0].name} · ${(input.files[0].size/1024/1024).toFixed(1)} МБ`:'Можно прикрепить одно изображение до 10 МБ.';
+    const mirror=event.target?.closest?.('#rimChannelAlsoToFeed');if(mirror){this.window?.rimSetChannelFeedPref?.(mirror.checked===true);return;}
+    const input=event.target?.closest?.('#rimChannelPostMedia');if(!input)return;const label=this.document?.getElementById?.('rimChannelPostMediaName');if(label)label.textContent=input.files?.[0]?input.files[0].name+' · '+(input.files[0].size/1024/1024).toFixed(1)+' МБ':'Можно прикрепить одно изображение до 10 МБ.';
   }
 
   #onSubmit(event) {
@@ -276,12 +278,14 @@ export class ChannelFeedController {
       const e2ePost = channel.e2e_mode === 'required' || post._rimE2E === true;
       const reactionButtons=e2ePost ? '' : REACTION_EMOJI.map(emoji=>{const count=rx.filter(row=>row.emoji===emoji).length;const mine=rx.some(row=>row.emoji===emoji&&String(row.user_id)===String(userId));return `<button class="rim-cf-reaction ${mine?'active':''}" type="button" data-rim-cf-action="react" data-post-id="${escapeHtml(post.id)}" data-emoji="${emoji}">${emoji}<span>${count||''}</span></button>`}).join('');
       const commentForm=e2ePost?'<div class="rim-update-muted">Комментарии для E2E-публикаций недоступны.</div>':joined||channel.is_public?`<form class="rim-cf-comment-form" data-post-id="${escapeHtml(post.id)}"><input id="rimChannelComment-${escapeHtml(post.id)}" class="field" maxlength="2000" placeholder="Написать комментарий…"><button class="primary-btn" type="submit">Отправить</button></form>`:'<div class="rim-update-muted">Подпишитесь на канал, чтобы комментировать.</div>';
-      return `<article class="rim-cf-post ${post.is_pinned?'is-pinned':''}" data-rim-post-id="${escapeHtml(post.id)}">${post.is_pinned?'<div class="rim-cf-pinned-label">📌 Закреплённая публикация</div>':''}<div class="rim-cf-post-author"><div class="rim-cf-post-channel-avatar">${avatar}</div><div><b>${escapeHtml(channel.title)}</b><small>${authorLabel!==escapeHtml(channel.title)?' · '+authorLabel:''} · ${formatWhen(post.created_at)}</small></div>${e2ePost?'':'<button class="rim-cf-post-menu" type="button" data-rim-cf-action="share-post" data-post-id="'+escapeHtml(post.id)+'" aria-label="Поделиться публикацией">↗</button>'}</div>${post.image_url?`<img class="rim-cf-post-image" src="${escapeHtml(post.image_url)}" alt="Медиа публикации" loading="lazy">`:''}<div class="rim-cf-post-body">${escapeHtml(post.body||'')}</div><div class="rim-cf-post-footer"><div class="rim-cf-reactions">${reactionButtons}</div>${manager&&!e2ePost?`<span class="rim-cf-post-admin-actions"><button class="rim-cf-pin-action" type="button" data-rim-cf-action="pin" data-post-id="${escapeHtml(post.id)}">${post.is_pinned?'Открепить':'📌'}</button><button class="rim-cf-pin-action" type="button" data-rim-cf-action="edit-post" data-post-id="${escapeHtml(post.id)}">Изменить</button><button class="rim-cf-pin-action" type="button" data-rim-cf-action="delete-post" data-post-id="${escapeHtml(post.id)}">Удалить</button></span>`:''}</div>${e2ePost?'':'<button type="button" class="rim-cf-comment-toggle" aria-expanded="false" data-rim-cf-action="comments" data-post-id="'+escapeHtml(post.id)+'">Комментарии</button>'}<div class="rim-cf-comments"><div class="rim-update-muted">Откройте комментарии, чтобы загрузить их.</div>${commentForm}</div></article>`;
+      return `<article class="rim-cf-post ${post.is_pinned?'is-pinned':''}" data-rim-post-id="${escapeHtml(post.id)}">${post.is_pinned?'<div class="rim-cf-pinned-label">📌 Закреплённая публикация</div>':''}<div class="rim-cf-post-author"><div class="rim-cf-post-channel-avatar">${avatar}</div><div><b>${escapeHtml(channel.title)}</b><small>${authorLabel!==escapeHtml(channel.title)?' · '+authorLabel:''} · ${formatWhen(post.created_at)}</small></div>${e2ePost?'':'<button class="rim-cf-post-menu" type="button" data-rim-cf-action="share-post" data-post-id="'+escapeHtml(post.id)+'" aria-label="Поделиться публикацией">↗</button>'}</div>${post.image_url?`<img class="rim-cf-post-image" src="${escapeHtml(post.image_url)}" alt="Медиа публикации" loading="lazy">`:''}<div class="rim-cf-post-body">${escapeHtml(post.body||'')}</div><div class="rim-cf-post-footer"><div class="rim-cf-reactions">${reactionButtons}</div>${manager&&!e2ePost?`<span class="rim-cf-post-admin-actions"><button class="rim-cf-pin-action" type="button" data-rim-cf-action="pin" data-post-id="${escapeHtml(post.id)}">${post.is_pinned?'Открепить':'📌'}</button><button class="rim-cf-pin-action" type="button" data-rim-cf-action="edit-post" data-post-id="${escapeHtml(post.id)}">Изменить</button><button class="rim-cf-pin-action" type="button" data-rim-cf-action="delete-post" data-post-id="${escapeHtml(post.id)}">Удалить</button>${channel.is_public===true?`<button class="rim-cf-pin-action" type="button" data-rim-cf-action="to-feed" data-post-id="${escapeHtml(post.id)}">В Ленту</button>`:''}</span>`:''}</div>${e2ePost?'':'<button type="button" class="rim-cf-comment-toggle" aria-expanded="false" data-rim-cf-action="comments" data-post-id="'+escapeHtml(post.id)+'">Комментарии</button>'}<div class="rim-cf-comments"><div class="rim-update-muted">Откройте комментарии, чтобы загрузить их.</div>${commentForm}</div></article>`;
     }).join('')||'<div class="rim-cf-empty"><b>Публикаций пока нет</b><span>Здесь появятся новые записи канала.</span></div>';
     const profileDetailsHtml = `<section class="rim-cf-info-card"><h3>Информация</h3><p>${escapeHtml(channel.description||'Описание канала пока не добавлено.')}</p>${channel.username?`<div class="rim-cf-link-row"><span>Публичная ссылка</span><b>@${escapeHtml(channel.username)}</b><button type="button" data-rim-cf-action="copy-link" data-url="${escapeHtml('@'+channel.username)}">Копировать</button></div>`:''}<div class="rim-cf-info-stats"><div><b>${Number(memberCount).toLocaleString('ru-RU')}</b><span>Подписчики</span></div><div><b>${Number(managerCount).toLocaleString('ru-RU')}</b><span>Администраторы</span></div><div><b>${Number(posts.length).toLocaleString('ru-RU')}</b><span>В ленте</span></div></div>${channel.discussion_conversation_id?'<button class="rim-cf-wide-action" type="button" data-rim-cf-action="discussion">Открыть обсуждение</button>':''}</section>`;
     const managerPanel = manager ? `<section class="rim-cf-admin-panel"><div class="rim-cf-admin-title"><div><span>УПРАВЛЕНИЕ КАНАЛОМ</span><h3>Панель администратора</h3></div><button type="button" class="rim-cf-settings-round" data-rim-cf-action="settings">⚙</button></div><div class="rim-cf-admin-grid"><button type="button" data-rim-cf-action="tab" data-tab="about"><b>${Number(memberCount).toLocaleString('ru-RU')}</b><span>Подписчики</span></button><button type="button" data-rim-cf-action="tab" data-tab="admins"><b>${Number(managerCount).toLocaleString('ru-RU')}</b><span>Администраторы</span></button><button type="button" data-rim-cf-action="tab" data-tab="requests"><b>${profileDetails.pendingCount==null?'—':Number(profileDetails.pendingCount).toLocaleString('ru-RU')}</b><span>Заявки</span></button><button type="button" data-rim-cf-action="tab" data-tab="scheduled"><b>${profileDetails.scheduledCount==null?'—':Number(profileDetails.scheduledCount).toLocaleString('ru-RU')}</b><span>Отложенные</span></button></div><div class="rim-cf-admin-actions"><button type="button" data-rim-cf-action="new-post">＋ Новая публикация</button><button type="button" data-rim-cf-action="invite">↗ Пригласить</button>${e2eActive?'':'<button type="button" data-rim-cf-action="create-poll">▤ Создать опрос</button>'}<button type="button" data-rim-cf-action="settings">Настройки канала</button></div></section>` : '';
     let content = '';
-    const composerHtml = canPost ? `<section class="rim-cf-composer"><div class="rim-cf-composer-title"><b>Новая публикация</b><span>От имени канала</span></div><textarea id="rimChannelPostBody" class="field" rows="3" maxlength="8000" placeholder="Что нового у канала?"></textarea><div class="rim-cf-composer-actions">${e2eActive?'':'<button type="button" class="rim-cf-composer-tool" data-rim-cf-action="choose-media">▧ Фото</button>'}${e2eActive?'':'<button type="button" class="rim-cf-composer-tool" data-rim-cf-action="create-poll">▤ Опрос</button>'}<button type="button" class="primary-btn" data-rim-cf-action="publish">Опубликовать</button></div><input id="rimChannelPostMedia" class="rim-cf-media-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif"><div class="rim-cf-media-hint" id="rimChannelPostMediaName">Можно прикрепить одно изображение до 10 МБ.</div></section>` : '';
+    const mirrorChecked=this.window?.rimGetChannelFeedPref?.()===true?'checked':'';
+    const mirrorHtml=channel.is_public===true&&!e2eActive?'<label class="rim-cf-feed-mirror"><input id="rimChannelAlsoToFeed" type="checkbox" '+mirrorChecked+'> Также опубликовать в общей Ленте</label>':'';
+    const composerHtml = canPost ? `<section class="rim-cf-composer"><div class="rim-cf-composer-title"><b>Новая публикация</b><span>От имени канала</span></div><textarea id="rimChannelPostBody" class="field" rows="3" maxlength="8000" placeholder="Что нового у канала?"></textarea>${mirrorHtml}<div class="rim-cf-composer-actions">${e2eActive?'':'<button type="button" class="rim-cf-composer-tool" data-rim-cf-action="choose-media">▧ Фото</button>'}${e2eActive?'':'<button type="button" class="rim-cf-composer-tool" data-rim-cf-action="create-poll">▤ Опрос</button>'}<button type="button" class="primary-btn" data-rim-cf-action="publish">Опубликовать</button></div><input id="rimChannelPostMedia" class="rim-cf-media-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif"><div class="rim-cf-media-hint" id="rimChannelPostMediaName">Можно прикрепить одно изображение до 10 МБ.</div></section>` : '';
     if (active === 'posts') content = `${composerHtml}${pinnedHtml}${pollHtml}<div class="rim-cf-section-heading"><h3>Публикации</h3><span>${posts.length} загружено</span></div>${postsHtml}${hasMorePosts?'<button class="action-btn rim-cf-load-older" type="button" data-rim-cf-action="load-older">Показать более ранние публикации</button>':'<div class="rim-update-muted rim-cf-end">Вы просмотрели все загруженные публикации</div>'}`;
     else if (active === 'media') content = `<div class="rim-cf-section-heading"><h3>Медиа</h3><span>${assets.media?.length||0}</span></div>${assets.loading?'<div class="rim-cf-empty">Загружаем медиа…</div>':assets.media?.length?`<div class="rim-cf-media-grid">${assets.media.map(item=>`<button type="button" class="rim-cf-media-tile" data-rim-cf-action="goto-post" data-post-id="${escapeHtml(item.id)}"><img src="${escapeHtml(item.media_url||'')}" alt="Медиа канала" loading="lazy"><span>${formatWhen(item.created_at)}</span></button>`).join('')}</div>`:'<div class="rim-cf-empty"><b>Медиа пока нет</b><span>Фотографии и видео из публикаций будут собираться здесь.</span></div>'}`;
     else if (active === 'links') content = `<div class="rim-cf-section-heading"><h3>Ссылки</h3><span>${assets.links?.length||0}</span></div>${assets.links?.length?assets.links.map(link=>`<div class="rim-cf-link-card"><div><b>${escapeHtml(link.url)}</b><small>${formatWhen(link.created_at)}</small></div><button type="button" data-rim-cf-action="copy-link" data-url="${escapeHtml(link.url)}">Копировать</button><button type="button" data-rim-cf-action="goto-post" data-post-id="${escapeHtml(link.postId)}">Пост</button></div>`).join(''):'<div class="rim-cf-empty"><b>Ссылок пока нет</b><span>Ссылки из публикаций появятся в этом разделе автоматически.</span></div>'}`;
@@ -710,6 +714,15 @@ export class ChannelFeedController {
     state.posts=state.posts.filter(x=>String(x.id)!==String(postId));state.pinnedPosts=state.pinnedPosts.filter(x=>String(x.id)!==String(postId));const main=this.boundRoot?.querySelector?.('.rim-cf-scroll');if(main)main.innerHTML=this.#renderEnrichedFeed(state);this.#say('Публикация удалена.');
   }
 
+  async publishPostToHomeFeed(postId){
+    const state=this.feedState,channel=state?.channel;
+    if(!state?.manager||!channel||channel.is_public!==true||channel.e2e_mode==='required'){this.#say('Перенос в общую Ленту разрешён только для публичного канала без E2E.');return false;}
+    const post=(state.posts||[]).find(row=>String(row.id)===String(postId));if(!post){this.#say('Публикация канала не найдена.');return false;}
+    if(typeof this.window?.rimPublishChannelPostToFeed!=='function'){this.#say('Модуль публикации в общую Ленту недоступен.');return false;}
+    const profile=state.profileById?.[String(post.author_id)]||{};const result=await this.window.rimPublishChannelPostToFeed(channel,{...post,sourceAuthor:profile.display_name||profile.username||'автор канала'});
+    if(result?.ok)this.#say(result.duplicate?'Эта публикация уже есть в общей Ленте.':'Публикация канала добавлена в общую Ленту.');else this.#say(result?.error||'Не удалось добавить публикацию в общую Ленту.');return result?.ok===true;
+  }
+
   async sharePost(postId) {
     const state=this.feedState;const channel=state?.channel;if(!channel)return;
     const url=`${this.window?.location?.origin||''}/?channel=${encodeURIComponent(channel.id)}&post=${encodeURIComponent(postId)}`;
@@ -751,6 +764,7 @@ export class ChannelFeedController {
     if (!client) { this.notify?.('Нет подключения к базе.'); return; }
     const mediaInput = this.document?.getElementById?.('rimChannelPostMedia');
     const mediaFile = mediaInput?.files?.[0] || null;
+    const mirrorToFeed=this.document?.getElementById?.('rimChannelAlsoToFeed')?.checked===true;
     if (mediaFile && (mediaFile.size > 10 * 1024 * 1024 || !/^image\/(jpeg|png|webp|gif)$/.test(mediaFile.type))) {
       this.notify?.('Изображение должно быть JPG, PNG, WebP или GIF и не больше 10 МБ.');
       return;
@@ -843,9 +857,13 @@ export class ChannelFeedController {
     } catch (pushError) {
       this.logger?.warn?.('channels.push.delivery.failed', { message: String(pushError?.message || pushError) });
     }
+    if(mirrorToFeed&&channel.is_public===true&&channel.e2e_mode!=='required'){
+      const mirrored=await this.window?.rimPublishChannelPostToFeed?.(channel,{id:createdPost.id,body:postBody,image_path:imagePath,sourceAuthor:'администратор канала'});
+      if(!mirrored?.ok)this.notify?.('Публикация размещена в канале, но не перенесена в общую Ленту: '+String(mirrored?.error||'ошибка переноса'));
+    }
     if (input) input.value = '';
     if (mediaInput) mediaInput.value = '';
-    this.notify?.('Публикация добавлена.');
+    this.notify?.(mirrorToFeed?'Публикация обработана: канал и выбранная Лента.':'Публикация добавлена.');
     await this.open(channel.id);
   }
 
