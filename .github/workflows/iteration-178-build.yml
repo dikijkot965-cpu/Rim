@@ -6,6 +6,7 @@ on:
       - 'src/application/auth-form-controller.js'
       - 'src/application/telegram-auth-service.js'
       - 'assets/js/rim-runtime-bootstrap.js'
+      - 'assets/js/rim-build-diagnostics.js'
       - 'assets/js/rim-auth-zladen-bridge.js'
       - 'tests/auth-form-controller-session-sync.test.js'
       - 'tests/iteration-175-auth-feed-zladen.test.js'
