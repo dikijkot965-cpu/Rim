@@ -3018,3 +3018,46 @@ body[data-theme="light"] .composer.grok-style .send-btn {
 .rim-feed-post-stats .rim-feed-like[aria-pressed="true"] {
   color: var(--gold2);
 }
+
+/* Iteration 176 — social feed media and saved-post affordances */
+.rim-feed-post-media img,
+.rim-feed-post-media video {
+  display: block;
+  width: 100%;
+  max-height: 560px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: var(--surface-2, #171717);
+}
+.rim-feed-post-media audio {
+  display: block;
+  width: 100%;
+}
+.rim-feed-post-media a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color, #444);
+  border-radius: 12px;
+  color: inherit;
+  overflow-wrap: anywhere;
+}
+.rim-feed-save[aria-pressed="true"] {
+  color: var(--gold2, #d7b46a);
+}
+.rim-feed-compose-preview img,
+.rim-feed-compose-preview video {
+  display: block;
+  max-width: 100%;
+  max-height: 360px;
+  border-radius: 12px;
+  object-fit: contain;
+}
+.rim-feed-compose-preview audio {
+  width: 100%;
+}
+.rim-feed-compose-preview {
+  overflow-wrap: anywhere;
+}
