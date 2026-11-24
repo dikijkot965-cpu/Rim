@@ -73,6 +73,7 @@ export class ZladenGroupConsoleController {
   }
 
   #html(group, botJoined) {
+    const disabled = botJoined ? '' : ' disabled';
     const buttons = QUICK_COMMANDS.map(([label, command]) => '<button type="button" data-zc="preset" data-command="' + escapeHtml(command) + '"><b>' + escapeHtml(label) + '</b><code>' + escapeHtml(command) + '</code></button>').join('');
     return '<section class="rim-zladen-console" data-rim-zladen-console>' +
       '<style>.rim-zladen-console{max-height:82vh;overflow:auto;color:var(--text)}.rim-zc-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.rim-zc-card{padding:12px;margin:10px 0;border:1px solid var(--border);border-radius:12px;background:var(--panel)}.rim-zc-grid button{display:grid;text-align:left;gap:4px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--panel2);color:inherit}.rim-zc-grid code,.rim-zc-muted{font-size:12px;color:var(--muted)}.rim-zc-form{display:grid;gap:8px}.rim-zc-form input,.rim-zc-form select,.rim-zc-form textarea{width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:inherit}.rim-zc-form textarea{min-height:70px}.rim-zc-form button{padding:10px;border:0;border-radius:10px;background:var(--gold);color:#17130d;font-weight:700}@media(max-width:420px){.rim-zc-grid{grid-template-columns:1fr}}</style>' +
@@ -139,7 +140,7 @@ export class ZladenGroupConsoleController {
     return true;
   }
 
-  #say(message) { this.notify(String(message || 'Неизвестная ошибка')); }
+  #say(message) { this.notify(String(message || 'Неизвестная ошибка')); return false; }
 
   dispose() {
     this.root?.removeEventListener?.('click', this.onClick);
