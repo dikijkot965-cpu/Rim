@@ -40,11 +40,10 @@ jobs:
           fi
           mkdir -p /tmp/rim-zip
           unzip -q "$archive" -d /tmp/rim-zip
-          mapfile -t manifests < <(find /tmp/rim-zip -maxdepth 3 -type f -name package.json -not -path '*/node_modules/*')
-          if [ "${#manifests[@]}" -ne 1 ]; then
-            echo "Expected exactly one project package.json within archive root"; printf '%s\n' "${manifests[@]}"; exit 1
-          fi
-          project_root="$(dirname "${manifests[0]}")"
+          # Root manifest belongs to the app. Nested package.json files
+          # (for example bot-runtime/package.json) are valid subpackages.
+          test -f /tmp/rim-zip/package.json
+          project_root="/tmp/rim-zip"
           for item in index.html wrangler.jsonc scripts src assets icons supabase; do
             test -e "$project_root/$item" || { echo "Missing required project item: $item"; exit 1; }
           done
