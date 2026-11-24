@@ -2,10 +2,10 @@ import { escapeHtml } from '../core/html.js';
 
 const QUICK_COMMANDS = [
   ['Обзор','/menu'],['Статистика','/stats'],['Правила','/rules'],['Администраторы','/admins'],
-  ['Предупреждения','/warnings'],['Команды','/commands'],['Триггеры','/trigger list'],
+  ['Предупреждения','/warnings'],['Команды','/commands'],['Триггеры','/trigger list'],['Правила: изменить','/setrules'],['Приветствие: изменить','/setwelcome'],
   ['Баланс','/balance'],['Ежедневная награда','/daily'],['Викторина','/quiz'],
   ['Магазин','/shop'],['Инвентарь','/inventory'],['Рынок','/market'],['Топ экономики','/economy_top'],
-  ['Кланы','/clan list'],['Напоминания','/remind list'],['Жалобы','/reports']
+  ['Кланы','/clan'],['Напоминания','/remind'],['Опрос','/poll'],['Голосование','/vote'],['Результаты опроса','/pollresults'],['Жалобы','/reports'],['Ранг','/rank'],['Передать жетоны','/pay'],['Начислить жетоны','/grant'],['Репутация','/rep'],['Топ','/top'],['Награды','/awards']
 ];
 
 const field = (value, max, label) => {
@@ -22,8 +22,9 @@ export function buildZladenTriggerCommand({ name, matchType, matchValue, actionT
   let action;
   if (actionType === 'reply') action = 'reply:' + field(actionValue, 1000, 'Ответ триггера');
   else if (actionType === 'grant') {
-    const points = Number.parseInt(actionValue, 10);
-    if (!Number.isInteger(points) || points < 1 || points > 1000) throw new Error('Награда должна быть от 1 до 1000 жетонов.');
+    const rawPoints = String(actionValue ?? '').trim();
+    const points = Number(rawPoints);
+    if (!/^\\d+$/.test(rawPoints) || !Number.isInteger(points) || points < 1 || points > 1000) throw new Error('Награда должна быть от 1 до 1000 жетонов.');
     action = 'grant:' + points;
   } else throw new Error('Неизвестное действие триггера.');
   return '/trigger add ' + triggerName + ' | ' + matchType + ':' + value + ' | ' + action;
@@ -134,8 +135,12 @@ export class ZladenGroupConsoleController {
       return false;
     }
     this.window?.closeModal?.();
-    await this.window?.openConversation?.(this.group.id);
-    await this.window?.loadMessages?.();
+    try {
+      await this.window?.openConversation?.(this.group.id);
+      await this.window?.loadMessages?.();
+    } catch (error) {
+      this.logger?.warn?.('zladen.console.open_chat_after_command.failed', { message: error?.message });
+    }
     this.#say('Команда отправлена. Ответ Злыди появится в переписке.');
     return true;
   }
