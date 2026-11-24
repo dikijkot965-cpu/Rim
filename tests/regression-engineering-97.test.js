@@ -13,10 +13,13 @@ test('escapeHtml encodes control characters', () => {
   assert.equal(escapeAttr('a"b'), 'a&quot;b');
 });
 
-test('supabase CDN is pinned to an exact version', () => {
+test('Supabase JS is pinned and bundled as a same-origin browser asset', () => {
   const html = readFileSync(join(root, 'index.html'), 'utf8');
-  assert.match(html, /@supabase\/supabase-js@2\.\d+\.\d+/);
-  assert.doesNotMatch(html, /supabase-js@2"/);
+  const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  assert.equal(pkg.dependencies['@supabase/supabase-js'], '2.49.8');
+  assert.match(html, /assets\/js\/supabase-client\.bundle\.js/);
+  assert.doesNotMatch(html, /cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js/);
+  assert.ok(existsSync(join(root, 'assets/js/supabase-client.bundle.js')), 'local Supabase bundle must be generated before tests');
 });
 
 test('primitives script loads before bootstrap', () => {
