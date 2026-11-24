@@ -24,7 +24,8 @@
   },
   "dependencies": {
     "@open-e2ee/signal-protocol-sdk": "14.7.0",
-    "idb": "8.0.3"
+    "idb": "8.0.3",
+    "@supabase/supabase-js": "2.49.8"
   },
   "devDependencies": {
     "esbuild": "0.27.0"
