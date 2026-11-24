@@ -330,8 +330,21 @@ window.rimOpenZladenSettings = () => zladenSettings.open();
 container.value('zladenSettings', zladenSettings);
 const ensureZladenChat = async () => {
   const result = await zladenBot.install();
-  if (result.ok && result.value?.installed) {
-    try { await conversationList.load(); } catch { /* the ordinary chat list can retry independently */ }
+  if (!result.ok) {
+    logger.warn('zladen.auto_install.failed', { message: result.error?.message || 'unknown' });
+    legacy.notify?.('Не удалось подключить Злыдю: ' + (result.error?.message || 'ошибка сервера'));
+    return;
+  }
+  if (result.value?.installed) {
+    try {
+      await conversationList.load();
+      logger.info('zladen.auto_install.ready', { conversationId: result.value.conversation_id || null });
+    } catch (error) {
+      logger.warn('zladen.chat_list_refresh.failed', { message: error?.message || String(error) });
+    }
+  } else {
+    logger.warn('zladen.auto_install.not_active', { state: result.value?.state || 'unknown' });
+    legacy.notify?.('Злыдя пока не подключён. Проверьте его состояние в настройках.');
   }
 };
 if (legacy.getUser?.()?.id) void ensureZladenChat();
