@@ -105,9 +105,13 @@ export class TelegramAuthService {
 
   async handleCallback() {
     const url = new URL(this.window.location.href);
-    const code = url.searchParams.get('code');
-    const state = url.searchParams.get('state');
-    const providerError = url.searchParams.get('error');
+    // index.html captures and removes OIDC parameters before Supabase client
+    // initialization. Prefer that immutable capture, then fall back to the URL
+    // for non-standard deployments that do not install the capture shim.
+    const captured = this.window.__RIM_TELEGRAM_OIDC_CALLBACK || null;
+    const code = captured?.code ?? url.searchParams.get('code');
+    const state = captured?.state ?? url.searchParams.get('state');
+    const providerError = captured?.error ?? url.searchParams.get('error');
     if (!code && !state && !providerError) return { handled: false };
     try { this.window.__RIM_TELEGRAM_CALLBACK_SEEN = true; } catch { /* diagnostics only */ }
     if (this.processing) return { handled: true, ok: false };
@@ -121,7 +125,7 @@ export class TelegramAuthService {
 
     try {
       if (providerError) {
-        const description = url.searchParams.get('error_description');
+        const description = captured?.error_description ?? url.searchParams.get('error_description');
         throw new Error(description ? `Telegram отклонил вход: ${description.slice(0, 180)}` : 'Вход через Telegram отменён или отклонён.');
       }
       const raw = this.#storage().getItem(STORAGE_KEY);

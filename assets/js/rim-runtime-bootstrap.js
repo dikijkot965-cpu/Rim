@@ -53,7 +53,7 @@ window.signInWithTelegram = () => {
   if (typeof window.__RIM_AUTH_FORM_SIGN_IN_WITH_TELEGRAM === 'function') {
     return window.__RIM_AUTH_FORM_SIGN_IN_WITH_TELEGRAM();
   }
-  if (status) status.textContent = 'Сборка 178-AUTHFIX3 загружена, но модуль Telegram Auth ещё не подключён. Смотрите диагностику ниже.';
+  if (status) status.textContent = 'Модуль авторизации ещё загружается. Подождите несколько секунд и повторите попытку.';
 };
 
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -286,7 +286,7 @@ async function registerServiceWorker(){if(!("serviceWorker" in navigator))return
   if(data.session?.user){currentUser=data.session.user;window.currentUser=currentUser;await initializeApp();}
 })();
 
-window.db=db;window.__RIM_SET_BUILD_STATUS?.('runtime','запущен · Supabase client создан');window.currentUser=currentUser;window.currentProfile=currentProfile;window.conversations=conversations;window.activeConversation=activeConversation;window.messagesCache=messagesCache;window.replyTarget=replyTarget;window.currentTheme=currentTheme;window.currentLanguage=currentLanguage;window.currentChannel=currentChannel;
+window.db=db;window.currentUser=currentUser;window.currentProfile=currentProfile;window.conversations=conversations;window.activeConversation=activeConversation;window.messagesCache=messagesCache;window.replyTarget=replyTarget;window.currentTheme=currentTheme;window.currentLanguage=currentLanguage;window.currentChannel=currentChannel;
 const __rimMirrorState=()=>{window.currentUser=currentUser;window.currentProfile=currentProfile;window.conversations=conversations;window.activeConversation=activeConversation;window.messagesCache=messagesCache;window.replyTarget=replyTarget;window.currentTheme=currentTheme;window.currentLanguage=currentLanguage;window.currentChannel=currentChannel;};
 window.__rimMirrorLegacyState=__rimMirrorState;
 window.__RIM_SET_CURRENT_USER=user=>{currentUser=user||null;window.currentUser=currentUser;try{window.__rimMirrorLegacyState?.();}catch(_){}};

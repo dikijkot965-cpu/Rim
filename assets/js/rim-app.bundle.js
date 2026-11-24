@@ -279811,8 +279811,6 @@ var AuthFormController = class {
   bindGlobals() {
     const win = this.window;
     win.__RIM_AUTH_FORM_OWNED = true;
-    win.__RIM_AUTH_BUILD_ID = "4.1.8.178-AUTHFIX3";
-    win.__RIM_SET_BUILD_STATUS?.("auth", "\u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0451\u043D \xB7 AuthFormController 178-AUTHFIX3");
     win.showLoginForm = () => this.showLoginForm();
     win.startRegistration = () => this.startRegistration();
     win.rimTogglePassword = (id2, button) => this.togglePassword(id2, button);
@@ -287229,6 +287227,4 @@ var conversationOpenService = openSurface.conversationOpenService;
 var conversationOpen = openSurface.conversationOpen;
 logger.info("app.ready", { modules: ["core", "supabase-adapter", "chat-identity", "conversation-list", "message-timeline-pagination", "incremental-realtime", "message-command-service", "legacy-loader-unification", "timeline-race-reconciliation", "conversation-state-projection", "conversation-open-coordinator", "conversation-navigation-state", "read-receipts", "channel-directory", "group-settings", "channel-feed", "channel-settings", "typing-presence", "voice-messages", "admin-commands", "legacy-entrypoint-registry", "favorites", "lite-writer", "local-music"] });
 window.__rimMarkAppModulesReady?.();
-window.__RIM_MODULE_BUILD_ID = "4.1.8.178-AUTHFIX3";
-window.__RIM_SET_BUILD_STATUS?.("modules", "\u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u044B \xB7 app bundle 178-AUTHFIX3");
-window.dispatchEvent(new CustomEvent("rim:ready", { detail: { version: "4.1.8-iteration.178", build: "178-AUTHFIX3" } }));
+window.dispatchEvent(new CustomEvent("rim:ready", { detail: { version: "4.1.8-iteration.178" } }));
