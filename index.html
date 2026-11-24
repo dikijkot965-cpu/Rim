@@ -1368,9 +1368,15 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     list.innerHTML = posts.map(p => {
       const initial = (p.author || 'Р')[0].toUpperCase();
       const views = p.views || 0;
-      const comments = (loadFeedComments()[p.id] || []).length;
-      const media = p.mediaUrl
-        ? `<div class="rim-feed-post-media"><img src="${p.mediaUrl}" alt="" /></div>`
+      const comments = Number.isFinite(Number(p.commentsCount)) ? Number(p.commentsCount) : (loadFeedComments()[p.id] || []).length;
+      const safeMediaUrl = p.mediaUrl ? escapeHtml(p.mediaUrl) : '';
+      const media = safeMediaUrl
+        ? '<div class="rim-feed-post-media">' +
+          (p.mediaType === 'video' ? '<video src="' + safeMediaUrl + '" controls playsinline preload="metadata"></video>' :
+           p.mediaType === 'audio' ? '<audio src="' + safeMediaUrl + '" controls preload="metadata"></audio>' :
+           p.mediaType === 'document' ? '<a href="' + safeMediaUrl + '" target="_blank" rel="noopener noreferrer">📎 ' + escapeHtml(p.mediaName || 'Открыть файл') + '</a>' :
+           '<img src="' + safeMediaUrl + '" alt="' + escapeHtml(p.mediaName || '') + '" loading="lazy" />') +
+          '</div>'
         : '';
       const badge = p.fromChannel ? '<span class="rim-feed-badge">канал</span>' : '';
       return `<article class="rim-feed-post" data-post-id="${p.id}">
@@ -1384,13 +1390,44 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
         <div class="rim-feed-post-body">${escapeHtml(p.text || '')}</div>
         ${media}
         <div class="rim-feed-post-stats">
-          <span class="rim-feed-stat" data-action="comments" data-post-id="${p.id}">💬 ${comments}</span>
+          <button type="button" class="rim-feed-stat rim-feed-like" data-action="like" data-post-id="${p.id}" aria-pressed="${p.likedByMe ? 'true' : 'false'}">${p.likedByMe ? '♥' : '♡'} ${Number(p.likesCount || 0)}</button>
+          <button type="button" class="rim-feed-stat rim-feed-save" data-action="save" data-post-id="${p.id}" aria-pressed="${p.savedByMe ? 'true' : 'false'}">${p.savedByMe ? '🔖' : '♧'} Сохранить</button>
+          <button type="button" class="rim-feed-stat" data-action="comments" data-post-id="${p.id}">💬 ${comments}</button>
           <span class="rim-feed-stat">👁 ${views}</span>
         </div>
       </article>`;
     }).join('');
     list.querySelectorAll('[data-action="comments"]').forEach(el => {
       el.addEventListener('click', () => openFeedComments(el.getAttribute('data-post-id')));
+    });
+    list.querySelectorAll('[data-action="like"]').forEach(el => {
+      el.addEventListener('click', async () => {
+        const postId = el.getAttribute('data-post-id');
+        el.disabled = true;
+        try {
+          const result = await sbToggleFeedLike(postId);
+          if (!result) { if (typeof toast === 'function') toast('Не удалось сохранить реакцию'); return; }
+          const next = loadFeedPosts().map(post => String(post.id) === String(postId)
+            ? { ...post, likesCount: Math.max(0, Number(post.likesCount || 0) + (result.liked ? 1 : -1)), likedByMe: result.liked }
+            : post);
+          saveFeedPosts(next);
+          window.renderFeedList?.();
+        } finally { el.disabled = false; }
+      });
+    });
+    list.querySelectorAll('[data-action="save"]').forEach(el => {
+      el.addEventListener('click', async () => {
+        const postId = el.getAttribute('data-post-id');
+        el.disabled = true;
+        try {
+          const result = await sbToggleFeedSave(postId);
+          if (!result) { if (typeof toast === 'function') toast('Не удалось сохранить публикацию'); return; }
+          const next = loadFeedPosts().map(post => String(post.id) === String(postId) ? { ...post, savedByMe: result.saved } : post);
+          saveFeedPosts(next);
+          window.renderFeedList?.();
+          if (typeof toast === 'function') toast(result.saved ? 'Публикация сохранена' : 'Публикация удалена из сохранённого');
+        } finally { el.disabled = false; }
+      });
     });
   };
 
