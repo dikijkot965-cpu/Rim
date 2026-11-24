@@ -127,7 +127,7 @@ window.rimResetPassword=rimResetPassword;
 const RIM_TELEGRAM_CLIENT_ID = '9041438103';
 const RIM_TELEGRAM_CALLBACK_KEY = 'rim_telegram_oidc_v1';
 function rimBase64Url(bytes) {
-  return btoa(String.fromCharCode(...bytes)).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/g, '');
+  return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/g, '');
 }
 function rimRandomUrlToken(size = 48) {
   return rimBase64Url(crypto.getRandomValues(new Uint8Array(size)));
