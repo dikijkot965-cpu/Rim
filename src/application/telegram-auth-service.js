@@ -136,16 +136,24 @@ export class TelegramAuthService {
       const publishableKey = this.client.rest?.headers?.apikey || this.client.headers?.apikey || this.window.RIM_SUPABASE_PUBLISHABLE_KEY;
       if (!supabaseUrl || !publishableKey) throw new Error('Не найдена конфигурация Supabase для Telegram Auth.');
 
-      const response = await this.fetch(`${supabaseUrl}/functions/v1/${EDGE_FUNCTION}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', apikey: publishableKey },
-        body: JSON.stringify({
-          code,
-          code_verifier: pending.verifier,
-          nonce: pending.nonce,
-          redirect_uri: pending.redirectUri
-        })
-      });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      let response;
+      try {
+        response = await this.fetch(`${supabaseUrl}/functions/v1/${EDGE_FUNCTION}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', apikey: publishableKey },
+          body: JSON.stringify({
+            code,
+            code_verifier: pending.verifier,
+            nonce: pending.nonce,
+            redirect_uri: pending.redirectUri
+          }),
+          signal: controller.signal
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.token_hash) {
         throw new Error(payload.message || payload.error_description || 'Не удалось подтвердить аккаунт Telegram.');
