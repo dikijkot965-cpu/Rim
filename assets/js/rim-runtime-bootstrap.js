@@ -4,8 +4,6 @@
  * File lives outside assets/js/legacy/ so Stage C can retire the legacy/ tree from HTML.
  */
 
-window.__RIM_SET_BUILD_STATUS?.('html','BUILD 178-AUTHFIX3');
-window.__RIM_SET_BUILD_STATUS?.('runtime','запускается');
 /* =====================================================
    SUPABASE
 ===================================================== */
@@ -42,7 +40,6 @@ async function waitForRimAppModulesReady(timeoutMs = 20000) {
   ]);
   if (timer !== null) clearTimeout(timer);
   if (ready !== true) {
-    window.__RIM_SET_BUILD_STATUS?.('modules','ОШИБКА: app bundle не сообщил о готовности за 20 секунд');
     const message = 'Модули RIM не загрузились за 20 секунд. Обнови страницу; если ошибка повторится, проверь загрузку assets/js/rim-app.bundle.js.';
     const list = document.getElementById('chatList');
     if (list) list.innerHTML = `<div class="notice">${message}</div><button class="action-btn" type="button" onclick="location.reload()">Перезагрузить RIM</button>`;
@@ -56,36 +53,18 @@ window.signInWithTelegram = () => {
   if (typeof window.__RIM_AUTH_FORM_SIGN_IN_WITH_TELEGRAM === 'function') {
     return window.__RIM_AUTH_FORM_SIGN_IN_WITH_TELEGRAM();
   }
-  if (status) status.textContent = 'Новая сборка 178-AUTHFIX3 загружена, но модуль Telegram Auth не подключился. Проверьте строку диагностики ниже.';
-  window.__RIM_SET_BUILD_STATUS?.('auth','ОШИБКА: обработчик Telegram не подключён');
+  if (status) status.textContent = 'Сборка 178-AUTHFIX3 загружена, но модуль Telegram Auth ещё не подключён. Смотрите диагностику ниже.';
 };
 
-const db = (() => {
-  try {
-    if (typeof window.supabase?.createClient !== 'function') {
-      throw new Error('Supabase JS bundle не загрузился: window.supabase.createClient отсутствует.');
-    }
-    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        storage: window.localStorage,
-        flowType: 'pkce'
-      }
-    });
-    window.__RIM_RUNTIME_BUILD_ID = '4.1.8.178-AUTHFIX3';
-    window.__RIM_RUNTIME_BOOT_STATE = 'ready';
-    window.__RIM_SET_BUILD_STATUS?.('runtime','запущен · Supabase client создан');
-    return client;
-  } catch (error) {
-    window.__RIM_RUNTIME_BOOT_STATE = 'failed';
-    window.__RIM_SET_BUILD_STATUS?.('runtime','ОШИБКА: '+(error?.message || String(error)));
-    const status = document.getElementById('authStatus');
-    if (status) status.textContent = 'Ошибка запуска RIM: '+(error?.message || String(error));
-    throw error;
-  }
-})();
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+ auth: {
+  persistSession: true,
+  autoRefreshToken: true,
+  detectSessionInUrl: true,
+  storage: window.localStorage,
+  flowType: 'pkce'
+ }
+});
 
 let currentUser = null;
 let currentProfile = null;
@@ -307,7 +286,7 @@ async function registerServiceWorker(){if(!("serviceWorker" in navigator))return
   if(data.session?.user){currentUser=data.session.user;window.currentUser=currentUser;await initializeApp();}
 })();
 
-window.db=db;window.currentUser=currentUser;window.currentProfile=currentProfile;window.conversations=conversations;window.activeConversation=activeConversation;window.messagesCache=messagesCache;window.replyTarget=replyTarget;window.currentTheme=currentTheme;window.currentLanguage=currentLanguage;window.currentChannel=currentChannel;
+window.db=db;window.__RIM_SET_BUILD_STATUS?.('runtime','запущен · Supabase client создан');window.currentUser=currentUser;window.currentProfile=currentProfile;window.conversations=conversations;window.activeConversation=activeConversation;window.messagesCache=messagesCache;window.replyTarget=replyTarget;window.currentTheme=currentTheme;window.currentLanguage=currentLanguage;window.currentChannel=currentChannel;
 const __rimMirrorState=()=>{window.currentUser=currentUser;window.currentProfile=currentProfile;window.conversations=conversations;window.activeConversation=activeConversation;window.messagesCache=messagesCache;window.replyTarget=replyTarget;window.currentTheme=currentTheme;window.currentLanguage=currentLanguage;window.currentChannel=currentChannel;};
 window.__rimMirrorLegacyState=__rimMirrorState;
 window.__RIM_SET_CURRENT_USER=user=>{currentUser=user||null;window.currentUser=currentUser;try{window.__rimMirrorLegacyState?.();}catch(_){}};
