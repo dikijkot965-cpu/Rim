@@ -470,6 +470,24 @@
 <div id="toast"></div>
 <!-- Stage C: 02 legacy path retired — runtime lives in rim-runtime-bootstrap.js -->
 <script src="assets/js/core/rim-primitives.js"></script>
+<script>
+/* Capture Telegram's OIDC callback before Supabase scans the URL. */
+try {
+  const callbackUrl = new URL(window.location.href);
+  const code = callbackUrl.searchParams.get('code');
+  const error = callbackUrl.searchParams.get('error');
+  if (code || error) {
+    window.__RIM_TELEGRAM_OIDC_CALLBACK = {
+      code,
+      state: callbackUrl.searchParams.get('state'),
+      error,
+      error_description: callbackUrl.searchParams.get('error_description')
+    };
+    ['code', 'state', 'error', 'error_description'].forEach(key => callbackUrl.searchParams.delete(key));
+    window.history.replaceState({}, document.title, callbackUrl.pathname + callbackUrl.search + callbackUrl.hash);
+  }
+} catch (error) { console.warn('RIM Telegram callback capture failed:', error); }
+</script>
 <script src="assets/js/rim-runtime-bootstrap.js"></script>
 <!-- Stage C: 03 feature layer — dual-bind + modular surfaces -->
 <!-- Stage C: 04 local productivity suite retired from boot -->
@@ -528,6 +546,7 @@ window.__RIM_LEGACY_CONTEXT = Object.freeze({
 });
 try { window.__rimMirrorLegacyState?.(); } catch (_) {}
 </script>
+<script src="./assets/js/rim-auth-zladen-bridge.js"></script>
 <script type="module" src="./assets/js/rim-app.bundle.js"></script>
 
 <script>
