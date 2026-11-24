@@ -2972,19 +2972,19 @@ function FpSqrt(P3) {
     return sqrt9mod16(P3);
   return tonelliShanks(P3);
 }
-function validateField(field) {
-  aobject2(field, "field");
-  if (typeof field.ORDER !== "bigint")
-    throw new TypeError('param "ORDER" is invalid: expected bigint, got ' + typeof field.ORDER);
-  asafenumber(field.BYTES, "BYTES");
-  asafenumber(field.BITS, "BITS");
+function validateField(field2) {
+  aobject2(field2, "field");
+  if (typeof field2.ORDER !== "bigint")
+    throw new TypeError('param "ORDER" is invalid: expected bigint, got ' + typeof field2.ORDER);
+  asafenumber(field2.BYTES, "BYTES");
+  asafenumber(field2.BITS, "BITS");
   for (const name of FIELD_FIELDS)
-    afunction(field[name], "field." + name);
-  if (field.BYTES < 1 || field.BITS < 1)
+    afunction(field2[name], "field." + name);
+  if (field2.BYTES < 1 || field2.BITS < 1)
     throw new Error("invalid field: expected BYTES/BITS > 0");
-  if (field.ORDER <= _1n2)
-    throw new Error("invalid field: expected ORDER > 1, got " + field.ORDER);
-  return field;
+  if (field2.ORDER <= _1n2)
+    throw new Error("invalid field: expected ORDER > 1, got " + field2.ORDER);
+  return field2;
 }
 function FpInvertBatch(Fp4, nums, passZero = false) {
   validateField(Fp4);
@@ -3260,11 +3260,11 @@ function validateMSMPoints(points, c) {
       throw new Error("invalid point at index " + i);
   });
 }
-function validateMSMScalars(scalars, field, maxScalar) {
+function validateMSMScalars(scalars, field2, maxScalar) {
   if (!Array.isArray(scalars))
     throw new Error("array of scalars expected");
   scalars.forEach((s, i) => {
-    const ok = maxScalar === void 0 ? field.isValid(s) : isPosBig(s) && s < maxScalar;
+    const ok = maxScalar === void 0 ? field2.isValid(s) : isPosBig(s) && s < maxScalar;
     if (!ok)
       throw new Error("invalid scalar at index " + i);
   });
@@ -3345,12 +3345,12 @@ function mulAddUnsafe(c, points, scalars, allowOversized = false) {
   const digits = scalars.map((n) => wnafDigits(n, 4));
   return wnafWalk(c.ZERO, tables, digits);
 }
-function createField(order, field, isLE3) {
-  if (field) {
-    if (field.ORDER !== order)
+function createField(order, field2, isLE3) {
+  if (field2) {
+    if (field2.ORDER !== order)
       throw new Error("Field.ORDER must match order: Fp == p, Fn == n");
-    validateField(field);
-    return field;
+    validateField(field2);
+    return field2;
   } else {
     return Field(order, { isLE: isLE3 });
   }
@@ -5383,7 +5383,7 @@ var init_crystals = __esm({
       const inv = (_a) => {
         throw new Error("not implemented");
       };
-      const field = isKyber ? {
+      const field2 = isKyber ? {
         add: (a, b) => {
           const r = a + b | 0;
           return r >= Q2 ? r - Q2 | 0 : r;
@@ -5407,8 +5407,8 @@ var init_crystals = __esm({
         skipStages: isKyber ? 1 : 0,
         brp: false
       };
-      const dif = FFTCore(field, { dit: false, ...nttOpts });
-      const dit = FFTCore(field, { dit: true, ...nttOpts });
+      const dif = FFTCore(field2, { dit: false, ...nttOpts });
+      const dit = FFTCore(field2, { dit: true, ...nttOpts });
       const NTT = {
         encode: (r) => {
           return dif(r);
@@ -9598,8 +9598,8 @@ var init_lagrange = __esm({
     denominatorCache = /* @__PURE__ */ new Map();
     LagrangeInterpolator = class {
       field;
-      constructor(field) {
-        this.field = field;
+      constructor(field2) {
+        this.field = field2;
       }
       /**
        * Get precomputed denominators for consecutive integer evaluation points
@@ -207681,17 +207681,17 @@ var init_state_machine = __esm({
           "ct1_for_mac",
           "ct1_decoded"
         ];
-        for (const field of uint8Fields) {
-          const val = state[field];
+        for (const field2 of uint8Fields) {
+          const val = state[field2];
           if (val instanceof Uint8Array && val.length > 0)
             val.fill(0);
         }
-        for (const field of ["headerEncoder", "ekEncoder", "ct1Encoder", "ct2Encoder"]) {
-          if (state[field]?.data instanceof Uint8Array)
-            state[field].data.fill(0);
+        for (const field2 of ["headerEncoder", "ekEncoder", "ct1Encoder", "ct2Encoder"]) {
+          if (state[field2]?.data instanceof Uint8Array)
+            state[field2].data.fill(0);
         }
-        for (const field of ["headerDecoder", "ekDecoder", "ct1Decoder", "ct2Decoder"]) {
-          const decoder2 = state[field];
+        for (const field2 of ["headerDecoder", "ekDecoder", "ct1Decoder", "ct2Decoder"]) {
+          const decoder2 = state[field2];
           if (decoder2?.chunks) {
             for (const chunk of decoder2.chunks.values()) {
               chunk.fill(0);
@@ -210070,9 +210070,9 @@ var init_ratchet2 = __esm({
 });
 
 // node_modules/@open-e2ee/signal-protocol-sdk/dist/internal/encoding/proto/sender-key-message.js
-function requireDecoded(value, field, typeName) {
+function requireDecoded(value, field2, typeName) {
   if (value === void 0) {
-    throw new Error(`Malformed ${typeName}: missing ${field}`);
+    throw new Error(`Malformed ${typeName}: missing ${field2}`);
   }
   return value;
 }
@@ -223687,32 +223687,32 @@ async function generateMediaAttachmentUploadRequestId() {
   const bytes6 = await generateRandomBytes(18);
   return `media-upload/${bytesToUrlSafeBase64(bytes6)}`;
 }
-function assertString(value, field) {
+function assertString(value, field2) {
   if (typeof value !== "string" || value.length === 0) {
-    throw new TypeError(`Invalid media attachment pointer: ${field} must be a non-empty string`);
+    throw new TypeError(`Invalid media attachment pointer: ${field2} must be a non-empty string`);
   }
 }
-function assertBase64ByteLength(value, field, expectedBytes) {
+function assertBase64ByteLength(value, field2, expectedBytes) {
   try {
     const bytes6 = base64ToBytes(toBase64(value));
     if (bytes6.length !== expectedBytes) {
       throw new Error(`expected ${expectedBytes} bytes, received ${bytes6.length}`);
     }
   } catch (cause) {
-    throw new TypeError(`Invalid media attachment pointer: ${field} must be a base64-encoded ${expectedBytes}-byte value`, { cause });
+    throw new TypeError(`Invalid media attachment pointer: ${field2} must be a base64-encoded ${expectedBytes}-byte value`, { cause });
   }
 }
-function assertBase64String(value, field) {
+function assertBase64String(value, field2) {
   try {
     base64ToBytes(toBase64(value));
   } catch (cause) {
-    throw new TypeError(`Invalid media attachment pointer: ${field} must be a base64-encoded value`, { cause });
+    throw new TypeError(`Invalid media attachment pointer: ${field2} must be a base64-encoded value`, { cause });
   }
 }
-function assertInteger(value, field, options) {
+function assertInteger(value, field2, options) {
   const min = options?.allowZero ? 0 : 1;
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value < min) {
-    throw new TypeError(`Invalid media attachment pointer: ${field} must be an integer >= ${min}`);
+    throw new TypeError(`Invalid media attachment pointer: ${field2} must be an integer >= ${min}`);
   }
 }
 function resolvePolicy(policy) {
@@ -223727,24 +223727,24 @@ function assertPolicy(condition, message) {
     throw new MediaAttachmentError(message, MediaAttachmentErrorCode.PolicyViolation);
   }
 }
-function assertMetadataString(value, field) {
-  assertPolicy(typeof value === "string" && value.length > 0, `Media attachment ${field} must be a non-empty string`);
+function assertMetadataString(value, field2) {
+  assertPolicy(typeof value === "string" && value.length > 0, `Media attachment ${field2} must be a non-empty string`);
 }
-function assertOptionalMetadataString(value, field) {
+function assertOptionalMetadataString(value, field2) {
   if (value === void 0)
     return;
-  assertMetadataString(value, field);
+  assertMetadataString(value, field2);
 }
-function assertOptionalMetadataInteger(value, field, options) {
+function assertOptionalMetadataInteger(value, field2, options) {
   if (value === void 0)
     return;
   const min = options?.allowZero ? 0 : 1;
-  assertPolicy(typeof value === "number" && Number.isSafeInteger(value) && value >= min, `Media attachment ${field} must be an integer >= ${min}`);
+  assertPolicy(typeof value === "number" && Number.isSafeInteger(value) && value >= min, `Media attachment ${field2} must be an integer >= ${min}`);
 }
-function assertOptionalMetadataBoolean(value, field) {
+function assertOptionalMetadataBoolean(value, field2) {
   if (value === void 0)
     return;
-  assertPolicy(typeof value === "boolean", `Media attachment ${field} must be a boolean`);
+  assertPolicy(typeof value === "boolean", `Media attachment ${field2} must be a boolean`);
 }
 function assertOptionalMetadataWaveform(value) {
   if (value === void 0)
@@ -223798,12 +223798,12 @@ function validateMediaAttachmentPolicy(attachment, policy) {
   validateMediaAttachmentMetadata(pointer, policy);
   return pointer;
 }
-function copyOptionalString(target, source, field) {
-  const value = source[field];
+function copyOptionalString(target, source, field2) {
+  const value = source[field2];
   if (value === void 0)
     return;
-  assertString(value, field);
-  target[field] = value;
+  assertString(value, field2);
+  target[field2] = value;
 }
 function copyOptionalClientUuid(target, source) {
   const value = source.clientUuid;
@@ -223823,19 +223823,19 @@ function copyOptionalThumbnail(target, source) {
   assertBase64String(value, "thumbnail");
   target.thumbnail = value;
 }
-function getBase64ByteLength(value, field) {
+function getBase64ByteLength(value, field2) {
   try {
     return base64ToBytes(toBase64(value)).length;
   } catch (cause) {
-    throw new MediaAttachmentError(`Media attachment ${field} must be base64 encoded`, MediaAttachmentErrorCode.PolicyViolation, { cause });
+    throw new MediaAttachmentError(`Media attachment ${field2} must be base64 encoded`, MediaAttachmentErrorCode.PolicyViolation, { cause });
   }
 }
-function copyOptionalInteger(target, source, field) {
-  const value = source[field];
+function copyOptionalInteger(target, source, field2) {
+  const value = source[field2];
   if (value === void 0)
     return;
-  assertInteger(value, field, { allowZero: field === "durationMs" });
-  target[field] = value;
+  assertInteger(value, field2, { allowZero: field2 === "durationMs" });
+  target[field2] = value;
 }
 function copyOptionalFlags(target, source) {
   const value = source.flags;
@@ -225794,7 +225794,7 @@ function decodeCanonicalBase642(value) {
   return bytes6 !== null && bytesToBase64(bytes6) === value ? bytes6 : null;
 }
 function decodeFirstSync(value) {
-  const bytesOf = (field) => field === void 0 ? void 0 : decodeCanonicalBase642(field);
+  const bytesOf = (field2) => field2 === void 0 ? void 0 : decodeCanonicalBase642(field2);
   const withBytes = (object3, names) => {
     const decoded2 = { ...object3 };
     for (const name of names) {
@@ -228125,7 +228125,7 @@ function assertExactActionFields(value, label, expectedFields) {
   }
   const actual = Object.keys(value).sort();
   const expected = [...expectedFields].sort();
-  if (actual.length !== expected.length || actual.some((field, index) => field !== expected[index])) {
+  if (actual.length !== expected.length || actual.some((field2, index) => field2 !== expected[index])) {
     throw new GroupWireValidationError(`${label} has non-canonical fields: expected ${expected.join(", ")}, got ${actual.join(", ")}`, "non_canonical_fields");
   }
 }
@@ -228642,14 +228642,14 @@ function classifyGroupMemberInput(member) {
   if (typeof member !== "object" || member === null || Array.isArray(member)) {
     return invalid6("Member must be exactly one supported input variant");
   }
-  const hasOwn = (field) => Object.prototype.hasOwnProperty.call(member, field);
+  const hasOwn = (field2) => Object.prototype.hasOwnProperty.call(member, field2);
   const hasPresentation = hasOwn("profileKeyCredential");
   const hasServiceId = hasOwn("serviceIdBytes");
   if (hasPresentation === hasServiceId) {
     return invalid6("Member must be exactly one of a presented member or an invitation");
   }
   const allowedFields = new Set(hasPresentation ? ["aciBytes", "profileKey", "profileKeyCredential", "role"] : ["serviceIdBytes", "role"]);
-  const unexpected = Object.keys(member).find((field) => !allowedFields.has(field));
+  const unexpected = Object.keys(member).find((field2) => !allowedFields.has(field2));
   if (unexpected !== void 0) {
     return invalid6(`Member contains unsupported field ${unexpected}`);
   }
@@ -228666,8 +228666,8 @@ function classifyGroupMemberInput(member) {
     }
     const credential = presented.profileKeyCredential;
     const credentialRecord = typeof credential === "object" && credential !== null ? credential : void 0;
-    const hasObjectField = (field) => {
-      const value = credentialRecord?.[field];
+    const hasObjectField = (field2) => {
+      const value = credentialRecord?.[field2];
       return typeof value === "object" && value !== null;
     };
     if (credentialRecord === void 0 || !hasObjectField("credential") || !hasObjectField("aci") || !hasObjectField("profileKey") || !Number.isSafeInteger(credentialRecord.redemptionTime)) {
@@ -232059,7 +232059,7 @@ function keyedGroupHash(subkey, groupId) {
 }
 function keyedFieldsHash(subkey, label, fields2) {
   const encoder5 = new TextEncoder();
-  const parts = [label, ...fields2].map((field) => encoder5.encode(String(field)));
+  const parts = [label, ...fields2].map((field2) => encoder5.encode(String(field2)));
   const bytes6 = new Uint8Array(parts.reduce((total, part) => total + 4 + part.length, 0));
   const view = new DataView(bytes6.buffer);
   let offset = 0;
@@ -255602,8 +255602,8 @@ function encodeDeviceLinkPlaintext(plaintext) {
   } finally {
     for (const part of parts)
       secureZeroBytes(part);
-    for (const field of fields2)
-      secureZeroBytes(field);
+    for (const field2 of fields2)
+      secureZeroBytes(field2);
   }
 }
 function decodeDeviceLinkPlaintext(message) {
@@ -255825,8 +255825,8 @@ function encodeIdentityKeyPair(pair, name) {
   try {
     return concatFields(...fields2);
   } finally {
-    for (const field of fields2)
-      secureZeroBytes(field);
+    for (const field2 of fields2)
+      secureZeroBytes(field2);
   }
 }
 function encodeGroups(groups) {
@@ -262787,8 +262787,8 @@ var init_session3 = __esm({
           "createdAt",
           "lastUsedAt"
         ];
-        for (const field of required) {
-          if (!(field in state)) {
+        for (const field2 of required) {
+          if (!(field2 in state)) {
             return false;
           }
         }
@@ -274029,6 +274029,9 @@ var ChannelFeedController = class {
       case "share-post":
         void this.sharePost(postId);
         break;
+      case "to-feed":
+        void this.publishPostToHomeFeed(postId);
+        break;
       case "choose-media":
         this.document?.getElementById?.("rimChannelPostMedia")?.click?.();
         break;
@@ -274057,10 +274060,15 @@ var ChannelFeedController = class {
     }
   }
   #onChange(event) {
+    const mirror = event.target?.closest?.("#rimChannelAlsoToFeed");
+    if (mirror) {
+      this.window?.rimSetChannelFeedPref?.(mirror.checked === true);
+      return;
+    }
     const input = event.target?.closest?.("#rimChannelPostMedia");
     if (!input) return;
     const label = this.document?.getElementById?.("rimChannelPostMediaName");
-    if (label) label.textContent = input.files?.[0] ? `${input.files[0].name} \xB7 ${(input.files[0].size / 1024 / 1024).toFixed(1)} \u041C\u0411` : "\u041C\u043E\u0436\u043D\u043E \u043F\u0440\u0438\u043A\u0440\u0435\u043F\u0438\u0442\u044C \u043E\u0434\u043D\u043E \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 \u0434\u043E 10 \u041C\u0411.";
+    if (label) label.textContent = input.files?.[0] ? input.files[0].name + " \xB7 " + (input.files[0].size / 1024 / 1024).toFixed(1) + " \u041C\u0411" : "\u041C\u043E\u0436\u043D\u043E \u043F\u0440\u0438\u043A\u0440\u0435\u043F\u0438\u0442\u044C \u043E\u0434\u043D\u043E \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 \u0434\u043E 10 \u041C\u0411.";
   }
   #onSubmit(event) {
     const form = event.target?.closest?.(".rim-cf-comment-form, .rim-cf-schedule-form");
@@ -274150,12 +274158,14 @@ var ChannelFeedController = class {
         return `<button class="rim-cf-reaction ${mine ? "active" : ""}" type="button" data-rim-cf-action="react" data-post-id="${escapeHtml5(post.id)}" data-emoji="${emoji}">${emoji}<span>${count2 || ""}</span></button>`;
       }).join("");
       const commentForm = e2ePost ? '<div class="rim-update-muted">\u041A\u043E\u043C\u043C\u0435\u043D\u0442\u0430\u0440\u0438\u0438 \u0434\u043B\u044F E2E-\u043F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u0439 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u044B.</div>' : joined || channel.is_public ? `<form class="rim-cf-comment-form" data-post-id="${escapeHtml5(post.id)}"><input id="rimChannelComment-${escapeHtml5(post.id)}" class="field" maxlength="2000" placeholder="\u041D\u0430\u043F\u0438\u0441\u0430\u0442\u044C \u043A\u043E\u043C\u043C\u0435\u043D\u0442\u0430\u0440\u0438\u0439\u2026"><button class="primary-btn" type="submit">\u041E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u044C</button></form>` : '<div class="rim-update-muted">\u041F\u043E\u0434\u043F\u0438\u0448\u0438\u0442\u0435\u0441\u044C \u043D\u0430 \u043A\u0430\u043D\u0430\u043B, \u0447\u0442\u043E\u0431\u044B \u043A\u043E\u043C\u043C\u0435\u043D\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C.</div>';
-      return `<article class="rim-cf-post ${post.is_pinned ? "is-pinned" : ""}" data-rim-post-id="${escapeHtml5(post.id)}">${post.is_pinned ? '<div class="rim-cf-pinned-label">\u{1F4CC} \u0417\u0430\u043A\u0440\u0435\u043F\u043B\u0451\u043D\u043D\u0430\u044F \u043F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u044F</div>' : ""}<div class="rim-cf-post-author"><div class="rim-cf-post-channel-avatar">${avatar}</div><div><b>${escapeHtml5(channel.title)}</b><small>${authorLabel !== escapeHtml5(channel.title) ? " \xB7 " + authorLabel : ""} \xB7 ${formatWhen(post.created_at)}</small></div>${e2ePost ? "" : '<button class="rim-cf-post-menu" type="button" data-rim-cf-action="share-post" data-post-id="' + escapeHtml5(post.id) + '" aria-label="\u041F\u043E\u0434\u0435\u043B\u0438\u0442\u044C\u0441\u044F \u043F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u0435\u0439">\u2197</button>'}</div>${post.image_url ? `<img class="rim-cf-post-image" src="${escapeHtml5(post.image_url)}" alt="\u041C\u0435\u0434\u0438\u0430 \u043F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u0438" loading="lazy">` : ""}<div class="rim-cf-post-body">${escapeHtml5(post.body || "")}</div><div class="rim-cf-post-footer"><div class="rim-cf-reactions">${reactionButtons}</div>${manager && !e2ePost ? `<span class="rim-cf-post-admin-actions"><button class="rim-cf-pin-action" type="button" data-rim-cf-action="pin" data-post-id="${escapeHtml5(post.id)}">${post.is_pinned ? "\u041E\u0442\u043A\u0440\u0435\u043F\u0438\u0442\u044C" : "\u{1F4CC}"}</button><button class="rim-cf-pin-action" type="button" data-rim-cf-action="edit-post" data-post-id="${escapeHtml5(post.id)}">\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C</button><button class="rim-cf-pin-action" type="button" data-rim-cf-action="delete-post" data-post-id="${escapeHtml5(post.id)}">\u0423\u0434\u0430\u043B\u0438\u0442\u044C</button></span>` : ""}</div>${e2ePost ? "" : '<button type="button" class="rim-cf-comment-toggle" aria-expanded="false" data-rim-cf-action="comments" data-post-id="' + escapeHtml5(post.id) + '">\u041A\u043E\u043C\u043C\u0435\u043D\u0442\u0430\u0440\u0438\u0438</button>'}<div class="rim-cf-comments"><div class="rim-update-muted">\u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043A\u043E\u043C\u043C\u0435\u043D\u0442\u0430\u0440\u0438\u0438, \u0447\u0442\u043E\u0431\u044B \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0438\u0445.</div>${commentForm}</div></article>`;
+      return `<article class="rim-cf-post ${post.is_pinned ? "is-pinned" : ""}" data-rim-post-id="${escapeHtml5(post.id)}">${post.is_pinned ? '<div class="rim-cf-pinned-label">\u{1F4CC} \u0417\u0430\u043A\u0440\u0435\u043F\u043B\u0451\u043D\u043D\u0430\u044F \u043F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u044F</div>' : ""}<div class="rim-cf-post-author"><div class="rim-cf-post-channel-avatar">${avatar}</div><div><b>${escapeHtml5(channel.title)}</b><small>${authorLabel !== escapeHtml5(channel.title) ? " \xB7 " + authorLabel : ""} \xB7 ${formatWhen(post.created_at)}</small></div>${e2ePost ? "" : '<button class="rim-cf-post-menu" type="button" data-rim-cf-action="share-post" data-post-id="' + escapeHtml5(post.id) + '" aria-label="\u041F\u043E\u0434\u0435\u043B\u0438\u0442\u044C\u0441\u044F \u043F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u0435\u0439">\u2197</button>'}</div>${post.image_url ? `<img class="rim-cf-post-image" src="${escapeHtml5(post.image_url)}" alt="\u041C\u0435\u0434\u0438\u0430 \u043F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u0438" loading="lazy">` : ""}<div class="rim-cf-post-body">${escapeHtml5(post.body || "")}</div><div class="rim-cf-post-footer"><div class="rim-cf-reactions">${reactionButtons}</div>${manager && !e2ePost ? `<span class="rim-cf-post-admin-actions"><button class="rim-cf-pin-action" type="button" data-rim-cf-action="pin" data-post-id="${escapeHtml5(post.id)}">${post.is_pinned ? "\u041E\u0442\u043A\u0440\u0435\u043F\u0438\u0442\u044C" : "\u{1F4CC}"}</button><button class="rim-cf-pin-action" type="button" data-rim-cf-action="edit-post" data-post-id="${escapeHtml5(post.id)}">\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C</button><button class="rim-cf-pin-action" type="button" data-rim-cf-action="delete-post" data-post-id="${escapeHtml5(post.id)}">\u0423\u0434\u0430\u043B\u0438\u0442\u044C</button>${channel.is_public === true ? `<button class="rim-cf-pin-action" type="button" data-rim-cf-action="to-feed" data-post-id="${escapeHtml5(post.id)}">\u0412 \u041B\u0435\u043D\u0442\u0443</button>` : ""}</span>` : ""}</div>${e2ePost ? "" : '<button type="button" class="rim-cf-comment-toggle" aria-expanded="false" data-rim-cf-action="comments" data-post-id="' + escapeHtml5(post.id) + '">\u041A\u043E\u043C\u043C\u0435\u043D\u0442\u0430\u0440\u0438\u0438</button>'}<div class="rim-cf-comments"><div class="rim-update-muted">\u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043A\u043E\u043C\u043C\u0435\u043D\u0442\u0430\u0440\u0438\u0438, \u0447\u0442\u043E\u0431\u044B \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0438\u0445.</div>${commentForm}</div></article>`;
     }).join("") || '<div class="rim-cf-empty"><b>\u041F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u0439 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442</b><span>\u0417\u0434\u0435\u0441\u044C \u043F\u043E\u044F\u0432\u044F\u0442\u0441\u044F \u043D\u043E\u0432\u044B\u0435 \u0437\u0430\u043F\u0438\u0441\u0438 \u043A\u0430\u043D\u0430\u043B\u0430.</span></div>';
     const profileDetailsHtml = `<section class="rim-cf-info-card"><h3>\u0418\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F</h3><p>${escapeHtml5(channel.description || "\u041E\u043F\u0438\u0441\u0430\u043D\u0438\u0435 \u043A\u0430\u043D\u0430\u043B\u0430 \u043F\u043E\u043A\u0430 \u043D\u0435 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E.")}</p>${channel.username ? `<div class="rim-cf-link-row"><span>\u041F\u0443\u0431\u043B\u0438\u0447\u043D\u0430\u044F \u0441\u0441\u044B\u043B\u043A\u0430</span><b>@${escapeHtml5(channel.username)}</b><button type="button" data-rim-cf-action="copy-link" data-url="${escapeHtml5("@" + channel.username)}">\u041A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C</button></div>` : ""}<div class="rim-cf-info-stats"><div><b>${Number(memberCount).toLocaleString("ru-RU")}</b><span>\u041F\u043E\u0434\u043F\u0438\u0441\u0447\u0438\u043A\u0438</span></div><div><b>${Number(managerCount).toLocaleString("ru-RU")}</b><span>\u0410\u0434\u043C\u0438\u043D\u0438\u0441\u0442\u0440\u0430\u0442\u043E\u0440\u044B</span></div><div><b>${Number(posts.length).toLocaleString("ru-RU")}</b><span>\u0412 \u043B\u0435\u043D\u0442\u0435</span></div></div>${channel.discussion_conversation_id ? '<button class="rim-cf-wide-action" type="button" data-rim-cf-action="discussion">\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u043E\u0431\u0441\u0443\u0436\u0434\u0435\u043D\u0438\u0435</button>' : ""}</section>`;
     const managerPanel = manager ? `<section class="rim-cf-admin-panel"><div class="rim-cf-admin-title"><div><span>\u0423\u041F\u0420\u0410\u0412\u041B\u0415\u041D\u0418\u0415 \u041A\u0410\u041D\u0410\u041B\u041E\u041C</span><h3>\u041F\u0430\u043D\u0435\u043B\u044C \u0430\u0434\u043C\u0438\u043D\u0438\u0441\u0442\u0440\u0430\u0442\u043E\u0440\u0430</h3></div><button type="button" class="rim-cf-settings-round" data-rim-cf-action="settings">\u2699</button></div><div class="rim-cf-admin-grid"><button type="button" data-rim-cf-action="tab" data-tab="about"><b>${Number(memberCount).toLocaleString("ru-RU")}</b><span>\u041F\u043E\u0434\u043F\u0438\u0441\u0447\u0438\u043A\u0438</span></button><button type="button" data-rim-cf-action="tab" data-tab="admins"><b>${Number(managerCount).toLocaleString("ru-RU")}</b><span>\u0410\u0434\u043C\u0438\u043D\u0438\u0441\u0442\u0440\u0430\u0442\u043E\u0440\u044B</span></button><button type="button" data-rim-cf-action="tab" data-tab="requests"><b>${profileDetails.pendingCount == null ? "\u2014" : Number(profileDetails.pendingCount).toLocaleString("ru-RU")}</b><span>\u0417\u0430\u044F\u0432\u043A\u0438</span></button><button type="button" data-rim-cf-action="tab" data-tab="scheduled"><b>${profileDetails.scheduledCount == null ? "\u2014" : Number(profileDetails.scheduledCount).toLocaleString("ru-RU")}</b><span>\u041E\u0442\u043B\u043E\u0436\u0435\u043D\u043D\u044B\u0435</span></button></div><div class="rim-cf-admin-actions"><button type="button" data-rim-cf-action="new-post">\uFF0B \u041D\u043E\u0432\u0430\u044F \u043F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u044F</button><button type="button" data-rim-cf-action="invite">\u2197 \u041F\u0440\u0438\u0433\u043B\u0430\u0441\u0438\u0442\u044C</button>${e2eActive ? "" : '<button type="button" data-rim-cf-action="create-poll">\u25A4 \u0421\u043E\u0437\u0434\u0430\u0442\u044C \u043E\u043F\u0440\u043E\u0441</button>'}<button type="button" data-rim-cf-action="settings">\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u043A\u0430\u043D\u0430\u043B\u0430</button></div></section>` : "";
     let content = "";
-    const composerHtml = canPost ? `<section class="rim-cf-composer"><div class="rim-cf-composer-title"><b>\u041D\u043E\u0432\u0430\u044F \u043F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u044F</b><span>\u041E\u0442 \u0438\u043C\u0435\u043D\u0438 \u043A\u0430\u043D\u0430\u043B\u0430</span></div><textarea id="rimChannelPostBody" class="field" rows="3" maxlength="8000" placeholder="\u0427\u0442\u043E \u043D\u043E\u0432\u043E\u0433\u043E \u0443 \u043A\u0430\u043D\u0430\u043B\u0430?"></textarea><div class="rim-cf-composer-actions">${e2eActive ? "" : '<button type="button" class="rim-cf-composer-tool" data-rim-cf-action="choose-media">\u25A7 \u0424\u043E\u0442\u043E</button>'}${e2eActive ? "" : '<button type="button" class="rim-cf-composer-tool" data-rim-cf-action="create-poll">\u25A4 \u041E\u043F\u0440\u043E\u0441</button>'}<button type="button" class="primary-btn" data-rim-cf-action="publish">\u041E\u043F\u0443\u0431\u043B\u0438\u043A\u043E\u0432\u0430\u0442\u044C</button></div><input id="rimChannelPostMedia" class="rim-cf-media-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif"><div class="rim-cf-media-hint" id="rimChannelPostMediaName">\u041C\u043E\u0436\u043D\u043E \u043F\u0440\u0438\u043A\u0440\u0435\u043F\u0438\u0442\u044C \u043E\u0434\u043D\u043E \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 \u0434\u043E 10 \u041C\u0411.</div></section>` : "";
+    const mirrorChecked = this.window?.rimGetChannelFeedPref?.() === true ? "checked" : "";
+    const mirrorHtml = channel.is_public === true && !e2eActive ? '<label class="rim-cf-feed-mirror"><input id="rimChannelAlsoToFeed" type="checkbox" ' + mirrorChecked + "> \u0422\u0430\u043A\u0436\u0435 \u043E\u043F\u0443\u0431\u043B\u0438\u043A\u043E\u0432\u0430\u0442\u044C \u0432 \u043E\u0431\u0449\u0435\u0439 \u041B\u0435\u043D\u0442\u0435</label>" : "";
+    const composerHtml = canPost ? `<section class="rim-cf-composer"><div class="rim-cf-composer-title"><b>\u041D\u043E\u0432\u0430\u044F \u043F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u044F</b><span>\u041E\u0442 \u0438\u043C\u0435\u043D\u0438 \u043A\u0430\u043D\u0430\u043B\u0430</span></div><textarea id="rimChannelPostBody" class="field" rows="3" maxlength="8000" placeholder="\u0427\u0442\u043E \u043D\u043E\u0432\u043E\u0433\u043E \u0443 \u043A\u0430\u043D\u0430\u043B\u0430?"></textarea>${mirrorHtml}<div class="rim-cf-composer-actions">${e2eActive ? "" : '<button type="button" class="rim-cf-composer-tool" data-rim-cf-action="choose-media">\u25A7 \u0424\u043E\u0442\u043E</button>'}${e2eActive ? "" : '<button type="button" class="rim-cf-composer-tool" data-rim-cf-action="create-poll">\u25A4 \u041E\u043F\u0440\u043E\u0441</button>'}<button type="button" class="primary-btn" data-rim-cf-action="publish">\u041E\u043F\u0443\u0431\u043B\u0438\u043A\u043E\u0432\u0430\u0442\u044C</button></div><input id="rimChannelPostMedia" class="rim-cf-media-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif"><div class="rim-cf-media-hint" id="rimChannelPostMediaName">\u041C\u043E\u0436\u043D\u043E \u043F\u0440\u0438\u043A\u0440\u0435\u043F\u0438\u0442\u044C \u043E\u0434\u043D\u043E \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 \u0434\u043E 10 \u041C\u0411.</div></section>` : "";
     if (active === "posts") content = `${composerHtml}${pinnedHtml}${pollHtml}<div class="rim-cf-section-heading"><h3>\u041F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u0438</h3><span>${posts.length} \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043D\u043E</span></div>${postsHtml}${hasMorePosts ? '<button class="action-btn rim-cf-load-older" type="button" data-rim-cf-action="load-older">\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u0431\u043E\u043B\u0435\u0435 \u0440\u0430\u043D\u043D\u0438\u0435 \u043F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u0438</button>' : '<div class="rim-update-muted rim-cf-end">\u0412\u044B \u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u043B\u0438 \u0432\u0441\u0435 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043D\u043D\u044B\u0435 \u043F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u0438</div>'}`;
     else if (active === "media") content = `<div class="rim-cf-section-heading"><h3>\u041C\u0435\u0434\u0438\u0430</h3><span>${assets.media?.length || 0}</span></div>${assets.loading ? '<div class="rim-cf-empty">\u0417\u0430\u0433\u0440\u0443\u0436\u0430\u0435\u043C \u043C\u0435\u0434\u0438\u0430\u2026</div>' : assets.media?.length ? `<div class="rim-cf-media-grid">${assets.media.map((item) => `<button type="button" class="rim-cf-media-tile" data-rim-cf-action="goto-post" data-post-id="${escapeHtml5(item.id)}"><img src="${escapeHtml5(item.media_url || "")}" alt="\u041C\u0435\u0434\u0438\u0430 \u043A\u0430\u043D\u0430\u043B\u0430" loading="lazy"><span>${formatWhen(item.created_at)}</span></button>`).join("")}</div>` : '<div class="rim-cf-empty"><b>\u041C\u0435\u0434\u0438\u0430 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442</b><span>\u0424\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0438 \u0438 \u0432\u0438\u0434\u0435\u043E \u0438\u0437 \u043F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u0439 \u0431\u0443\u0434\u0443\u0442 \u0441\u043E\u0431\u0438\u0440\u0430\u0442\u044C\u0441\u044F \u0437\u0434\u0435\u0441\u044C.</span></div>'}`;
     else if (active === "links") content = `<div class="rim-cf-section-heading"><h3>\u0421\u0441\u044B\u043B\u043A\u0438</h3><span>${assets.links?.length || 0}</span></div>${assets.links?.length ? assets.links.map((link) => `<div class="rim-cf-link-card"><div><b>${escapeHtml5(link.url)}</b><small>${formatWhen(link.created_at)}</small></div><button type="button" data-rim-cf-action="copy-link" data-url="${escapeHtml5(link.url)}">\u041A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C</button><button type="button" data-rim-cf-action="goto-post" data-post-id="${escapeHtml5(link.postId)}">\u041F\u043E\u0441\u0442</button></div>`).join("") : '<div class="rim-cf-empty"><b>\u0421\u0441\u044B\u043B\u043E\u043A \u043F\u043E\u043A\u0430 \u043D\u0435\u0442</b><span>\u0421\u0441\u044B\u043B\u043A\u0438 \u0438\u0437 \u043F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u0439 \u043F\u043E\u044F\u0432\u044F\u0442\u0441\u044F \u0432 \u044D\u0442\u043E\u043C \u0440\u0430\u0437\u0434\u0435\u043B\u0435 \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438.</span></div>'}`;
@@ -274710,6 +274720,27 @@ var ChannelFeedController = class {
     if (main) main.innerHTML = this.#renderEnrichedFeed(state);
     this.#say("\u041F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u044F \u0443\u0434\u0430\u043B\u0435\u043D\u0430.");
   }
+  async publishPostToHomeFeed(postId) {
+    const state = this.feedState, channel = state?.channel;
+    if (!state?.manager || !channel || channel.is_public !== true || channel.e2e_mode === "required") {
+      this.#say("\u041F\u0435\u0440\u0435\u043D\u043E\u0441 \u0432 \u043E\u0431\u0449\u0443\u044E \u041B\u0435\u043D\u0442\u0443 \u0440\u0430\u0437\u0440\u0435\u0448\u0451\u043D \u0442\u043E\u043B\u044C\u043A\u043E \u0434\u043B\u044F \u043F\u0443\u0431\u043B\u0438\u0447\u043D\u043E\u0433\u043E \u043A\u0430\u043D\u0430\u043B\u0430 \u0431\u0435\u0437 E2E.");
+      return false;
+    }
+    const post = (state.posts || []).find((row) => String(row.id) === String(postId));
+    if (!post) {
+      this.#say("\u041F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u044F \u043A\u0430\u043D\u0430\u043B\u0430 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430.");
+      return false;
+    }
+    if (typeof this.window?.rimPublishChannelPostToFeed !== "function") {
+      this.#say("\u041C\u043E\u0434\u0443\u043B\u044C \u043F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u0438 \u0432 \u043E\u0431\u0449\u0443\u044E \u041B\u0435\u043D\u0442\u0443 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D.");
+      return false;
+    }
+    const profile = state.profileById?.[String(post.author_id)] || {};
+    const result = await this.window.rimPublishChannelPostToFeed(channel, { ...post, sourceAuthor: profile.display_name || profile.username || "\u0430\u0432\u0442\u043E\u0440 \u043A\u0430\u043D\u0430\u043B\u0430" });
+    if (result?.ok) this.#say(result.duplicate ? "\u042D\u0442\u0430 \u043F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u044F \u0443\u0436\u0435 \u0435\u0441\u0442\u044C \u0432 \u043E\u0431\u0449\u0435\u0439 \u041B\u0435\u043D\u0442\u0435." : "\u041F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u044F \u043A\u0430\u043D\u0430\u043B\u0430 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u0430 \u0432 \u043E\u0431\u0449\u0443\u044E \u041B\u0435\u043D\u0442\u0443.");
+    else this.#say(result?.error || "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u044E \u0432 \u043E\u0431\u0449\u0443\u044E \u041B\u0435\u043D\u0442\u0443.");
+    return result?.ok === true;
+  }
   async sharePost(postId) {
     const state = this.feedState;
     const channel = state?.channel;
@@ -274756,6 +274787,7 @@ var ChannelFeedController = class {
     }
     const mediaInput = this.document?.getElementById?.("rimChannelPostMedia");
     const mediaFile = mediaInput?.files?.[0] || null;
+    const mirrorToFeed = this.document?.getElementById?.("rimChannelAlsoToFeed")?.checked === true;
     if (mediaFile && (mediaFile.size > 10 * 1024 * 1024 || !/^image\/(jpeg|png|webp|gif)$/.test(mediaFile.type))) {
       this.notify?.("\u0418\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 \u0434\u043E\u043B\u0436\u043D\u043E \u0431\u044B\u0442\u044C JPG, PNG, WebP \u0438\u043B\u0438 GIF \u0438 \u043D\u0435 \u0431\u043E\u043B\u044C\u0448\u0435 10 \u041C\u0411.");
       return;
@@ -274868,9 +274900,13 @@ var ChannelFeedController = class {
     } catch (pushError) {
       this.logger?.warn?.("channels.push.delivery.failed", { message: String(pushError?.message || pushError) });
     }
+    if (mirrorToFeed && channel.is_public === true && channel.e2e_mode !== "required") {
+      const mirrored = await this.window?.rimPublishChannelPostToFeed?.(channel, { id: createdPost.id, body: postBody, image_path: imagePath, sourceAuthor: "\u0430\u0434\u043C\u0438\u043D\u0438\u0441\u0442\u0440\u0430\u0442\u043E\u0440 \u043A\u0430\u043D\u0430\u043B\u0430" });
+      if (!mirrored?.ok) this.notify?.("\u041F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u044F \u0440\u0430\u0437\u043C\u0435\u0449\u0435\u043D\u0430 \u0432 \u043A\u0430\u043D\u0430\u043B\u0435, \u043D\u043E \u043D\u0435 \u043F\u0435\u0440\u0435\u043D\u0435\u0441\u0435\u043D\u0430 \u0432 \u043E\u0431\u0449\u0443\u044E \u041B\u0435\u043D\u0442\u0443: " + String(mirrored?.error || "\u043E\u0448\u0438\u0431\u043A\u0430 \u043F\u0435\u0440\u0435\u043D\u043E\u0441\u0430"));
+    }
     if (input) input.value = "";
     if (mediaInput) mediaInput.value = "";
-    this.notify?.("\u041F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u044F \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u0430.");
+    this.notify?.(mirrorToFeed ? "\u041F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u044F \u043E\u0431\u0440\u0430\u0431\u043E\u0442\u0430\u043D\u0430: \u043A\u0430\u043D\u0430\u043B \u0438 \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u0430\u044F \u041B\u0435\u043D\u0442\u0430." : "\u041F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u044F \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u0430.");
     await this.open(channel.id);
   }
   async reactToPost(postId, emoji) {
@@ -276368,6 +276404,7 @@ function renderGroupSettingsModal(projection, currentUserId) {
       <button class="action-btn" type="button" data-rim-group-action="add-member" data-group-id="${id2}">\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C</button>
     </div>
     <button class="action-btn" type="button" style="width:100%;margin-top:8px" data-rim-group-action="add-zladen" data-group-id="${id2}">\u2726 \u041F\u043E\u0434\u043A\u043B\u044E\u0447\u0438\u0442\u044C \u0417\u043B\u044B\u0434\u044E \u043A \u0433\u0440\u0443\u043F\u043F\u0435</button>
+    <button class="action-btn" type="button" style="width:100%;margin-top:8px" data-rim-group-action="zladen-console" data-group-id="${id2}">\u2699 \u0426\u0435\u043D\u0442\u0440 \u0443\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F \u0417\u043B\u044B\u0434\u0435\u0439</button>
     <div class="rim-update-muted">\u041F\u043E\u0441\u043B\u0435 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u0438\u044F \u0417\u043B\u044B\u0434\u044F \u043F\u0440\u0435\u0434\u0441\u0442\u0430\u0432\u0438\u0442\u0441\u044F \u0432 \u0447\u0430\u0442\u0435 \u0438 \u043F\u043E\u043A\u0430\u0436\u0435\u0442 /menu. \u0412 \u0433\u0440\u0443\u043F\u043F\u0430\u0445 \u0441 \u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u044B\u043C E2E \u043E\u043D \u043D\u0435 \u0447\u0438\u0442\u0430\u0435\u0442 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F \u0438 \u043D\u0435 \u043E\u0442\u0432\u0435\u0447\u0430\u0435\u0442.</div>
     <h3>\u0423\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0438 \xB7 ${members.length}</h3>
     ${memberRows}
@@ -276433,6 +276470,9 @@ var GroupSettingsController = class {
         break;
       case "add-zladen":
         this.window?.rimGroupAddZladen?.(groupId);
+        break;
+      case "zladen-console":
+        this.window?.rimOpenZladenConsole?.(groupId);
         break;
       case "set-role":
         this.window?.rimGroupSetRole?.(groupId, userId);
@@ -276842,6 +276882,200 @@ var GroupCommandService = class {
   }
 };
 
+// src/application/zladen-group-console-controller.js
+var QUICK_COMMANDS = [
+  ["\u041E\u0431\u0437\u043E\u0440", "/menu"],
+  ["\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0430", "/stats"],
+  ["\u041F\u0440\u0430\u0432\u0438\u043B\u0430", "/rules"],
+  ["\u0410\u0434\u043C\u0438\u043D\u0438\u0441\u0442\u0440\u0430\u0442\u043E\u0440\u044B", "/admins"],
+  ["\u041F\u0440\u0435\u0434\u0443\u043F\u0440\u0435\u0436\u0434\u0435\u043D\u0438\u044F", "/warnings"],
+  ["\u041A\u043E\u043C\u0430\u043D\u0434\u044B", "/commands"],
+  ["\u0422\u0440\u0438\u0433\u0433\u0435\u0440\u044B", "/trigger list"],
+  ["\u041F\u0440\u0430\u0432\u0438\u043B\u0430: \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C", "/setrules"],
+  ["\u041F\u0440\u0438\u0432\u0435\u0442\u0441\u0442\u0432\u0438\u0435: \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C", "/setwelcome"],
+  ["\u0424\u0438\u043B\u044C\u0442\u0440\u044B: \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u0435", "/filter status"],
+  ["\u0417\u0430\u043F\u0440\u0435\u0442\u0438\u0442\u044C \u0441\u0441\u044B\u043B\u043A\u0438", "/filter links on"],
+  ["\u0420\u0430\u0437\u0440\u0435\u0448\u0438\u0442\u044C \u0441\u0441\u044B\u043B\u043A\u0438", "/filter links off"],
+  ["\u0421\u043F\u0438\u0441\u043E\u043A \u0444\u0438\u043B\u044C\u0442\u0440\u043E\u0432", "/filter words"],
+  ["\u0411\u0430\u043B\u0430\u043D\u0441", "/balance"],
+  ["\u0415\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u0430\u044F \u043D\u0430\u0433\u0440\u0430\u0434\u0430", "/daily"],
+  ["\u0412\u0438\u043A\u0442\u043E\u0440\u0438\u043D\u0430", "/quiz"],
+  ["\u041C\u0430\u0433\u0430\u0437\u0438\u043D", "/shop"],
+  ["\u0418\u043D\u0432\u0435\u043D\u0442\u0430\u0440\u044C", "/inventory"],
+  ["\u0420\u044B\u043D\u043E\u043A", "/market"],
+  ["\u0422\u043E\u043F \u044D\u043A\u043E\u043D\u043E\u043C\u0438\u043A\u0438", "/economy_top"],
+  ["\u041A\u043B\u0430\u043D\u044B", "/clan"],
+  ["\u041D\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u044F", "/remind"],
+  ["\u041E\u043F\u0440\u043E\u0441", "/poll"],
+  ["\u0413\u043E\u043B\u043E\u0441\u043E\u0432\u0430\u043D\u0438\u0435", "/vote"],
+  ["\u0420\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442\u044B \u043E\u043F\u0440\u043E\u0441\u0430", "/pollresults"],
+  ["\u0416\u0430\u043B\u043E\u0431\u044B", "/reports"],
+  ["\u0420\u0430\u043D\u0433", "/rank"],
+  ["\u041F\u0435\u0440\u0435\u0434\u0430\u0442\u044C \u0436\u0435\u0442\u043E\u043D\u044B", "/pay"],
+  ["\u041D\u0430\u0447\u0438\u0441\u043B\u0438\u0442\u044C \u0436\u0435\u0442\u043E\u043D\u044B", "/grant"],
+  ["\u0420\u0435\u043F\u0443\u0442\u0430\u0446\u0438\u044F", "/rep"],
+  ["\u0422\u043E\u043F", "/top"],
+  ["\u041D\u0430\u0433\u0440\u0430\u0434\u044B", "/awards"]
+];
+var field = (value, max, label) => {
+  const text2 = String(value ?? "").trim();
+  if (!text2 || text2.length > max || /[\r\n|]/.test(text2)) throw new Error(label + ": \u0437\u0430\u043F\u043E\u043B\u043D\u0438\u0442\u0435 \u043F\u043E\u043B\u0435 (\u0434\u043E " + max + " \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432), \u0431\u0435\u0437 \u043F\u0435\u0440\u0435\u043D\u043E\u0441\u043E\u0432 \u0441\u0442\u0440\u043E\u043A \u0438 \u0441\u0438\u043C\u0432\u043E\u043B\u0430 |.");
+  return text2;
+};
+function buildZladenTriggerCommand({ name, matchType, matchValue, actionType, actionValue }) {
+  const triggerName = field(name, 80, "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0442\u0440\u0438\u0433\u0433\u0435\u0440\u0430");
+  const value = field(matchValue, 160, "\u0424\u0440\u0430\u0437\u0430-\u0442\u0440\u0438\u0433\u0433\u0435\u0440");
+  if (value.length < 2) throw new Error("\u0424\u0440\u0430\u0437\u0430-\u0442\u0440\u0438\u0433\u0433\u0435\u0440 \u0434\u043E\u043B\u0436\u043D\u0430 \u0441\u043E\u0434\u0435\u0440\u0436\u0430\u0442\u044C \u043C\u0438\u043D\u0438\u043C\u0443\u043C \u0434\u0432\u0430 \u0441\u0438\u043C\u0432\u043E\u043B\u0430.");
+  if (!["contains", "starts_with", "equals"].includes(matchType)) throw new Error("\u041D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u044B\u0439 \u0442\u0438\u043F \u0441\u043E\u0432\u043F\u0430\u0434\u0435\u043D\u0438\u044F.");
+  let action;
+  if (actionType === "reply") action = "reply:" + field(actionValue, 1e3, "\u041E\u0442\u0432\u0435\u0442 \u0442\u0440\u0438\u0433\u0433\u0435\u0440\u0430");
+  else if (actionType === "grant") {
+    const rawPoints = String(actionValue ?? "").trim();
+    const points = Number(rawPoints);
+    if (!/^\d+$/.test(rawPoints) || !Number.isInteger(points) || points < 1 || points > 1e3) throw new Error("\u041D\u0430\u0433\u0440\u0430\u0434\u0430 \u0434\u043E\u043B\u0436\u043D\u0430 \u0431\u044B\u0442\u044C \u043E\u0442 1 \u0434\u043E 1000 \u0436\u0435\u0442\u043E\u043D\u043E\u0432.");
+    action = "grant:" + points;
+  } else throw new Error("\u041D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u043E\u0435 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435 \u0442\u0440\u0438\u0433\u0433\u0435\u0440\u0430.");
+  return "/trigger add " + triggerName + " | " + matchType + ":" + value + " | " + action;
+}
+function buildZladenJoinTriggerCommand({ name, text: text2 }) {
+  return "/trigger join_add " + field(name, 80, "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0442\u0440\u0438\u0433\u0433\u0435\u0440\u0430") + " | reply:" + field(text2, 1e3, "\u041F\u0440\u0438\u0432\u0435\u0442\u0441\u0442\u0432\u0438\u0435");
+}
+var ZladenGroupConsoleController = class {
+  constructor({ client, getUser, zladenService = null, notify: notify2 = () => {
+  }, documentRef = globalThis.document, windowRef = globalThis.window, logger: logger2 = null } = {}) {
+    this.client = client;
+    this.getUser = getUser;
+    this.zladenService = zladenService;
+    this.notify = notify2;
+    this.document = documentRef;
+    this.window = windowRef;
+    this.logger = logger2;
+    this.group = null;
+    this.root = null;
+    this.onClick = (event) => {
+      void this.#click(event);
+    };
+    this.onSubmit = (event) => {
+      void this.#submit(event);
+    };
+  }
+  async open(conversationId) {
+    const user = this.getUser?.();
+    if (!user?.id) return this.#say("\u0414\u043B\u044F \u0443\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F \u0417\u043B\u044B\u0434\u0435\u0439 \u0432\u043E\u0439\u0434\u0438\u0442\u0435 \u0432 \u0420\u0418\u041C.");
+    const result = await this.client.from("conversations").select("id,type,title,created_by,e2e_mode").eq("id", conversationId).maybeSingle();
+    const group = result.data;
+    if (result.error || !group || group.type !== "group") return this.#say("\u0413\u0440\u0443\u043F\u043F\u0430 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430.");
+    if (["required", "pending"].includes(group.e2e_mode)) return this.#say("\u0417\u043B\u044B\u0434\u044F \u043E\u0442\u043A\u043B\u044E\u0447\u0451\u043D \u0432 \u0437\u0430\u0449\u0438\u0449\u0451\u043D\u043D\u044B\u0445 \u0431\u0435\u0441\u0435\u0434\u0430\u0445 E2E. \u041F\u0430\u043D\u0435\u043B\u044C \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430.");
+    const member = await this.client.from("conversation_members").select("role").eq("conversation_id", conversationId).eq("user_id", user.id).maybeSingle();
+    if (member.error || !member.data && String(group.created_by) !== String(user.id)) return this.#say("\u0412\u044B \u043D\u0435 \u0441\u043E\u0441\u0442\u043E\u0438\u0442\u0435 \u0432 \u044D\u0442\u043E\u0439 \u0433\u0440\u0443\u043F\u043F\u0435.");
+    if (String(group.created_by) !== String(user.id) && !["owner", "admin"].includes(member.data?.role)) return this.#say("\u0426\u0435\u043D\u0442\u0440 \u0443\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F \u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D \u0432\u043B\u0430\u0434\u0435\u043B\u044C\u0446\u0443 \u0438 \u0430\u0434\u043C\u0438\u043D\u0438\u0441\u0442\u0440\u0430\u0442\u043E\u0440\u0430\u043C \u0433\u0440\u0443\u043F\u043F\u044B.");
+    this.group = group;
+    let botJoined = false;
+    try {
+      const profile = await this.zladenService?.getPublicProfile?.();
+      const username = profile?.value?.username;
+      if (profile?.ok && username) {
+        const bot = await this.client.from("profiles").select("id").eq("username", username).maybeSingle();
+        if (bot.data?.id) {
+          const membership = await this.client.from("conversation_members").select("user_id").eq("conversation_id", conversationId).eq("user_id", bot.data.id).maybeSingle();
+          botJoined = !!membership.data;
+        }
+      }
+    } catch (error) {
+      this.logger?.warn?.("zladen.console.bot_check_failed", { message: error?.message });
+    }
+    this.window?.showModal?.(this.#html(group, botJoined));
+    this.root = this.document?.querySelector?.("[data-rim-zladen-console]");
+    this.root?.addEventListener?.("click", this.onClick);
+    this.root?.addEventListener?.("submit", this.onSubmit);
+    return true;
+  }
+  #html(group, botJoined) {
+    const disabled = botJoined ? "" : " disabled";
+    const buttons = QUICK_COMMANDS.map(([label, command]) => '<button type="button" data-zc="preset" data-command="' + escapeHtml4(command) + '"><b>' + escapeHtml4(label) + "</b><code>" + escapeHtml4(command) + "</code></button>").join("");
+    return '<section class="rim-zladen-console" data-rim-zladen-console><style>.rim-zladen-console{max-height:82vh;overflow:auto;color:var(--text)}.rim-zc-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.rim-zc-card{padding:12px;margin:10px 0;border:1px solid var(--border);border-radius:12px;background:var(--panel)}.rim-zc-grid button{display:grid;text-align:left;gap:4px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--panel2);color:inherit}.rim-zc-grid code,.rim-zc-muted{font-size:12px;color:var(--muted)}.rim-zc-form{display:grid;gap:8px}.rim-zc-form input,.rim-zc-form select,.rim-zc-form textarea{width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:inherit}.rim-zc-form textarea{min-height:70px}.rim-zc-form button{padding:10px;border:0;border-radius:10px;background:var(--gold);color:#17130d;font-weight:700}@media(max-width:420px){.rim-zc-grid{grid-template-columns:1fr}}</style><header><div class="rim-zc-muted">RIM \xB7 \u0421\u0418\u0421\u0422\u0415\u041C\u041D\u042B\u0419 \u041F\u041E\u041C\u041E\u0429\u041D\u0418\u041A</div><h2>\u0426\u0435\u043D\u0442\u0440 \u0443\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F \u0417\u043B\u044B\u0434\u0435\u0439</h2><p>' + escapeHtml4(group.title || "\u0413\u0440\u0443\u043F\u043F\u0430") + '</p><button type="button" data-zc="close">\u0417\u0430\u043A\u0440\u044B\u0442\u044C</button></header><div class="rim-zc-card">' + (botJoined ? "\u0417\u043B\u044B\u0434\u044F \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0451\u043D. \u041F\u0440\u0430\u0432\u0430 \u043A\u043E\u043C\u0430\u043D\u0434 \u043F\u0440\u043E\u0432\u0435\u0440\u044F\u0435\u0442 \u0441\u0435\u0440\u0432\u0435\u0440." : '\u0417\u043B\u044B\u0434\u044F \u043D\u0435 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0451\u043D \u043A \u0433\u0440\u0443\u043F\u043F\u0435. <button type="button" data-zc="connect">\u041F\u043E\u0434\u043A\u043B\u044E\u0447\u0438\u0442\u044C \u0417\u043B\u044B\u0434\u044E</button>') + '</div><section class="rim-zc-card"><h3>\u0411\u044B\u0441\u0442\u0440\u044B\u0435 \u043A\u043E\u043C\u0430\u043D\u0434\u044B</h3><div class="rim-zc-grid">' + buttons + '</div><p class="rim-zc-muted">\u041E\u0442\u0432\u0435\u0442\u044B \u043F\u043E\u044F\u0432\u044F\u0442\u0441\u044F \u0432 \u043F\u0435\u0440\u0435\u043F\u0438\u0441\u043A\u0435 \u0433\u0440\u0443\u043F\u043F\u044B. \u0412 \u0431\u0435\u0441\u0435\u0434\u0430\u0445 \u0441 \u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u044B\u043C E2E \u043A\u043E\u043C\u0430\u043D\u0434\u044B \u043E\u0442\u043A\u043B\u044E\u0447\u0435\u043D\u044B.</p></section><section class="rim-zc-card"><h3>\u0421\u043E\u0437\u0434\u0430\u0442\u044C \u0442\u0435\u043A\u0441\u0442\u043E\u0432\u044B\u0439 \u0442\u0440\u0438\u0433\u0433\u0435\u0440</h3><form class="rim-zc-form" data-zcf="trigger"><input name="name" required maxlength="80" placeholder="\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435"><select name="matchType"><option value="contains">\u0421\u043E\u0434\u0435\u0440\u0436\u0438\u0442 \u0444\u0440\u0430\u0437\u0443</option><option value="starts_with">\u041D\u0430\u0447\u0438\u043D\u0430\u0435\u0442\u0441\u044F \u0441</option><option value="equals">\u041F\u043E\u043B\u043D\u043E\u0435 \u0441\u043E\u0432\u043F\u0430\u0434\u0435\u043D\u0438\u0435</option></select><input name="matchValue" required maxlength="160" placeholder="\u0424\u0440\u0430\u0437\u0430"><select name="actionType"><option value="reply">\u041E\u0442\u0432\u0435\u0442\u0438\u0442\u044C \u0442\u0435\u043A\u0441\u0442\u043E\u043C</option><option value="grant">\u041D\u0430\u0447\u0438\u0441\u043B\u0438\u0442\u044C \u0436\u0435\u0442\u043E\u043D\u044B \u0440\u0430\u0437 \u0432 \u0434\u0435\u043D\u044C</option></select><textarea name="actionValue" required maxlength="1000" placeholder="\u041E\u0442\u0432\u0435\u0442 \u0438\u043B\u0438 \u0447\u0438\u0441\u043B\u043E \u0436\u0435\u0442\u043E\u043D\u043E\u0432 1\u20131000"></textarea><button type="submit">\u0421\u043E\u0437\u0434\u0430\u0442\u044C \u0442\u0440\u0438\u0433\u0433\u0435\u0440</button></form></section><section class="rim-zc-card"><h3>\u041F\u0440\u0438\u0432\u0435\u0442\u0441\u0442\u0432\u0438\u0435 \u043D\u043E\u0432\u044B\u0445 \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u043E\u0432</h3><form class="rim-zc-form" data-zcf="join"><input name="name" required maxlength="80" placeholder="\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435"><textarea name="text" required maxlength="1000" placeholder="\u0422\u0435\u043A\u0441\u0442 \u043F\u0440\u0438\u0432\u0435\u0442\u0441\u0442\u0432\u0438\u044F"></textarea><button type="submit">\u0421\u043E\u0437\u0434\u0430\u0442\u044C \u043F\u0440\u0438\u0432\u0435\u0442\u0441\u0442\u0432\u0438\u0435</button></form></section><section class="rim-zc-card"><h3>\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0442\u0440\u0438\u0433\u0433\u0435\u0440</h3><form class="rim-zc-form" data-zcf="delete"><input name="id" required minlength="8" maxlength="32" pattern="[0-9a-fA-F]{8,32}" placeholder="\u041F\u0435\u0440\u0432\u044B\u0435 8\u201332 \u0441\u0438\u043C\u0432\u043E\u043B\u0430 ID"><button type="submit">\u0423\u0434\u0430\u043B\u0438\u0442\u044C</button></form><p class="rim-zc-muted">\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u0432\u044B\u043F\u043E\u043B\u043D\u0438\u0442\u0435 /trigger list.</p></section><section class="rim-zc-card"><h3>\u0421\u0432\u043E\u044F \u043A\u043E\u043C\u0430\u043D\u0434\u0430</h3><form class="rim-zc-form" data-zcf="command"><input name="command" required maxlength="1000" placeholder="/warn UUID \u043F\u0440\u0438\u0447\u0438\u043D\u0430 \u0438\u043B\u0438 /rank UUID 1 \u043F\u043E\u043C\u043E\u0449\u043D\u0438\u043A"><button type="submit">\u041E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u044C</button></form><p class="rim-zc-muted">\u0416\u0435\u0442\u043E\u043D\u044B \u2014 \u0432\u043D\u0443\u0442\u0440\u0435\u043D\u043D\u0438\u0435 \u043E\u0447\u043A\u0438 \u0431\u0435\u0437 \u0434\u0435\u043D\u0435\u0436\u043D\u043E\u0439 \u0441\u0442\u043E\u0438\u043C\u043E\u0441\u0442\u0438.</p></section></section>';
+  }
+  async #click(event) {
+    const button = event.target?.closest?.("[data-zc]");
+    if (!button || !this.root?.contains?.(button)) return;
+    if (button.dataset.zc === "close") {
+      this.window?.closeModal?.();
+      return;
+    }
+    if (button.dataset.zc === "connect") {
+      await this.window?.rimGroupAddZladen?.(this.group?.id);
+      return;
+    }
+    if (button.dataset.zc === "preset") await this.sendCommand(button.dataset.command || "");
+  }
+  async #submit(event) {
+    const form = event.target?.closest?.("[data-zcf]");
+    if (!form || !this.root?.contains?.(form)) return;
+    event.preventDefault();
+    const data = new FormData(form);
+    try {
+      let command = "";
+      if (form.dataset.zcf === "trigger") command = buildZladenTriggerCommand({
+        name: data.get("name"),
+        matchType: data.get("matchType"),
+        matchValue: data.get("matchValue"),
+        actionType: data.get("actionType"),
+        actionValue: data.get("actionValue")
+      });
+      else if (form.dataset.zcf === "join") command = buildZladenJoinTriggerCommand({ name: data.get("name"), text: data.get("text") });
+      else if (form.dataset.zcf === "delete") {
+        const id2 = field(data.get("id"), 32, "ID");
+        if (!/^[0-9a-fA-F]{8,32}$/.test(id2)) throw new Error("\u041D\u0435\u043A\u043E\u0440\u0440\u0435\u043A\u0442\u043D\u044B\u0439 ID \u0442\u0440\u0438\u0433\u0433\u0435\u0440\u0430.");
+        command = "/trigger del " + id2;
+      } else if (form.dataset.zcf === "command") {
+        command = field(data.get("command"), 1e3, "\u041A\u043E\u043C\u0430\u043D\u0434\u0430");
+        if (!/^[/!.]/.test(command)) throw new Error("\u041A\u043E\u043C\u0430\u043D\u0434\u0430 \u0434\u043E\u043B\u0436\u043D\u0430 \u043D\u0430\u0447\u0438\u043D\u0430\u0442\u044C\u0441\u044F \u0441 /, ! \u0438\u043B\u0438 .");
+      }
+      if (command && await this.sendCommand(command)) form.reset();
+    } catch (error) {
+      this.#say(error?.message || "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u043E\u0434\u0433\u043E\u0442\u043E\u0432\u0438\u0442\u044C \u043A\u043E\u043C\u0430\u043D\u0434\u0443.");
+    }
+  }
+  async sendCommand(command) {
+    const user = this.getUser?.();
+    const text2 = String(command || "").trim();
+    if (!this.group?.id || !user?.id || !/^[/!.][^\r\n]{1,999}$/.test(text2)) return this.#say("\u041D\u0435\u043A\u043E\u0440\u0440\u0435\u043A\u0442\u043D\u0430\u044F \u043A\u043E\u043C\u0430\u043D\u0434\u0430.");
+    const group = await this.client.from("conversations").select("id,type,e2e_mode").eq("id", this.group.id).maybeSingle();
+    if (group.error || !group.data || group.data.type !== "group" || ["required", "pending"].includes(group.data.e2e_mode)) return this.#say("\u041A\u043E\u043C\u0430\u043D\u0434\u0430 \u043D\u0435 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0430: \u0433\u0440\u0443\u043F\u043F\u0430 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430 \u0438\u043B\u0438 \u0437\u0430\u0449\u0438\u0449\u0435\u043D\u0430 E2E.");
+    const id2 = globalThis.crypto?.randomUUID?.() || Date.now() + "-" + Math.random().toString(36).slice(2);
+    const result = await this.client.from("chat_messages").insert({
+      conversation_id: this.group.id,
+      sender_id: user.id,
+      body: text2,
+      client_message_id: "zladen-ui:" + id2
+    }).select("id").maybeSingle();
+    if (result.error) {
+      this.logger?.warn?.("zladen.console.command_failed", { command: text2.split(" ")[0], message: result.error.message });
+      this.#say(result.error.message || "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u044C \u043A\u043E\u043C\u0430\u043D\u0434\u0443.");
+      return false;
+    }
+    this.window?.closeModal?.();
+    try {
+      await this.window?.openConversation?.(this.group.id);
+      await this.window?.loadMessages?.();
+    } catch (error) {
+      this.logger?.warn?.("zladen.console.open_chat_after_command.failed", { message: error?.message });
+    }
+    this.#say("\u041A\u043E\u043C\u0430\u043D\u0434\u0430 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0430. \u041E\u0442\u0432\u0435\u0442 \u0417\u043B\u044B\u0434\u0438 \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F \u0432 \u043F\u0435\u0440\u0435\u043F\u0438\u0441\u043A\u0435.");
+    return true;
+  }
+  #say(message) {
+    this.notify(String(message || "\u041D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u0430\u044F \u043E\u0448\u0438\u0431\u043A\u0430"));
+    return false;
+  }
+  dispose() {
+    this.root?.removeEventListener?.("click", this.onClick);
+    this.root?.removeEventListener?.("submit", this.onSubmit);
+    this.root = null;
+    this.group = null;
+  }
+};
+
 // src/composition/groups-surface.js
 function reportGroupCommand(result, { notify: notify2, logger: logger2 } = {}) {
   if (!result) return result;
@@ -276876,9 +277110,22 @@ function bindGroupsSurface({
   container2.value("groupSettings", groupSettings2);
   win.__RIM_GROUP_SETTINGS_OWNED = true;
   win.rimOpenGroupSettings = (id2) => groupSettings2.open(id2);
+  const zladenConsole = new ZladenGroupConsoleController({
+    client,
+    getUser,
+    zladenService: container2.get("zladenBot"),
+    notify: notify2,
+    documentRef: doc,
+    windowRef: win,
+    logger: logger2
+  });
+  container2.value("zladenGroupConsole", zladenConsole);
+  win.rimOpenZladenConsole = (id2) => zladenConsole.open(id2);
   lifecycle2?.add?.(() => {
     win.__RIM_GROUP_SETTINGS_OWNED = false;
+    win.rimOpenZladenConsole = void 0;
     groupSettings2.dispose();
+    zladenConsole.dispose();
   });
   const groupCommands2 = new GroupCommandService({
     client,
@@ -279138,9 +279385,10 @@ var TelegramAuthService = class {
   }
   async handleCallback() {
     const url = new URL(this.window.location.href);
-    const code = url.searchParams.get("code");
-    const state = url.searchParams.get("state");
-    const providerError = url.searchParams.get("error");
+    const captured = this.window.__RIM_TELEGRAM_OIDC_CALLBACK || null;
+    const code = captured?.code ?? url.searchParams.get("code");
+    const state = captured?.state ?? url.searchParams.get("state");
+    const providerError = captured?.error ?? url.searchParams.get("error");
     if (!code && !state && !providerError) return { handled: false };
     try {
       this.window.__RIM_TELEGRAM_CALLBACK_SEEN = true;
@@ -279155,7 +279403,7 @@ var TelegramAuthService = class {
     this.window.history?.replaceState?.({}, "", cleanUrl.toString());
     try {
       if (providerError) {
-        const description = url.searchParams.get("error_description");
+        const description = captured?.error_description ?? url.searchParams.get("error_description");
         throw new Error(description ? `Telegram \u043E\u0442\u043A\u043B\u043E\u043D\u0438\u043B \u0432\u0445\u043E\u0434: ${description.slice(0, 180)}` : "\u0412\u0445\u043E\u0434 \u0447\u0435\u0440\u0435\u0437 Telegram \u043E\u0442\u043C\u0435\u043D\u0451\u043D \u0438\u043B\u0438 \u043E\u0442\u043A\u043B\u043E\u043D\u0451\u043D.");
       }
       const raw = this.#storage().getItem(STORAGE_KEY3);
@@ -279228,6 +279476,27 @@ var AuthFormController = class {
   #setStatus(text2) {
     const status = this.#el("authStatus");
     if (status) status.textContent = text2 || "";
+  }
+  #setCurrentUser(user) {
+    try {
+      this.window.__RIM_SET_CURRENT_USER?.(user || null);
+    } catch (error) {
+      this.logger?.warn?.("auth.current_user_bridge.failed", { message: error?.message || String(error) });
+    }
+    this.window.currentUser = user || null;
+  }
+  async #withTimeout(promise, timeoutMs, message) {
+    let timer;
+    try {
+      return await Promise.race([
+        Promise.resolve(promise),
+        new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+        })
+      ]);
+    } finally {
+      if (timer !== void 0) clearTimeout(timer);
+    }
   }
   showLoginForm() {
     this.mode = "login";
@@ -279304,10 +279573,11 @@ var AuthFormController = class {
     if (button) button.disabled = true;
     this.#setStatus("\u041F\u0440\u043E\u0432\u0435\u0440\u044F\u0435\u043C \u0434\u0430\u043D\u043D\u044B\u0435\u2026");
     try {
-      const { data, error } = await this.client.auth.signInWithPassword({
-        email: parsed.email,
-        password: parsed.password
-      });
+      const { data, error } = await this.#withTimeout(
+        this.client.auth.signInWithPassword({ email: parsed.email, password: parsed.password }),
+        3e4,
+        "\u0421\u0435\u0440\u0432\u0438\u0441 \u0430\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0438\u0438 \u043D\u0435 \u043E\u0442\u0432\u0435\u0442\u0438\u043B \u0437\u0430 30 \u0441\u0435\u043A\u0443\u043D\u0434. \u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435 \u0438 \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0451 \u0440\u0430\u0437."
+      );
       if (error) {
         const m = error.message || "";
         if (/invalid login credentials/i.test(m)) {
@@ -279319,9 +279589,16 @@ var AuthFormController = class {
         }
         return Err(error);
       }
-      this.window.currentUser = data.user;
+      if (!data?.user) throw new Error("Supabase \u043D\u0435 \u0432\u0435\u0440\u043D\u0443\u043B \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u043F\u043E\u0441\u043B\u0435 \u0443\u0441\u043F\u0435\u0448\u043D\u043E\u0433\u043E \u0432\u0445\u043E\u0434\u0430.");
+      this.#setCurrentUser(data.user);
+      this.#setStatus("\u0412\u0445\u043E\u0434 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0451\u043D. \u0417\u0430\u0433\u0440\u0443\u0436\u0430\u0435\u043C RIM\u2026");
       await this.onSignedIn(data.user);
+      this.#setStatus("\u0412\u044B \u0432\u043E\u0448\u043B\u0438. RIM \u0433\u043E\u0442\u043E\u0432 \u043A \u0440\u0430\u0431\u043E\u0442\u0435.");
       return Ok(data.user);
+    } catch (error) {
+      this.#setStatus(error?.message || "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0432\u044B\u043F\u043E\u043B\u043D\u0438\u0442\u044C \u0432\u0445\u043E\u0434. \u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435 \u0438 \u043F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u0435 \u043F\u043E\u043F\u044B\u0442\u043A\u0443.");
+      this.logger?.warn?.("auth.sign_in.failed", { message: error?.message || String(error) });
+      return Err(error);
     } finally {
       this.busy = false;
       if (button) button.disabled = false;
@@ -279356,7 +279633,7 @@ var AuthFormController = class {
         return Err(error);
       }
       if (data.session) {
-        this.window.currentUser = data.user;
+        this.#setCurrentUser(data.user);
         await this.onSignedIn(data.user);
       } else {
         this.#setStatus("\u0420\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u044F \u0441\u043E\u0437\u0434\u0430\u043D\u0430. \u041F\u0440\u043E\u0432\u0435\u0440\u044C \u043F\u043E\u0447\u0442\u0443 \u0438 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0434\u0438 \u0430\u0434\u0440\u0435\u0441.");
@@ -279393,7 +279670,7 @@ var AuthFormController = class {
     this.#setStatus("\u041F\u0440\u043E\u0432\u0435\u0440\u044F\u0435\u043C \u0441\u0435\u043A\u0440\u0435\u0442\u043D\u0443\u044E \u0444\u0440\u0430\u0437\u0443 \u0438 \u043F\u043E\u0434\u0433\u043E\u0442\u0430\u0432\u043B\u0438\u0432\u0430\u0435\u043C \u0437\u0430\u0449\u0438\u0449\u0451\u043D\u043D\u0443\u044E \u0441\u0435\u0441\u0441\u0438\u044E\u2026");
     try {
       const user = await this.recoveryCodes.seedLogin(phrase);
-      this.window.currentUser = user;
+      this.#setCurrentUser(user);
       const input = this.#el("rimSeedLoginPhrase");
       if (input) input.value = "";
       this.#setStatus("\u0412\u0445\u043E\u0434 \u043F\u043E \u0441\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u0439 \u0444\u0440\u0430\u0437\u0435 \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D. \u0417\u0430\u0433\u0440\u0443\u0436\u0430\u0435\u043C RIM\u2026");
@@ -279416,7 +279693,7 @@ var AuthFormController = class {
     this.#setStatus("\u041F\u0440\u043E\u0432\u0435\u0440\u044F\u0435\u043C \u0441\u0435\u043A\u0440\u0435\u0442\u043D\u0443\u044E \u0444\u0440\u0430\u0437\u0443 RIM\u2026");
     try {
       const user = await this.recoveryCodes.redeemPhrase(phrase);
-      this.window.currentUser = user;
+      this.#setCurrentUser(user);
       this.#setStatus("\u0414\u043E\u0441\u0442\u0443\u043F \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D. \u0417\u0430\u0433\u0440\u0443\u0436\u0430\u0435\u043C RIM\u2026");
       await this.onSignedIn(user);
       return Ok(user);
@@ -279473,7 +279750,7 @@ var AuthFormController = class {
       this.#setStatus(result.error?.message || "\u0412\u0445\u043E\u0434 \u0447\u0435\u0440\u0435\u0437 Telegram \u043D\u0435 \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D.");
       return Err(result.error || new Error("Telegram sign-in failed"));
     }
-    this.window.currentUser = result.user;
+    this.#setCurrentUser(result.user);
     this.#setStatus("\u0412\u0445\u043E\u0434 \u0447\u0435\u0440\u0435\u0437 Telegram \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D. \u0417\u0430\u0433\u0440\u0443\u0436\u0430\u0435\u043C RIM\u2026");
     try {
       await this.onSignedIn(result.user);
@@ -279545,6 +279822,7 @@ var AuthFormController = class {
     win.signUp = () => this.signUp();
     win.signInWithGoogle = () => this.signInWithGoogle();
     win.signInWithTelegram = () => this.signInWithTelegram();
+    win.__RIM_AUTH_FORM_SIGN_IN_WITH_TELEGRAM = win.signInWithTelegram;
     win.signInWithGithub = () => this.signInWithGithub();
     win.signInWithVk = () => this.signInWithVk();
     void this.handleTelegramCallback();
@@ -286387,7 +286665,7 @@ var context = window.__RIM_LEGACY_CONTEXT;
 if (!context?.db) throw new Error("RIM bootstrap: legacy database client is unavailable");
 var legacy = createLegacyBridge(context);
 var container = new Container();
-var logger = new Logger({ version: "4.1.8-iteration.174" });
+var logger = new Logger({ version: "4.1.8-iteration.178" });
 var events = new EventBus();
 var health = new HealthRegistry();
 var lifecycle = new DisposableScope({ onError: (error) => logger.error("lifecycle.dispose.failed", error) });
@@ -286733,7 +287011,7 @@ var favorites = featuresSurface.favorites;
 var writer = featuresSurface.writer;
 var music = featuresSurface.music;
 window.RIM = Object.freeze({
-  version: "4.1.8-iteration.174",
+  version: "4.1.8-iteration.178",
   container,
   events,
   logger,
@@ -286943,4 +287221,4 @@ var conversationOpenService = openSurface.conversationOpenService;
 var conversationOpen = openSurface.conversationOpen;
 logger.info("app.ready", { modules: ["core", "supabase-adapter", "chat-identity", "conversation-list", "message-timeline-pagination", "incremental-realtime", "message-command-service", "legacy-loader-unification", "timeline-race-reconciliation", "conversation-state-projection", "conversation-open-coordinator", "conversation-navigation-state", "read-receipts", "channel-directory", "group-settings", "channel-feed", "channel-settings", "typing-presence", "voice-messages", "admin-commands", "legacy-entrypoint-registry", "favorites", "lite-writer", "local-music"] });
 window.__rimMarkAppModulesReady?.();
-window.dispatchEvent(new CustomEvent("rim:ready", { detail: { version: "4.1.8-iteration.174" } }));
+window.dispatchEvent(new CustomEvent("rim:ready", { detail: { version: "4.1.8-iteration.178" } }));
