@@ -1301,7 +1301,9 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     list.innerHTML = posts.map(p => {
       const initial = (p.author || 'Р')[0].toUpperCase();
       const views = p.views || 0;
-      const comments = (loadFeedComments()[p.id] || []).length;
+      const comments = Number(p.commentCount ?? (loadFeedComments()[p.id] || []).length);
+      const likes = Number(p.likeCount || 0);
+      const liked = p.likedByMe === true;
       const media = p.mediaUrl
         ? `<div class="rim-feed-post-media"><img src="${p.mediaUrl}" alt="" /></div>`
         : '';
@@ -1318,12 +1320,23 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
         ${media}
         <div class="rim-feed-post-stats">
           <span class="rim-feed-stat" data-action="comments" data-post-id="${p.id}">💬 ${comments}</span>
+          <button type="button" class="rim-feed-stat rim-feed-like" data-action="like" data-post-id="${p.id}" aria-pressed="${liked}" style="background:none;border:0;color:inherit;font:inherit;cursor:pointer;padding:0">${liked ? '♥' : '♡'} ${likes}</button>
           <span class="rim-feed-stat">👁 ${views}</span>
         </div>
       </article>`;
     }).join('');
     list.querySelectorAll('[data-action="comments"]').forEach(el => {
       el.addEventListener('click', () => openFeedComments(el.getAttribute('data-post-id')));
+    });
+    list.querySelectorAll('[data-action="like"]').forEach(el => {
+      el.addEventListener('click', async () => {
+        if (el.disabled) return;
+        el.disabled = true;
+        const ok = await sbToggleFeedLike(el.getAttribute('data-post-id'));
+        if (ok) await window.renderFeedList?.();
+        else if (typeof toast === 'function') toast('Не удалось сохранить реакцию. Проверьте подключение.');
+        el.disabled = false;
+      });
     });
   };
 
@@ -2205,8 +2218,12 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       if (typeof toast === 'function') toast('Напишите текст или добавьте медиа');
       return;
     }
+    if (mediaUrl) {
+      if (typeof toast === 'function') toast('Загрузка медиа в общую ленту ещё не подключена. Текстовые публикации уже сохраняются в Supabase.');
+      return;
+    }
     if (!text) {
-      if (typeof toast === 'function') toast('Публикация только с медиа пока не поддерживается серверной лентой.');
+      if (typeof toast === 'function') toast('Напишите текст публикации.');
       return;
     }
     const remote = await sbCreateFeedPost(text);
