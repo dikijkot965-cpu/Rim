@@ -18,6 +18,7 @@ on:
       - 'scripts/build-cloudflare.mjs'
       - 'scripts/supabase-browser-entry.js'
       - 'src/composition/shell-surface.js'
+      - 'src/app.js'
   pull_request:
     branches: [main]
   workflow_dispatch:
