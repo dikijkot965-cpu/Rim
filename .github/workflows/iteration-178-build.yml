@@ -1,12 +1,20 @@
 name: RIM Iteration 178 build
 on:
   push:
-    branches: [feat/iteration-176-zladen-feed]
+    branches: [feat/iteration-176-zladen-feed, main]
+    paths:
+      - 'src/application/auth-form-controller.js'
+      - 'src/application/telegram-auth-service.js'
+      - 'assets/js/rim-runtime-bootstrap.js'
+      - 'assets/js/rim-auth-zladen-bridge.js'
+      - 'tests/auth-form-controller-session-sync.test.js'
+      - 'tests/iteration-175-auth-feed-zladen.test.js'
+      - '.github/workflows/iteration-178-build.yml'
   pull_request:
     branches: [main]
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 defaults:
   run:
     shell: bash
@@ -32,6 +40,18 @@ jobs:
       - run: npm test
       - run: npm run test:e2e:relay
       - run: npm run build:cloudflare
+      - name: Publish generated browser assets to main
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/js/rim-app.bundle.js assets/js/e2e/sqlite-worker.js assets/js/e2e/sqlite3.wasm index.html
+          if git diff --cached --quiet; then
+            echo "Generated browser assets are already current."
+          else
+            git commit -m "Build RIM browser assets"
+            git push origin HEAD:main
+          fi
       - name: Package complete project
         run: |
           zip -qr RIM_4.1.8_ITERATION_178_ZLADEN_FEED.zip . -x './.git/*' './.env' './.env.*' './**/.env' './**/.env.*'
