@@ -1,8 +1,9 @@
-RIM 4.1.8 — Iteration 176 (Zladen Control Center + Feed Media)
-Base: RIM 4.1.8 Iteration 175.
-Zladen: added an in-group admin console with command shortcuts, validated message-trigger and join-greeting forms, trigger deletion, and custom command dispatch. The console is restricted to group owners/admins and refuses E2E required/pending scopes. Production already contains the server-side moderation, ranks/permissions, virtual points, shop/inventory/market, polls, reminders, clan and trigger handlers; reminder scheduler is now enabled.
-Feed: added private Supabase Storage bucket feed-media with visibility-aware RLS, image/video/audio/PDF/text upload, signed URL rendering, saved-post toggle and a Saved feed tab. Existing following/recommended feeds, likes and comments remain.
-Database: pg_cron installed and active; Zladen reminder scheduler migration 171 applied; feed media storage policies/bucket applied. SQL migration files in this branch match the actual production migration versions.
-E2E: no Signal Protocol, relay, device key, encryption, E2E SQL, or E2E behavior changes. The new bot console explicitly blocks required/pending E2E conversations.
-Validation: GitHub Actions workflow will run project integrity, syntax, unit tests and Cloudflare build and produce a ZIP + SHA-256 artifact.
-Known limits: media uploads capped at 25 MB with allowlisted MIME types; Android real-device smoke and real-account group acceptance remain manual checks.
+RIM 4.1.8 — Iteration 177 (Zladen Social Games + Personalized Feed + Imperial Controls)
+Base: RIM 4.1.8 Iteration 176.
+Zladen: added safe group mini-games (/games, /roll, /random, /choose, /yesno, /percent, /who, /pair, /say), neutral social actions (/highfive, /handshake, /congrats, /praise, /apologize), and per-group game activity stats. No wagering, cash stakes or romantic roleplay. Commands skip E2E pending/required scopes.
+Feed: added multi-attachment posts, inline attachment placement, paste/drop image attachments, limited bold/italic formatting, post topic selection, explicit interest preferences, muted topics/authors and personalized ranking from topic preferences, likes, comments, recency and follows. Comments remain a simple flat thread.
+Imperial panel: server-backed searchable channel/group directory (up to 1,000 rows), collapsible cards, per-space image/video upload controls enforced by Storage RLS, group/channel welcome notifications, global new-user welcome and individual/all-user system notices.
+SDK: restored from the verified offline bootstrap artifact; @open-e2ee/signal-protocol-sdk 14.7.0 SHA-512 verified; idb 8.0.3 and esbuild 0.27.0 restored. The RIM root package-lock remains intact; SDK tarball is stored in vendor/.
+Production Supabase: migration 20261124094152 (rim_iteration_177_imperial_controls) and migration 20261124094718 (rim_iteration_177_zladen_social_games) applied. E2E protocol and E2E SQL were not changed.
+Validation: project check, syntax check, 688 Node tests, two E2E relay tests and Cloudflare build passed. Android real-device and real-account acceptance remain manual.
+Known limits: not full Iris parity; see ZLADEN_IRIS_PARITY_AUDIT.md. Admin notices are RIM in-app notifications, not DMs. The feed has no full WYSIWYG editor, nested comments, or complete creator studio yet.

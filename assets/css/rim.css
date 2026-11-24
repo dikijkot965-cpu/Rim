@@ -3061,3 +3061,28 @@ body[data-theme="light"] .composer.grok-style .send-btn {
 .rim-feed-compose-preview {
   overflow-wrap: anywhere;
 }
+
+/* Iteration 177 — richer feed attachments and expanded imperial controls. */
+.rim-feed-post-body { overflow-wrap:anywhere; line-height:1.55; }
+.rim-feed-post-body strong { font-weight:800; }
+.rim-feed-post-body em { font-style:italic; }
+.rim-feed-post-media { margin:10px 0; max-width:100%; }
+.rim-feed-post-media img,.rim-feed-post-media video { display:block; width:100%; max-height:560px; object-fit:contain; border-radius:14px; background:rgba(0,0,0,.16); }
+.rim-feed-post-media audio { width:100%; }
+.rim-feed-post-media figcaption { margin-top:5px; font-size:11px; opacity:.68; overflow-wrap:anywhere; }
+.rim-feed-pending-item { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:7px 9px; border:1px solid var(--rim-border,rgba(255,255,255,.12)); border-radius:10px; margin-top:6px; font-size:12px; }
+.rim-feed-pending-item button { flex:none; border:0; border-radius:8px; padding:5px 8px; background:rgba(180,70,60,.16); color:inherit; }
+.rim-imp-item.is-collapsed .rim-imp-item-details { display:none; }
+.rim-imp-item-details { padding-top:8px; }
+#rimImpViewBroadcast .rim-imp-item { display:flex; flex-direction:column; gap:8px; }
+#rimImpViewBroadcast .field { width:100%; margin-top:8px; }
+#rimImpViewBroadcast .primary-btn { width:100%; margin-top:8px; }
+#rimImpGroupList .rim-imp-item-sub { overflow-wrap:anywhere; }
+.rim-feed-interest-label { padding:8px 14px 4px; font-size:11px; opacity:.68; }
+.rim-feed-topics { display:flex; gap:7px; overflow-x:auto; padding:6px 12px 10px; scrollbar-width:none; }
+.rim-feed-topics::-webkit-scrollbar { display:none; }
+.rim-feed-topic { flex:none; border:1px solid var(--rim-border,rgba(255,255,255,.14)); border-radius:999px; padding:7px 11px; background:transparent; color:inherit; font-size:12px; white-space:nowrap; }
+.rim-feed-topic.selected { border-color:var(--rim-accent,#b89b61); background:rgba(184,155,97,.16); }
+.rim-feed-compose-topics { display:flex; flex-wrap:wrap; gap:8px; padding:8px 12px; border-top:1px solid var(--rim-border,rgba(255,255,255,.1)); }
+.rim-feed-compose-topic-title { width:100%; font-size:11px; opacity:.65; }
+.rim-feed-compose-topic { display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:4px 7px; border-radius:8px; background:rgba(128,128,128,.09); }

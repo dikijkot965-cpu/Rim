@@ -1,0 +1,57 @@
+name: RIM Iteration 177 build
+
+on:
+  push:
+    branches:
+      - feat/iteration-176-zladen-feed
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  validate-and-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.12.0'
+          cache: npm
+      - name: Install pinned dependencies
+        run: npm ci
+      - name: Verify restored Signal SDK and browser stores
+        run: |
+          node --input-type=module -e "import('@open-e2ee/signal-protocol-sdk').then(m => { if (typeof m.createSignalProtocolClient !== 'function') process.exit(2); console.log('Signal SDK entrypoint OK'); })"
+          test -f node_modules/@open-e2ee/signal-protocol-sdk/dist/local/store/web-sqlite/index.js
+          test -f node_modules/@open-e2ee/signal-protocol-sdk/dist/local/store/web/index.js
+      - name: Project integrity check
+        run: npm run check
+      - name: JavaScript syntax check
+        run: npm run check:syntax
+      - name: Unit tests
+        run: npm test
+      - name: E2E relay integration tests
+        run: npm run test:e2e:relay
+      - name: Build Cloudflare assets
+        run: npm run build:cloudflare
+      - name: Package complete source, dependencies and deployment output
+        run: |
+          zip -qr RIM_4.1.8_ITERATION_177_ZLADEN_FEED_ADMIN.zip . -x './.git/*' './.env' './.env.*' './**/.env' './**/.env.*' './RIM_4.1.8_ITERATION_177_ZLADEN_FEED_ADMIN.zip' './RIM_4.1.8_ITERATION_177_ZLADEN_FEED_ADMIN.zip.sha256'
+          sha256sum RIM_4.1.8_ITERATION_177_ZLADEN_FEED_ADMIN.zip > RIM_4.1.8_ITERATION_177_ZLADEN_FEED_ADMIN.zip.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RIM_4.1.8_ITERATION_177_ZLADEN_FEED_ADMIN
+          path: |
+            RIM_4.1.8_ITERATION_177_ZLADEN_FEED_ADMIN.zip
+            RIM_4.1.8_ITERATION_177_ZLADEN_FEED_ADMIN.zip.sha256
+          if-no-files-found: error
+          retention-days: 14

@@ -1,5 +1,5 @@
 {
-  "version": "4.1.8-iteration.176",
+  "version": "4.1.8-iteration.177",
   "layers": {
     "core": [
       "src/core/config.js",
@@ -153,7 +153,7 @@
   ],
   "verification": {
     "command": "CI: npm run check; npm run check:syntax; npm test; npm run build:cloudflare",
-    "node_tests": 679,
+    "node_tests": 688,
     "browser_e2e": "Not run on a real Android browser; no Playwright browser runtime is installed in the working environment.",
     "production_supabase_migration": "E2E migrations through Iteration 162 are already applied to the active project; Iteration 163 adds no SQL migration.",
     "message_history": "newest-first cursor pagination, page size 50, incremental Realtime INSERT/UPDATE/DELETE",
@@ -220,7 +220,10 @@
     "zladen_system_bot": "Production has Zladen command, moderation, economy, trigger, clan and reminder handlers; migrations 136–141, 170 and 171 are applied, pg_cron runs the reminder dispatcher every minute, and rim-zladen Edge Function is ACTIVE. Iteration 176 adds the group admin command console and trigger forms.",
     "message_search": "Scoped plaintext-only conversation search with bounded context jump; server search explicitly refuses E2E/pending/unknown scopes. Local encrypted E2E search remains future work.",
     "chat_startup": "Classic bootstrap waits for modular app readiness before authenticated initialization; 20-second visible timeout state prevents an endless initial chat-list placeholder.",
-    "browser_bundle": "Root index.html loads assets/js/rim-app.bundle.js; pinned Signal SDK is bundled and SQLite worker/WASM are same-origin root assets."
+    "browser_bundle": "Root index.html loads assets/js/rim-app.bundle.js; pinned Signal SDK is bundled and SQLite worker/WASM are same-origin root assets.",
+    "zladen_social_games": "Iteration 177: safe group mini-games and neutral social actions; no wagering or E2E execution.",
+    "imperial_controls": "Iteration 177: superadmin-only searchable channel/group directory, server-enforced media controls, and configurable welcome notifications.",
+    "feed_personalization": "Iteration 177: topic preferences, muted topics/authors, personalized ranking and feed event telemetry."
   },
   "iteration_135": {
     "bot_runtime": "source workspace and isolated-vm runtime prepared; runtime host not deployed",
@@ -254,5 +257,12 @@
     "database": "Production pg_cron enabled; reminder scheduler migration 171 applied; feed-media storage migration applied; migration files aligned to actual Supabase history.",
     "e2e": "No Signal Protocol, relay, device-key, encryption, or E2E schema changes. Bot command console refuses required and pending E2E groups.",
     "known_limits": "No real-device Android smoke test yet; no real-account Zladen group acceptance test yet. Feed media limited to 25 MB and allowlisted MIME types."
+  },
+  "iteration_177": {
+    "zladen": "Added group mini-games (/games, /roll, /random, /choose, /yesno, /percent, /who, /pair, /say), neutral social actions, and activity stats; no wagers; fail closed in E2E pending/required.",
+    "feed": "Multiple inline attachments, paste/drop, bold/italic, post topics, explicit interest preferences, personalized ranking and muted topics/authors.",
+    "imperial": "Server-backed searchable channel/group directory, collapsible cards, per-space image/video controls enforced by Storage RLS, welcome notifications and admin system notices.",
+    "sdk": "Restored exact SDK 14.7.0 from verified offline bootstrap artifact; npm dependencies restored; root lockfile unchanged.",
+    "e2e": "Signal Protocol and E2E SQL unchanged; relay integration tests pass."
   }
 }
