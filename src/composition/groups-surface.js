@@ -5,6 +5,7 @@
  */
 import { GroupSettingsController } from '../application/group-settings-controller.js';
 import { GroupCommandService } from '../application/group-command-service.js';
+import { ZladenGroupConsoleController } from '../application/zladen-group-console-controller.js';
 
 function reportGroupCommand(result, { notify, logger } = {}) {
   if (!result) return result;
@@ -44,9 +45,22 @@ export function bindGroupsSurface({
   container.value('groupSettings', groupSettings);
   win.__RIM_GROUP_SETTINGS_OWNED = true;
   win.rimOpenGroupSettings = id => groupSettings.open(id);
+  const zladenConsole = new ZladenGroupConsoleController({
+    client,
+    getUser,
+    zladenService: container.get('zladenBot'),
+    notify,
+    documentRef: doc,
+    windowRef: win,
+    logger
+  });
+  container.value('zladenGroupConsole', zladenConsole);
+  win.rimOpenZladenConsole = id => zladenConsole.open(id);
   lifecycle?.add?.(() => {
     win.__RIM_GROUP_SETTINGS_OWNED = false;
+    win.rimOpenZladenConsole = undefined;
     groupSettings.dispose();
+    zladenConsole.dispose();
   });
 
   const groupCommands = new GroupCommandService({
