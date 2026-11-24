@@ -38,6 +38,7 @@ jobs:
         run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
       - name: Install pinned dependencies
         run: npm ci --no-audit --no-fund
+      - run: npm run build:cloudflare
       - name: Verify Signal SDK and browser stores
         run: |
           node --input-type=module -e "import('@open-e2ee/signal-protocol-sdk').then(m => { if (typeof m.createSignalProtocolClient !== 'function') process.exit(2); console.log('Signal SDK entrypoint OK'); })"
@@ -47,7 +48,6 @@ jobs:
       - run: npm run check:syntax
       - run: npm test
       - run: npm run test:e2e:relay
-      - run: npm run build:cloudflare
       - name: Publish generated browser assets to main
         if: github.ref == 'refs/heads/main'
         run: |
