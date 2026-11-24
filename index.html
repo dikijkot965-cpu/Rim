@@ -841,7 +841,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     list.innerHTML = posts.map(p => {
       const initial = (p.author || 'Р')[0].toUpperCase();
       const views = p.views || 0;
-      const comments = (loadFeedComments()[p.id] || []).length;
+      const comments = Number.isFinite(Number(p.commentsCount)) ? Number(p.commentsCount) : (loadFeedComments()[p.id] || []).length;
       const media = p.mediaUrl
         ? `<div class="rim-feed-post-media"><img src="${p.mediaUrl}" alt="" /></div>`
         : '';
@@ -1910,6 +1910,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       const postIds = rows.map(r => r.id);
       let profiles = {};
       let likes = {};
+      let commentCounts = {};
       if (authorIds.length) {
         const pr = await db.from('profiles').select('id,username,display_name').in('id', authorIds);
         if (!pr.error) for (const p of pr.data || []) profiles[String(p.id)] = p;
@@ -1927,6 +1928,11 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
           console.warn('feed_post_likes', lr.error.message);
         }
       }
+      if (postIds.length) {
+        const cr = await db.from('feed_post_comments').select('post_id').in('post_id', postIds).is('deleted_at', null);
+        if (!cr.error) for (const item of cr.data || []) commentCounts[String(item.post_id)] = (commentCounts[String(item.post_id)] || 0) + 1;
+        else console.warn('feed_post_comments', cr.error.message);
+      }
       const result = rows.map(r => {
         const p = profiles[String(r.author_id)] || {};
         const like = likes[String(r.id)] || { count: 0, likedByMe: false };
@@ -1939,6 +1945,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
           views: 0,
           likesCount: like.count,
           likedByMe: like.likedByMe,
+          commentsCount: commentCounts[String(r.id)] || 0,
           mediaUrl: null,
           fromChannel: false,
           isPinned: !!r.is_pinned,
@@ -2214,22 +2221,34 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       if (typeof toast === 'function') toast('Напишите текст или добавьте медиа');
       return;
     }
-    const remote = text ? await sbCreateFeedPost(text) : null;
-    if (remote) {
+    const hasRemoteSession = !!rimDb() && !!rimUserId();
+    if (hasRemoteSession) {
+      if (mediaUrl) {
+        if (typeof toast === 'function') toast('Загрузка медиа в ленту пока не подключена. Опубликуйте текст без вложения.');
+        return;
+      }
+      const remote = text ? await sbCreateFeedPost(text) : null;
+      if (!remote) {
+        if (typeof toast === 'function') toast('Не удалось опубликовать пост в Supabase. Проверьте соединение и права доступа.');
+        return;
+      }
       const posts = loadFeedPosts();
       posts.unshift({
         id: remote.id,
         author: currentUserLabel(),
         text,
-        mediaUrl,
+        mediaUrl: null,
         views: 0,
+        likesCount: 0,
+        likedByMe: false,
+        commentsCount: 0,
         createdAt: remote.createdAt,
         _remote: true
       });
       saveFeedPosts(posts);
       closeFeedCompose();
       window.renderFeedList?.();
-      if (typeof toast === 'function') toast('Пост опубликован (Supabase)');
+      if (typeof toast === 'function') toast('Пост опубликован в Supabase');
       return;
     }
     return _publishFeedPost();
@@ -2253,8 +2272,12 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     const postId = sheet?.dataset?.postId;
     const text = (input?.value || '').trim();
     if (!postId || !text) return;
-    const remote = await sbAddComment(postId, text);
-    if (remote) {
+    if (rimDb() && rimUserId()) {
+      const remote = await sbAddComment(postId, text);
+      if (!remote) {
+        if (typeof toast === 'function') toast('Не удалось сохранить комментарий в Supabase.');
+        return;
+      }
       input.value = '';
       openFeedComments(postId);
       if (typeof toast === 'function') toast('Комментарий отправлен');
