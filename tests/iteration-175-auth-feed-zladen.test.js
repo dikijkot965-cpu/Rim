@@ -23,11 +23,15 @@ test('Iteration 178 retains the Iteration 175 auth/feed integration baseline', (
 });
 
 test('Telegram login has a callable OIDC PKCE handler and validates callback state', () => {
-  assert.match(bridge, /window\.signInWithTelegram\s*=\s*signInWithTelegram/);
-  assert.match(bridge, /code_challenge_method:\s*'S256'/);
-  assert.match(bridge, /saved\.state\s*!==\s*callback\.state/);
-  assert.match(bridge, /verifyOtp\(\{[\s\S]*type:\s*'magiclink'/);
-  assert.match(bridge, /db\.functions\.invoke\('telegram-auth'/);
+  const authController = readFileSync(resolve(root, 'src/application/auth-form-controller.js'), 'utf8');
+  const telegramService = readFileSync(resolve(root, 'src/application/telegram-auth-service.js'), 'utf8');
+  assert.match(authController, /win\.signInWithTelegram\s*=\s*\(\) => this\.signInWithTelegram\(\)/);
+  assert.match(telegramService, /code_challenge_method:\s*'S256'/);
+  assert.match(telegramService, /state !== pending\.state/);
+  assert.match(telegramService, /verifyOtp\(\{[\s\S]*type:\s*'magiclink'/);
+  assert.match(telegramService, /__RIM_TELEGRAM_OIDC_CALLBACK/);
+  assert.doesNotMatch(bridge, /window\.signInWithTelegram\s*=/);
+  assert.doesNotMatch(bridge, /finishTelegramCallback/);
   assert.match(index, /__RIM_TELEGRAM_OIDC_CALLBACK/);
 });
 
