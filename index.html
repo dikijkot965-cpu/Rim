@@ -503,6 +503,7 @@
 window.__RIM_LEGACY_CONTEXT = Object.freeze({
   db,
   getUser: () => currentUser,
+  setUser: user => { currentUser = user || null; window.currentUser = currentUser; try { window.__rimMirrorLegacyState?.(); } catch (_) {} },
   getActiveConversation: () => activeConversation,
   setActiveConversation: conversation => {
     activeConversation = conversation || null;
