@@ -7,7 +7,7 @@ Authentication recovery, Supabase-backed feed corrections, and automatic Zladen 
 - Added Telegram OIDC authorization-code flow with PKCE, state and nonce validation.
 - Exchanges Telegram code through the existing `telegram-auth` Edge Function and verifies the returned Supabase magic-link token hash.
 - Captures Telegram callback parameters before Supabase initializes its own URL detector.
-- Added a bounded fallback to the classic bootstrap when the modular bundle fails to signal readiness, preventing a valid email session from remaining behind the login screen indefinitely.
+- Added a separate Telegram/Zladen bridge without expanding the classic bootstrap; the packaging workflow installs pinned dependencies and builds the modular app bundle before publishing the ZIP, so the module-ready gate receives the actual app entrypoint.
 - Added visible errors and button-state recovery for email sign-in.
 
 ## Feed
@@ -19,7 +19,7 @@ Authentication recovery, Supabase-backed feed corrections, and automatic Zladen 
 - Refreshes remote cache even when the server returns an empty result, preventing stale local remote posts from leaking into other feed modes.
 
 ## Zladen
-- Calls the existing authenticated `rim-zladen` Edge Function after login to provision and install the system bot.
+- Calls the existing authenticated `rim-zladen` Edge Function after login/initial session restore to provision and install the system bot.
 - Existing production triggers already implement direct/group commands, moderation, economy, triggers and clan commands. The registry currently has no bot user, so first successful install will provision it using the unique superadmin role.
 
 ## Database
