@@ -865,6 +865,11 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
   // ========== Feed (local until SQL) ==========
   const FEED_KEY = 'rim_feed_posts_v1';
   const FEED_COMMENTS_KEY = 'rim_feed_comments_v1';
+  const FEED_DRAFT_KEY='rim_feed_draft_v2';
+  function feedDraftStorageKey(){return FEED_DRAFT_KEY+':'+(rimUserId()||'guest');}
+  function saveFeedDraft(){const ta=document.getElementById('rimFeedComposeText');if(!ta)return;const topics=Array.from(document.querySelectorAll('[data-feed-compose-topic]:checked')).map(n=>n.value).slice(0,8);try{localStorage.setItem(feedDraftStorageKey(),JSON.stringify({text:ta.value||'',topicIds:topics,updatedAt:Date.now()}));}catch{}}
+  function restoreFeedDraft(){const ta=document.getElementById('rimFeedComposeText');if(!ta)return;try{const d=JSON.parse(localStorage.getItem(feedDraftStorageKey())||'null');if(!d)return;ta.value=String(d.text||'').slice(0,8000);const selected=new Set(Array.isArray(d.topicIds)?d.topicIds.map(String):[]);document.querySelectorAll('[data-feed-compose-topic]').forEach(n=>{n.checked=selected.has(String(n.value));});}catch{}}
+  function clearFeedDraft(){try{localStorage.removeItem(feedDraftStorageKey());}catch{}}
 
   function loadFeedPosts() {
     try { return JSON.parse(localStorage.getItem(FEED_KEY) || '[]'); } catch { return []; }
@@ -1026,7 +1031,8 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     if (fileInput) fileInput.value = '';
     modal.classList.remove('hidden');
     modal.setAttribute('aria-hidden', 'false');
-    void loadFeedTopics();
+    void loadFeedTopics().then(()=>restoreFeedDraft()).catch(()=>restoreFeedDraft());
+    restoreFeedDraft();
     setTimeout(() => ta?.focus(), 50);
   }
 
@@ -1172,6 +1178,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
         ta.setRangeText((a && ta.value[a-1] !== '\n' ? '\n' : '') + token + '\n', a, b, 'end');
       }
     }
+    saveFeedDraft();
     if (preview) {
       preview.replaceChildren();
       (modal._pendingFiles || []).forEach((file, index) => {
@@ -1198,6 +1205,8 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
   document.getElementById('rimFeedImageInput')?.addEventListener('change', e => { setFeedPendingFiles(e.target.files); e.target.value=''; });
   document.getElementById('rimFeedFileInput')?.addEventListener('change', e => { setFeedPendingFiles(e.target.files); e.target.value=''; });
   const feedTextEditor = document.getElementById('rimFeedComposeText');
+  feedTextEditor?.addEventListener('input',saveFeedDraft);
+  document.getElementById('rimFeedComposeTopics')?.addEventListener('change',saveFeedDraft);
   feedTextEditor?.addEventListener('paste', event => {
     const files = Array.from(event.clipboardData?.items || []).map(item => item.getAsFile?.()).filter(Boolean);
     if (files.length) { event.preventDefault(); setFeedPendingFiles(files); }
@@ -1224,12 +1233,11 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
   // ========== Channel ↔ Feed bridge (UI only, no SQL) ==========
   const CHANNEL_FEED_PREF = 'rim_channel_also_to_feed';
 
-  function getChannelFeedPref() {
-    try { return localStorage.getItem(CHANNEL_FEED_PREF) === '1'; } catch { return false; }
-  }
-  function setChannelFeedPref(v) {
-    try { localStorage.setItem(CHANNEL_FEED_PREF, v ? '1' : '0'); } catch {}
-  }
+  function channelFeedPrefKey() { return CHANNEL_FEED_PREF + ':' + (rimUserId() || 'guest'); }
+  function getChannelFeedPref() { try { const scoped=localStorage.getItem(channelFeedPrefKey()); return scoped==null ? localStorage.getItem(CHANNEL_FEED_PREF)==='1' : scoped==='1'; } catch { return false; } }
+  function setChannelFeedPref(v) { try { localStorage.setItem(channelFeedPrefKey(),v?'1':'0'); } catch {} }
+  window.rimGetChannelFeedPref=getChannelFeedPref;
+  window.rimSetChannelFeedPref=setChannelFeedPref;
 
   // Floating preference chip near composer when in a channel-like context
   function ensureChannelFeedChip() {
@@ -1291,8 +1299,8 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       } catch {}
       const result = await orig.apply(this, args);
       try {
-        if (shouldMirror && pendingText) {
-          window.rimAddMessageToFeed?.(pendingText, currentUserLabel());
+        if (result?.ok === true && shouldMirror && pendingText) {
+          await window.rimAddMessageToFeed?.(pendingText, currentUserLabel());
         }
       } catch {}
       return result;
@@ -1305,21 +1313,13 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
   setTimeout(wrapSendMessageForFeed, 3000);
 
   // Expose helper for future "Add to feed" from message menu
-  window.rimAddMessageToFeed = function(text, author) {
-    if (!text) return;
-    const posts = loadFeedPosts();
-    posts.unshift({
-      id: 'fp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-      author: author || currentUserLabel(),
-      text: String(text).slice(0, 4000),
-      mediaUrl: null,
-      views: 0,
-      createdAt: Date.now(),
-      fromChannel: true
-    });
-    saveFeedPosts(posts);
-    if (typeof toast === 'function') toast('Добавлено в Ленту');
-    renderFeedList();
+  window.rimAddMessageToFeed = async function(text, author) {
+    const body=String(text||'').trim(); if(!body)return null;
+    const attributed=author&&author!==currentUserLabel()?'Автор исходного сообщения: '+String(author).slice(0,120)+'\n\n'+body:body;
+    const remote=await sbCreateFeedPost(attributed,[]);
+    if(!remote){if(typeof toast==='function')toast('Не удалось добавить сообщение в общую Ленту.');return null;}
+    const posts=loadFeedPosts();posts.unshift({id:remote.id,author:currentUserLabel(),text:attributed,mediaItems:[],views:0,likesCount:0,commentsCount:0,createdAt:remote.createdAt,_remote:true,fromChannel:true});
+    saveFeedPosts(posts);if(typeof toast==='function')toast('Сообщение добавлено в общую Ленту');window.renderFeedList?.();return remote;
   };
 
   setInterval(updateChannelFeedChipVisibility, 1500);
@@ -2203,23 +2203,13 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     }
   }
 
-  async function sbCreateFeedPost(text) {
-    const topicIds = arguments[1] || [];
-    const db = rimDb();
-    const uid = rimUserId();
-    if (!db || !uid) return null;
-    try {
-      const { data, error } = await db.from('feed_posts').insert({
-        author_id: uid,
-        body: String(text || '').slice(0, 8000),
-        topic_ids: Array.isArray(topicIds) ? topicIds.slice(0,8) : [],
-        visibility: 'public',
-        comments_enabled: true,
-        published_at: new Date().toISOString()
-      }).select('id,created_at').maybeSingle();
-      if (error || !data) { console.warn('feed post create', error?.message); return null; }
-      return { id: data.id, createdAt: Date.parse(data.created_at) || Date.now(), _remote: true };
-    } catch (error) { console.warn('feed post create', error); return null; }
+  async function sbCreateFeedPost(text, topicIds = [], source = null) {
+    const db=rimDb(),uid=rimUserId();if(!db||!uid)return null;
+    try{const payload={author_id:uid,body:String(text||'').slice(0,8000),topic_ids:Array.isArray(topicIds)?topicIds.slice(0,8):[],visibility:'public',comments_enabled:true,published_at:new Date().toISOString()};
+      if(source?.channelId&&source?.postId){payload.source_channel_id=String(source.channelId);payload.source_channel_post_id=String(source.postId);}
+      const {data,error}=await db.from('feed_posts').insert(payload).select('id,created_at').maybeSingle();
+      if(error||!data){console.warn('feed post create',error?.message);return null;}return {id:data.id,createdAt:Date.parse(data.created_at)||Date.now(),_remote:true};
+    }catch(error){console.warn('feed post create',error);return null;}
   }
 
   async function sbUploadFeedMedia(postId, file) {
@@ -2270,6 +2260,22 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     }
     return { path, url: signed.data.signedUrl, mediaType: type, mediaName: String(file.name || '').slice(0, 240) };
   }
+
+  async function sbPublishChannelPostToFeed(channel,post){
+    const db=rimDb(),uid=rimUserId();if(!db||!uid)return {ok:false,error:'Для публикации в общую Ленту войдите в РИМ.'};
+    if(!channel?.id||channel.is_public!==true||channel.e2e_mode==='required'||!post?.id)return {ok:false,error:'Перенос разрешён только для обычных публикаций публичного канала.'};
+    const existing=await db.from('feed_posts').select('id').eq('source_channel_post_id',post.id).maybeSingle();if(!existing.error&&existing.data?.id)return {ok:true,duplicate:true,id:existing.data.id};
+    const postBody=String(post.body||'').trim(),sourceAuthor=post.sourceAuthor||post.author_name||'автор канала';
+    const body=(postBody?postBody+'\n\n':'')+'— Из канала «'+String(channel.title||'Канал').slice(0,120)+'» · '+String(sourceAuthor).slice(0,120);
+    const remote=await sbCreateFeedPost(body,[],{channelId:channel.id,postId:post.id});
+    if(!remote){const again=await db.from('feed_posts').select('id').eq('source_channel_post_id',post.id).maybeSingle();if(!again.error&&again.data?.id)return {ok:true,duplicate:true,id:again.data.id};return {ok:false,error:'Supabase не принял публикацию. Проверьте права и соединение.'};}
+    let media=null;
+    if(post.image_path){const signed=await db.storage.from('chat-files').createSignedUrl(post.image_path,1800);if(signed.error||!signed.data?.signedUrl){await db.from('feed_posts').delete().eq('id',remote.id).eq('author_id',uid);return {ok:false,error:'Не удалось прочитать исходное изображение канала.'};}
+      try{const response=await fetch(signed.data.signedUrl);if(!response.ok)throw new Error('HTTP '+response.status);const blob=await response.blob(),mime=blob.type||'image/jpeg';const ext=({'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif'})[mime];if(!ext||blob.size>25*1024*1024)throw new Error('Неподдерживаемый формат или размер изображения.');media=await sbUploadFeedMedia(remote.id,new File([blob],'channel-'+post.id+'.'+ext,{type:mime}));if(!media)throw new Error('Не удалось сохранить изображение в хранилище Ленты.');}
+      catch(error){await db.from('feed_posts').delete().eq('id',remote.id).eq('author_id',uid);return {ok:false,error:error?.message||'Не удалось перенести изображение.'};}}
+    const posts=loadFeedPosts();posts.unshift({id:remote.id,author:currentUserLabel(),text:body,mediaItems:media?[{url:media.url,mediaType:media.mediaType,mediaName:media.mediaName}]:[],mediaUrl:media?.url||null,mediaType:media?.mediaType||null,mediaName:media?.mediaName||'',views:0,likesCount:0,commentsCount:0,createdAt:remote.createdAt,_remote:true,fromChannel:true});saveFeedPosts(posts);window.renderFeedList?.();return {ok:true,duplicate:false,id:remote.id};
+  }
+  window.rimPublishChannelPostToFeed=sbPublishChannelPostToFeed;
 
   async function sbToggleFeedLike(postId) {
     const db = rimDb();
@@ -2610,6 +2616,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
         _remote: true
       });
       saveFeedPosts(posts);
+      clearFeedDraft();
       closeFeedCompose();
       window.renderFeedList?.();
       if (typeof toast === 'function') toast('Пост опубликован в Supabase');
@@ -2619,7 +2626,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       if (typeof toast === 'function') toast('Для загрузки медиа необходимо войти в аккаунт РИМ.');
       return;
     }
-    return _publishFeedPost();
+    const localResult=_publishFeedPost();clearFeedDraft();return localResult;
   };
 
   const _openFeedComments = openFeedComments;

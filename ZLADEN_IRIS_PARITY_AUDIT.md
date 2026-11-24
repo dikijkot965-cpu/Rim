@@ -47,3 +47,9 @@
 7. Расширение bot workspace после отдельного threat-model и sandbox-аудита.
 
 **Итог:** Злыдя уже больше простого модератора, но это ещё не полный аналог Iris. Особенно отсутствуют сетки чатов, каталог/география, полный social graph, VIP и Business. Эти пробелы не следует считать реализованными только потому, что соответствующие пункты есть в общем списке функций.
+
+## Iteration 178
+- Public channel posts can be manually cross-posted by managers or mirrored at publish time; source references are unique and server-validated. Private and E2E channels are excluded.
+- Home feed text and selected topics autosave per account. File bytes are not persisted in local drafts.
+- Zladen gained configurable link filtering and administrator-defined word/phrase filters: `/filter links on|off`, `/filter word add|del`, `/filter words`, `/filter status`. Server-side enforcement skips E2E pending/required scopes.
+- Remaining Iris parity gaps include social relationships, cross-chat networks, community directory/geography, VIP/Business and a richer automatic moderation suite.

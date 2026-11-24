@@ -1,5 +1,5 @@
 {
-  "version": "4.1.8-iteration.177",
+  "version": "4.1.8-iteration.178",
   "layers": {
     "core": [
       "src/core/config.js",
@@ -153,7 +153,7 @@
   ],
   "verification": {
     "command": "CI: npm run check; npm run check:syntax; npm test; npm run build:cloudflare",
-    "node_tests": 688,
+    "node_tests": 697,
     "browser_e2e": "Not run on a real Android browser; no Playwright browser runtime is installed in the working environment.",
     "production_supabase_migration": "E2E migrations through Iteration 162 are already applied to the active project; Iteration 163 adds no SQL migration.",
     "message_history": "newest-first cursor pagination, page size 50, incremental Realtime INSERT/UPDATE/DELETE",
@@ -213,7 +213,7 @@
     ],
     "legacy_script_tags_remaining": [],
     "runtime_bootstrap": "assets/js/rim-runtime-bootstrap.js",
-    "e2e_crypto": "experimental primitives only; not integrated or enabled",
+    "e2e_crypto": "Signal SDK 14.7.0 and RIM Supabase Relay are connected to protected message paths; secret direct chats require e2e_mode=required and encrypted challenge/ACK readiness; no plaintext fallback for required scopes. Live two-account acceptance remains outstanding.",
     "chat_media_loading": "text paints before bounded asynchronous media URL hydration",
     "device_lock": "4-digit PIN, configurable 0/1/5/10/30 minute auto-lock grace, progressive local retry delay; legacy 8-digit PIN remains accepted",
     "e2e_scope_policy": "Direct conversations, private groups and private channels eligible; public channels excluded; required mode is trusted-deployment-only and rejects plaintext writes.",
@@ -264,5 +264,13 @@
     "imperial": "Server-backed searchable channel/group directory, collapsible cards, per-space image/video controls enforced by Storage RLS, welcome notifications and admin system notices.",
     "sdk": "Restored exact SDK 14.7.0 from verified offline bootstrap artifact; npm dependencies restored; root lockfile unchanged.",
     "e2e": "Signal Protocol and E2E SQL unchanged; relay integration tests pass."
+  },
+  "node_tests": 697,
+  "iteration_178": {
+    "zladen": "Configurable link and administrator-defined word/phrase filters with server-side pre-insert enforcement, metadata-only audit and E2E scope exclusion.",
+    "feed": "Public channel posts can be cross-posted into the home feed manually or during publish; source IDs are unique and server-validated. Home feed text/topics autosave per account.",
+    "privacy": "Private and E2E channels are excluded from cross-posting.",
+    "e2e": "No E2E implementation, relay, key, SDK or message-path changes in this iteration.",
+    "database": "Production migrations 20261124102503, 20261124103001 and 20261124103102 applied."
   }
 }

@@ -18,8 +18,8 @@ function between(source, start, end) {
   return source.slice(a, b);
 }
 
-test('Iteration 177 retains the Iteration 175 auth/feed integration baseline', () => {
-  assert.equal(packageJson.version, '4.1.8-iteration.177');
+test('Iteration 178 retains the Iteration 175 auth/feed integration baseline', () => {
+  assert.equal(packageJson.version, '4.1.8-iteration.178');
 });
 
 test('Telegram login has a callable OIDC PKCE handler and validates callback state', () => {
@@ -39,7 +39,7 @@ test('authenticated startup waits for the modular entrypoint and loads the auth 
 });
 
 test('feed reads only columns present in the deployed feed schema', () => {
-  const listPosts = between(index, 'async function sbListFeedPosts(mode)', 'async function sbCreateFeedPost(text)');
+  const listPosts = between(index, 'async function sbListFeedPosts(mode)', 'async function sbCreateFeedPost(text, topicIds = [], source = null)');
   assert.match(listPosts, /\.from\('feed_posts'\)/);
   assert.match(listPosts, /author_id,title,body,media_paths,visibility,comments_enabled,created_at,published_at,deleted_at,is_pinned/);
   assert.doesNotMatch(listPosts, /select\([^)]*\b(?:content|text)\b/);

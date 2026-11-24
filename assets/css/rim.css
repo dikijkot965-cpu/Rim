@@ -3086,3 +3086,7 @@ body[data-theme="light"] .composer.grok-style .send-btn {
 .rim-feed-compose-topics { display:flex; flex-wrap:wrap; gap:8px; padding:8px 12px; border-top:1px solid var(--rim-border,rgba(255,255,255,.1)); }
 .rim-feed-compose-topic-title { width:100%; font-size:11px; opacity:.65; }
 .rim-feed-compose-topic { display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:4px 7px; border-radius:8px; background:rgba(128,128,128,.09); }
+
+
+/* Iteration 178: explicit channel-to-feed destination choice. */
+.rim-cf-feed-mirror{display:flex;align-items:center;gap:9px;margin:10px 0 4px;padding:10px 12px;border:1px solid var(--border,rgba(127,127,127,.24));border-radius:12px;color:var(--text,inherit);font-size:13px;cursor:pointer}.rim-cf-feed-mirror input{width:17px;height:17px;accent-color:var(--accent,#8d7446)}

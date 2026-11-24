@@ -1,9 +1,5 @@
-RIM 4.1.8 — Iteration 177 (Zladen Social Games + Personalized Feed + Imperial Controls)
-Base: RIM 4.1.8 Iteration 176.
-Zladen: added safe group mini-games (/games, /roll, /random, /choose, /yesno, /percent, /who, /pair, /say), neutral social actions (/highfive, /handshake, /congrats, /praise, /apologize), and per-group game activity stats. No wagering, cash stakes or romantic roleplay. Commands skip E2E pending/required scopes.
-Feed: added multi-attachment posts, inline attachment placement, paste/drop image attachments, limited bold/italic formatting, post topic selection, explicit interest preferences, muted topics/authors and personalized ranking from topic preferences, likes, comments, recency and follows. Comments remain a simple flat thread.
-Imperial panel: server-backed searchable channel/group directory (up to 1,000 rows), collapsible cards, per-space image/video upload controls enforced by Storage RLS, group/channel welcome notifications, global new-user welcome and individual/all-user system notices.
-SDK: restored from the verified offline bootstrap artifact; @open-e2ee/signal-protocol-sdk 14.7.0 SHA-512 verified; idb 8.0.3 and esbuild 0.27.0 restored. The RIM root package-lock remains intact; SDK tarball is stored in vendor/.
-Production Supabase: migration 20261124094152 (rim_iteration_177_imperial_controls) and migration 20261124094718 (rim_iteration_177_zladen_social_games) applied. E2E protocol and E2E SQL were not changed.
-Validation: project check, syntax check, 688 Node tests, two E2E relay tests and Cloudflare build passed. Android real-device and real-account acceptance remain manual.
-Known limits: not full Iris parity; see ZLADEN_IRIS_PARITY_AUDIT.md. Admin notices are RIM in-app notifications, not DMs. The feed has no full WYSIWYG editor, nested comments, or complete creator studio yet.
+RIM 4.1.8 — Iteration 178 (Zladen + durable channel/feed bridge + creator drafts)
+Base: RIM 4.1.8 Iteration 177.
+Build: GitHub Actions; includes pinned Signal SDK dependencies and Cloudflare output.
+Production SQL: 20261124102503 channel/feed crossposts; 20261124103001 Zladen content filters; 20261124103102 filter hardening.
+E2E: no protocol, relay, key, SDK or message-path changes.
