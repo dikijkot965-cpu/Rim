@@ -211,7 +211,7 @@
       <span class="rim-feed-compose-hint muted">Фото, видео, файлы</span>
     </div>
     <input type="file" id="rimFeedImageInput" accept="image/*,video/*" hidden />
-    <input type="file" id="rimFeedFileInput" accept="*/*" hidden />
+    <input type="file" id="rimFeedFileInput" accept="application/pdf,text/plain,audio/*" hidden />
   </div>
 </div>
 
@@ -2089,7 +2089,11 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       return null;
     }
     const signed = await storage.createSignedUrl(path, 1800);
-    if (signed.error || !signed.data?.signedUrl) return null;
+    if (signed.error || !signed.data?.signedUrl) {
+      await db.from('rim_feed_post_media').delete().eq('post_id', postId).eq('storage_path', path);
+      await storage.remove([path]);
+      return null;
+    }
     return { path, url: signed.data.signedUrl, mediaType: type, mediaName: String(file.name || '').slice(0, 240) };
   }
 
@@ -2349,14 +2353,13 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     const ta = document.getElementById('rimFeedComposeText');
     const modal = document.getElementById('rimFeedComposeModal');
     const text = (ta?.value || '').trim();
-    const mediaUrl = modal?._pendingMedia || null;
-    if (!text && !mediaUrl) {
+    const file = modal?._pendingFile || null;
+    if (!text && !file) {
       if (typeof toast === 'function') toast('Напишите текст или добавьте медиа');
       return;
     }
     const hasRemoteSession = !!rimDb() && !!rimUserId();
     if (hasRemoteSession) {
-      const file = modal?._pendingFile || null;
       const remote = (text || file) ? await sbCreateFeedPost(text) : null;
       if (!remote) {
         if (typeof toast === 'function') toast('Не удалось создать публикацию в Supabase. Проверьте соединение и права доступа.');
