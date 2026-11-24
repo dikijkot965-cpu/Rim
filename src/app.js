@@ -572,4 +572,6 @@ logger.info('app.ready', { modules: ['core', 'supabase-adapter', 'chat-identity'
 // and every global compatibility wrapper has been installed. This prevents a
 // fast Supabase session restore from running the temporary no-op chat loader.
 window.__rimMarkAppModulesReady?.();
-window.dispatchEvent(new CustomEvent('rim:ready', { detail: { version: '4.1.8-iteration.178' } }));
+window.__RIM_MODULE_BUILD_ID = '4.1.8.178-AUTHFIX3';
+window.__RIM_SET_BUILD_STATUS?.('modules','подключены · app bundle 178-AUTHFIX3');
+window.dispatchEvent(new CustomEvent('rim:ready', { detail: { version: '4.1.8-iteration.178', build: '178-AUTHFIX3' } }));
