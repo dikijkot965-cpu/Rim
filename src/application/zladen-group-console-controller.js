@@ -17,6 +17,7 @@ const field = (value, max, label) => {
 export function buildZladenTriggerCommand({ name, matchType, matchValue, actionType, actionValue }) {
   const triggerName = field(name, 80, 'Название триггера');
   const value = field(matchValue, 160, 'Фраза-триггер');
+  if (value.length < 2) throw new Error('Фраза-триггер должна содержать минимум два символа.');
   if (!['contains','starts_with','equals'].includes(matchType)) throw new Error('Неизвестный тип совпадения.');
   let action;
   if (actionType === 'reply') action = 'reply:' + field(actionValue, 1000, 'Ответ триггера');
@@ -47,7 +48,7 @@ export class ZladenGroupConsoleController {
     const result = await this.client.from('conversations').select('id,type,title,created_by,e2e_mode').eq('id', conversationId).maybeSingle();
     const group = result.data;
     if (result.error || !group || group.type !== 'group') return this.#say('Группа не найдена.');
-    if (group.e2e_mode === 'required') return this.#say('Злыдя отключён в беседах с обязательным E2E. Панель недоступна.');
+    if (['required','pending'].includes(group.e2e_mode)) return this.#say('Злыдя отключён в защищённых беседах E2E. Панель недоступна.');
     const member = await this.client.from('conversation_members').select('role').eq('conversation_id', conversationId).eq('user_id', user.id).maybeSingle();
     if (member.error || (!member.data && String(group.created_by) !== String(user.id))) return this.#say('Вы не состоите в этой группе.');
     if (String(group.created_by) !== String(user.id) && !['owner','admin'].includes(member.data?.role)) return this.#say('Центр управления доступен владельцу и администраторам группы.');
@@ -121,7 +122,7 @@ export class ZladenGroupConsoleController {
     const text = String(command || '').trim();
     if (!this.group?.id || !user?.id || !/^[/!.][^\r\n]{1,999}$/.test(text)) return this.#say('Некорректная команда.');
     const group = await this.client.from('conversations').select('id,type,e2e_mode').eq('id', this.group.id).maybeSingle();
-    if (group.error || !group.data || group.data.type !== 'group' || group.data.e2e_mode === 'required') return this.#say('Команда не отправлена: группа недоступна или требует E2E.');
+    if (group.error || !group.data || group.data.type !== 'group' || ['required','pending'].includes(group.data.e2e_mode)) return this.#say('Команда не отправлена: группа недоступна или защищена E2E.');
     const id = globalThis.crypto?.randomUUID?.() || (Date.now() + '-' + Math.random().toString(36).slice(2));
     const result = await this.client.from('chat_messages').insert({
       conversation_id: this.group.id, sender_id: user.id, body: text, client_message_id: 'zladen-ui:' + id
