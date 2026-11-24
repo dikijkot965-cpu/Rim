@@ -848,11 +848,11 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
   }
 
   function hydrateFeedMedia(root) {
-    root?.querySelectorAll?.('[data-rim-feed-media-src]').forEach(node => {
-      node.src = node.getAttribute('data-rim-feed-media-src') || '';
+    root?.querySelectorAll?.('[data-rim-feed-url]').forEach(node => {
+      node.src = node.getAttribute('data-rim-feed-url') || '';
     });
-    root?.querySelectorAll?.('[data-rim-feed-media-href]').forEach(node => {
-      node.href = node.getAttribute('data-rim-feed-media-href') || '';
+    root?.querySelectorAll?.('[data-rim-feed-file-url]').forEach(node => {
+      node.href = node.getAttribute('data-rim-feed-file-url') || '';
     });
   }
 
@@ -874,10 +874,10 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       const safeMediaUrl = p.mediaUrl ? escapeHtml(p.mediaUrl) : '';
       const media = safeMediaUrl
         ? '<div class="rim-feed-post-media">' +
-          (p.mediaType === 'video' ? '<video data-rim-feed-media-src="' + safeMediaUrl + '" controls playsinline preload="metadata"></video>' :
-           p.mediaType === 'audio' ? '<audio data-rim-feed-media-src="' + safeMediaUrl + '" controls preload="metadata"></audio>' :
-           p.mediaType === 'document' ? '<a data-rim-feed-media-href="' + safeMediaUrl + '" target="_blank" rel="noopener noreferrer">📎 ' + escapeHtml(p.mediaName || 'Открыть файл') + '</a>' :
-           '<img data-rim-feed-media-src="' + safeMediaUrl + '" alt="' + escapeHtml(p.mediaName || '') + '" loading="lazy" />') +
+          (p.mediaType === 'video' ? '<video data-rim-feed-url="' + safeMediaUrl + '" controls playsinline preload="metadata"></video>' :
+           p.mediaType === 'audio' ? '<audio data-rim-feed-url="' + safeMediaUrl + '" controls preload="metadata"></audio>' :
+           p.mediaType === 'document' ? '<a data-rim-feed-file-url="' + safeMediaUrl + '" target="_blank" rel="noopener noreferrer">📎 ' + escapeHtml(p.mediaName || 'Открыть файл') + '</a>' :
+           '<img data-rim-feed-url="' + safeMediaUrl + '" alt="' + escapeHtml(p.mediaName || '') + '" loading="lazy" />') +
           '</div>'
         : '';
       return `<article class="rim-feed-post" data-post-id="${p.id}">
@@ -1387,10 +1387,10 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       const safeMediaUrl = p.mediaUrl ? escapeHtml(p.mediaUrl) : '';
       const media = safeMediaUrl
         ? '<div class="rim-feed-post-media">' +
-          (p.mediaType === 'video' ? '<video data-rim-feed-media-src="' + safeMediaUrl + '" controls playsinline preload="metadata"></video>' :
-           p.mediaType === 'audio' ? '<audio data-rim-feed-media-src="' + safeMediaUrl + '" controls preload="metadata"></audio>' :
-           p.mediaType === 'document' ? '<a data-rim-feed-media-href="' + safeMediaUrl + '" target="_blank" rel="noopener noreferrer">📎 ' + escapeHtml(p.mediaName || 'Открыть файл') + '</a>' :
-           '<img data-rim-feed-media-src="' + safeMediaUrl + '" alt="' + escapeHtml(p.mediaName || '') + '" loading="lazy" />') +
+          (p.mediaType === 'video' ? '<video data-rim-feed-url="' + safeMediaUrl + '" controls playsinline preload="metadata"></video>' :
+           p.mediaType === 'audio' ? '<audio data-rim-feed-url="' + safeMediaUrl + '" controls preload="metadata"></audio>' :
+           p.mediaType === 'document' ? '<a data-rim-feed-file-url="' + safeMediaUrl + '" target="_blank" rel="noopener noreferrer">📎 ' + escapeHtml(p.mediaName || 'Открыть файл') + '</a>' :
+           '<img data-rim-feed-url="' + safeMediaUrl + '" alt="' + escapeHtml(p.mediaName || '') + '" loading="lazy" />') +
           '</div>'
         : '';
       const badge = p.fromChannel ? '<span class="rim-feed-badge">канал</span>' : '';
