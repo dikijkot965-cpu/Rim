@@ -327,7 +327,7 @@ export class AuthFormController {
     this.#setStatus('Вход через Telegram выполнен. Загружаем RIM…');
     try {
       await this.onSignedIn(result.user);
-      this.#setStatus('Вы вошли через Telegram. РИМ готов к работе.');
+      this.#setStatus('Вход через Telegram подтверждён. Открываем RIM…');
       return Ok(result.user);
     } catch (error) {
       this.#setStatus(`Telegram подтвердил вход, но РИМ не смог загрузить данные: ${error?.message || error}`);
