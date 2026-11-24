@@ -129,6 +129,9 @@
         setTimeout(() => { void ensureZladenInstalled(); }, 6000);
       }
     });
+    window.db.auth.getSession().then(({ data, error }) => {
+      if (!error && data?.session?.user) setTimeout(() => { void ensureZladenInstalled(); }, 6000);
+    }).catch(error => console.warn('RIM Zladen session bootstrap:', error));
   }
 
   if (window.__RIM_TELEGRAM_OIDC_CALLBACK) void finishTelegramCallback();
