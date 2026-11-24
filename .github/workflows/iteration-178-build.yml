@@ -9,6 +9,8 @@ on:
       - 'assets/js/rim-auth-zladen-bridge.js'
       - 'tests/auth-form-controller-session-sync.test.js'
       - 'tests/iteration-175-auth-feed-zladen.test.js'
+      - 'tests/regression-engineering-97.test.js'
+      - 'tests/supabase-local-bundle.test.js'
       - '.github/workflows/iteration-178-build.yml'
       - 'index.html'
       - 'package.json'
