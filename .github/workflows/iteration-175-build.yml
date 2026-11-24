@@ -31,8 +31,7 @@ jobs:
         run: npm run build:cloudflare
       - name: Package complete source and generated deployment output
         run: |
-          zip -qr RIM_4.1.8_ITERATION_175_AUTH_FEED_ZLADEN.zip . \\
-            -x './.git/*' './node_modules/*' './.env' './.env.*' './**/.env' './**/.env.*'
+          zip -qr RIM_4.1.8_ITERATION_175_AUTH_FEED_ZLADEN.zip . -x './.git/*' './node_modules/*' './.env' './.env.*' './**/.env' './**/.env.*'
           sha256sum RIM_4.1.8_ITERATION_175_AUTH_FEED_ZLADEN.zip > RIM_4.1.8_ITERATION_175_AUTH_FEED_ZLADEN.zip.sha256
       - uses: actions/upload-artifact@v4
         with:
