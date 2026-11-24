@@ -48,6 +48,14 @@ async function waitForRimAppModulesReady(timeoutMs = 20000) {
   return true;
 }
 
+window.signInWithTelegram = () => {
+  const status = document.getElementById('authStatus');
+  if (typeof window.__RIM_AUTH_FORM_SIGN_IN_WITH_TELEGRAM === 'function') {
+    return window.__RIM_AUTH_FORM_SIGN_IN_WITH_TELEGRAM();
+  }
+  if (status) status.textContent = 'Модуль авторизации ещё загружается. Подождите несколько секунд и повторите попытку.';
+};
+
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
  auth: {
   persistSession: true,
