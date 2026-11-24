@@ -12,7 +12,10 @@ export class ZladenBotService {
   async invoke(action, payload = {}) {
     const user = this.getUser?.();
     if (!user?.id) return Err(new Error('Для работы со Злыдей войдите в РИМ.'));
-    const response = await this.client.functions.invoke('rim-zladen', { body: { action, ...payload } });
+    const response = await Promise.race([
+      this.client.functions.invoke('rim-zladen', { body: { action, ...payload } }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Злыдя не ответил за 15 секунд. Проверьте подключение к Supabase.')), 15000))
+    ]);
     if (response.error) return Err(response.error);
     if (response.data?.error) return Err(new Error(String(response.data.error)));
     return Ok(response.data?.result ?? response.data);
