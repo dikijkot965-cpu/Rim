@@ -1,7 +1,8 @@
-RIM 4.1.8 — Iteration 175 (Auth + Feed + Zladen)
-Base: RIM 4.1.8 Iteration 174.
-Changes: fixed the empty modular-bundle delivery path by building the modular app bundle in CI and packaging the generated Cloudflare output; implemented Telegram OIDC authorization-code + PKCE client flow against the existing telegram-auth Edge Function; aligned feed reads/writes/comments/reports with the deployed Supabase columns; added Following feed filtering, persisted likes, pinned/recommended ordering, and refresh-safe remote cache replacement; automatically installs the system Zladen bot after authenticated startup through the existing rim-zladen Edge Function.
-E2E: no Signal protocol, relay, device, encryption, or E2E SQL changes.
-Production DB: inspected read-only; existing feed schema, RLS, Zladen triggers, and RPCs are already present. No production SQL changes were required for this code patch.
-Validation: GitHub Actions workflow added to run npm ci, project checks, syntax checks, unit tests, Cloudflare build, and produce a ZIP + SHA-256 artifact. Results are pending workflow execution.
-Known limitation: Telegram login requires TELEGRAM_REDIRECT_URI to exactly match the active deployment origin/path and the Telegram OAuth client configuration. Feed media upload/storage integration remains a follow-up; this patch restores text posts, comments, likes, and Following mode.
+RIM 4.1.8 — Iteration 176 (Zladen Control Center + Feed Media)
+Base: RIM 4.1.8 Iteration 175.
+Zladen: added an in-group admin console with command shortcuts, validated message-trigger and join-greeting forms, trigger deletion, and custom command dispatch. The console is restricted to group owners/admins and refuses E2E required/pending scopes. Production already contains the server-side moderation, ranks/permissions, virtual points, shop/inventory/market, polls, reminders, clan and trigger handlers; reminder scheduler is now enabled.
+Feed: added private Supabase Storage bucket feed-media with visibility-aware RLS, image/video/audio/PDF/text upload, signed URL rendering, saved-post toggle and a Saved feed tab. Existing following/recommended feeds, likes and comments remain.
+Database: pg_cron installed and active; Zladen reminder scheduler migration 171 applied; feed media storage policies/bucket applied. SQL migration files in this branch match the actual production migration versions.
+E2E: no Signal Protocol, relay, device key, encryption, E2E SQL, or E2E behavior changes. The new bot console explicitly blocks required/pending E2E conversations.
+Validation: GitHub Actions workflow will run project integrity, syntax, unit tests and Cloudflare build and produce a ZIP + SHA-256 artifact.
+Known limits: media uploads capped at 25 MB with allowlisted MIME types; Android real-device smoke and real-account group acceptance remain manual checks.
