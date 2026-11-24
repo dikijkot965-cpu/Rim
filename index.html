@@ -1250,10 +1250,11 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
         // Simple engagement + recency score
         list.sort((a, b) => {
           const score = (p) => {
-            const comments = (loadFeedComments()[p.id] || []).length;
+            const comments = Number(p.commentCount ?? (loadFeedComments()[p.id] || []).length);
+            const likes = Number(p.likeCount || 0);
             const views = p.views || 0;
             const ageH = Math.max(1, (Date.now() - (p.createdAt || Date.now())) / 3600000);
-            let s = views * 0.5 + comments * 3 + (p.mediaUrl ? 2 : 0);
+            let s = views * 0.5 + comments * 3 + likes * 2 + (p.mediaUrl ? 2 : 0);
             s = s / Math.sqrt(ageH);
             if (imp.officialOnly && p.fromChannel) s *= 1.4;
             if (prefs.officialBoost && p.fromChannel) s *= 1.2;
@@ -1267,10 +1268,11 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       if (prefs.personalization) {
         list.sort((a, b) => {
           const score = (p) => {
-            const comments = (loadFeedComments()[p.id] || []).length;
+            const comments = Number(p.commentCount ?? (loadFeedComments()[p.id] || []).length);
+            const likes = Number(p.likeCount || 0);
             const views = p.views || 0;
             const ageH = Math.max(0.5, (Date.now() - (p.createdAt || Date.now())) / 3600000);
-            let s = 10 / Math.sqrt(ageH) + views * 0.3 + comments * 2;
+            let s = 10 / Math.sqrt(ageH) + views * 0.3 + comments * 2 + likes * 1.2;
             if (p.author === currentUserLabel()) s += 1.5;
             if (p.fromChannel && prefs.officialBoost) s += 2;
             return s;
@@ -1895,17 +1897,26 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     const db = rimDb();
     if (!db) return null;
     try {
-      const { data, error } = await db.from('feed_posts')
+      const userId = rimUserId();
+      let followedAuthorIds = null;
+      if (mode === 'following') {
+        if (!userId) return [];
+        const follows = await db.from('user_follows').select('followed_id').eq('follower_id', userId);
+        if (follows.error) throw follows.error;
+        followedAuthorIds = [...new Set([userId, ...(follows.data || []).map(row => row.followed_id).filter(Boolean)])];
+      }
+      let postsQuery = db.from('feed_posts')
         .select('id,author_id,title,body,visibility,comments_enabled,created_at,published_at,deleted_at,is_pinned,media_paths')
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(50);
+      if (followedAuthorIds) postsQuery = postsQuery.in('author_id', followedAuthorIds);
+      const { data, error } = await postsQuery;
       if (error) { console.warn('feed_posts', error.message); return null; }
       const rows = data || [];
       if (!rows.length) return [];
       const ids = rows.map(row => row.id);
       const authorIds = [...new Set(rows.map(row => row.author_id).filter(Boolean))];
-      const userId = rimUserId();
       const [profileResult, likeResult, commentResult] = await Promise.all([
         authorIds.length ? db.from('profiles').select('id,username,display_name').in('id', authorIds) : Promise.resolve({ data: [], error: null }),
         db.from('feed_post_likes').select('post_id,user_id').in('post_id', ids),
