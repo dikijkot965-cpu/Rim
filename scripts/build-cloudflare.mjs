@@ -73,6 +73,23 @@ try {
   });
   fs.copyFileSync(sdkWasm, path.join(e2eAssets, 'sqlite3.wasm'));
 
+  // Supabase Auth must not depend on a third-party CDN being reachable from
+  // the user's browser. Bundle the pinned JS client as a same-origin classic
+  // script consumed by rim-runtime-bootstrap.js.
+  const supabaseEntry = path.join(root, 'scripts/supabase-browser-entry.js');
+  if (!fs.existsSync(supabaseEntry)) throw new Error('Supabase browser bundle entry is missing.');
+  esbuild.buildSync({
+    entryPoints: [supabaseEntry],
+    bundle: true,
+    format: 'iife',
+    platform: 'browser',
+    target: ['es2022'],
+    outfile: path.join(output, 'assets/js/supabase-client.bundle.js'),
+    minify: true,
+    legalComments: 'none',
+    sourcemap: false
+  });
+
   fs.mkdirSync(path.join(pagesOutput, 'assets/js'), { recursive: true });
   // Copy the complete JS asset directory: esbuild may emit the OPFS worker
   // and the SQLite Wasm binary as separate same-origin assets.
