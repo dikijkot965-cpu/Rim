@@ -1,0 +1,44 @@
+name: RIM Iteration 175 build
+
+on:
+  push:
+    branches:
+      - fix/iteration-175-auth-feed-zladen
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.12.0'
+          cache: npm
+      - name: Install pinned dependencies
+        run: npm ci
+      - name: Project integrity check
+        run: npm run check
+      - name: JavaScript syntax check
+        run: npm run check:syntax
+      - name: Unit tests
+        run: npm test
+      - name: Build Cloudflare assets
+        run: npm run build:cloudflare
+      - name: Package complete source and generated deployment output
+        run: |
+          zip -qr RIM_4.1.8_ITERATION_175_AUTH_FEED_ZLADEN.zip . \\
+            -x './.git/*' './node_modules/*' './.env' './.env.*' './**/.env' './**/.env.*'
+          sha256sum RIM_4.1.8_ITERATION_175_AUTH_FEED_ZLADEN.zip > RIM_4.1.8_ITERATION_175_AUTH_FEED_ZLADEN.zip.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RIM_4.1.8_ITERATION_175_AUTH_FEED_ZLADEN
+          path: |
+            RIM_4.1.8_ITERATION_175_AUTH_FEED_ZLADEN.zip
+            RIM_4.1.8_ITERATION_175_AUTH_FEED_ZLADEN.zip.sha256
+          if-no-files-found: error
+          retention-days: 14
