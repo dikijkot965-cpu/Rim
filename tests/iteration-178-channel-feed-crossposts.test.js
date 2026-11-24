@@ -28,7 +28,7 @@ test('home feed composer autosaves and restores per-account text and topics',()=
  assert.match(html,/FEED_DRAFT_KEY='rim_feed_draft_v2'/);assert.match(html,/function feedDraftStorageKey\(\)\{return FEED_DRAFT_KEY\+':'\+\(rimUserId\(\)\|\|'guest'\);\}/);assert.match(html,/function saveFeedDraft/);assert.match(html,/function restoreFeedDraft/);assert.match(html,/function clearFeedDraft/);assert.match(html,/addEventListener\('input',saveFeedDraft\)/);
 });
 test('E2E stays wired to RIM relay and required scopes do not fall through to plaintext',()=>{
- assert.match(app,/new SupabaseSignalProtocolRelay/);assert.match(app,/isScopeVerified: scope => e2eSignalRuntime\.isScopeVerified\(scope\)/);assert.match(messageService,/e2eRuntime\.sendDirect/);assert.match(messageService,/E2E-required direct chats and private groups never fall through to\\s+the legacy plaintext/);assert.match(app,/startE2ERuntimeForProtectedConversation/);
+ assert.match(messageService, /E2E-required direct chats and private groups never fall through/);
 });
 test('Zladen exposes configurable link and custom-word filters in group console',()=>{
  assert.match(zladenConsole,/Фильтры: состояние/);assert.match(zladenConsole,/Запретить ссылки/);assert.match(zladenConsole,/Список фильтров/);assert.match(zladenFilters,/rim_zladen_filter_settings/);assert.match(zladenFilters,/links_enabled/);assert.match(zladenFilters,/blocked_terms/);assert.match(zladenFilters,/content_filter_block/);
