@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - fix/iteration-175-auth-feed-zladen
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
