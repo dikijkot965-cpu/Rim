@@ -10,7 +10,6 @@ on:
 
 permissions:
   contents: write
-  workflows: write
 
 concurrency:
   group: rim-iteration-178-import
@@ -55,7 +54,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rsync -a --delete --exclude='.git/' --exclude='node_modules/' "$RIM_PROJECT_ROOT/" ./
+          rsync -a --delete --exclude='.git/' --exclude='node_modules/' --exclude='.github/workflows/' "$RIM_PROJECT_ROOT/" ./
+          if [ -d "$RIM_PROJECT_ROOT/.github" ]; then
+            mkdir -p .github
+            rsync -a --exclude='workflows/' "$RIM_PROJECT_ROOT/.github/" .github/
+          fi
           rm -f RIM_4.1.8_ITERATION_178_AUTHFIX3_OPTIMIZED.zip
           rm -f RIM_4.1.8_ITERATION_178_AUTHFIX3_OPTIMIZED.zip.sha256
           test -f package.json
