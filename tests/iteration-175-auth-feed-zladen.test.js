@@ -12,9 +12,9 @@ const packageJson = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8
 
 function between(source, start, end) {
   const a = source.indexOf(start);
-  assert.notEqual(a, -1, \`missing source anchor: \${start}\`);
+  assert.notEqual(a, -1, 'missing source anchor: ' + start);
   const b = source.indexOf(end, a + start.length);
-  assert.notEqual(b, -1, \`missing source end anchor: \${end}\`);
+  assert.notEqual(b, -1, 'missing source end anchor: ' + end);
   return source.slice(a, b);
 }
 
