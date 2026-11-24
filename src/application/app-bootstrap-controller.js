@@ -35,11 +35,15 @@ export class AppBootstrapController {
     try {
       this.document?.getElementById?.('authScreen')?.classList.add('hidden');
       this.document?.getElementById?.('app')?.classList.remove('hidden');
+      const bounded = (task, label) => Promise.race([
+        Promise.resolve().then(task),
+        new Promise((_, reject) => setTimeout(() => reject(new Error(label + ' превысил лимит ожидания 12 секунд')), 12000))
+      ]);
       const results = await Promise.allSettled([
-        this.loadProfile(),
-        this.loadSettings(),
-        this.loadConversations(),
-        this.loadChannels()
+        bounded(this.loadProfile, 'Загрузка профиля'),
+        bounded(this.loadSettings, 'Загрузка настроек'),
+        bounded(this.loadConversations, 'Загрузка переписок'),
+        bounded(this.loadChannels, 'Загрузка каналов')
       ]);
       results.forEach((r, i) => {
         if (r.status === 'rejected') {
