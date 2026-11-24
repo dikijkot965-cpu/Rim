@@ -39,6 +39,28 @@ export class AuthFormController {
     if (status) status.textContent = text || '';
   }
 
+  #setCurrentUser(user) {
+    // Keep the classic runtime's lexical state and the modular app state in sync.
+    // Updating window.currentUser alone is insufficient: legacy repositories and
+    // composition services read currentUser through __RIM_LEGACY_CONTEXT.getUser().
+    try { this.window.__RIM_SET_CURRENT_USER?.(user || null); } catch (error) {
+      this.logger?.warn?.('auth.current_user_bridge.failed', { message: error?.message || String(error) });
+    }
+    this.window.currentUser = user || null;
+  }
+
+  async #withTimeout(promise, timeoutMs, message) {
+    let timer;
+    try {
+      return await Promise.race([
+        Promise.resolve(promise),
+        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(message)), timeoutMs); })
+      ]);
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
+  }
+
   showLoginForm() {
     this.mode = 'login';
     const extra = this.#el('signupExtras');
@@ -114,10 +136,11 @@ export class AuthFormController {
     if (button) button.disabled = true;
     this.#setStatus('Проверяем данные…');
     try {
-      const { data, error } = await this.client.auth.signInWithPassword({
-        email: parsed.email,
-        password: parsed.password
-      });
+      const { data, error } = await this.#withTimeout(
+        this.client.auth.signInWithPassword({ email: parsed.email, password: parsed.password }),
+        30000,
+        'Сервис авторизации не ответил за 30 секунд. Проверьте соединение и попробуйте ещё раз.'
+      );
       if (error) {
         const m = error.message || '';
         if (/invalid login credentials/i.test(m)) {
@@ -129,9 +152,16 @@ export class AuthFormController {
         }
         return Err(error);
       }
-      this.window.currentUser = data.user;
+      if (!data?.user) throw new Error('Supabase не вернул пользователя после успешного входа.');
+      this.#setCurrentUser(data.user);
+      this.#setStatus('Вход подтверждён. Загружаем RIM…');
       await this.onSignedIn(data.user);
+      this.#setStatus('Вы вошли. RIM готов к работе.');
       return Ok(data.user);
+    } catch (error) {
+      this.#setStatus(error?.message || 'Не удалось выполнить вход. Проверьте соединение и повторите попытку.');
+      this.logger?.warn?.('auth.sign_in.failed', { message: error?.message || String(error) });
+      return Err(error);
     } finally {
       this.busy = false;
       if (button) button.disabled = false;
@@ -168,7 +198,7 @@ export class AuthFormController {
         return Err(error);
       }
       if (data.session) {
-        this.window.currentUser = data.user;
+        this.#setCurrentUser(data.user);
         await this.onSignedIn(data.user);
       } else {
         this.#setStatus('Регистрация создана. Проверь почту и подтверди адрес.');
@@ -209,7 +239,7 @@ export class AuthFormController {
     this.#setStatus('Проверяем секретную фразу и подготавливаем защищённую сессию…');
     try {
       const user = await this.recoveryCodes.seedLogin(phrase);
-      this.window.currentUser = user;
+      this.#setCurrentUser(user);
       const input = this.#el('rimSeedLoginPhrase');
       if (input) input.value = '';
       this.#setStatus('Вход по секретной фразе выполнен. Загружаем RIM…');
@@ -233,7 +263,7 @@ export class AuthFormController {
     this.#setStatus('Проверяем секретную фразу RIM…');
     try {
       const user = await this.recoveryCodes.redeemPhrase(phrase);
-      this.window.currentUser = user;
+      this.#setCurrentUser(user);
       this.#setStatus('Доступ восстановлен. Загружаем RIM…');
       await this.onSignedIn(user);
       return Ok(user);
@@ -293,7 +323,7 @@ export class AuthFormController {
       this.#setStatus(result.error?.message || 'Вход через Telegram не выполнен.');
       return Err(result.error || new Error('Telegram sign-in failed'));
     }
-    this.window.currentUser = result.user;
+    this.#setCurrentUser(result.user);
     this.#setStatus('Вход через Telegram выполнен. Загружаем RIM…');
     try {
       await this.onSignedIn(result.user);
@@ -370,6 +400,7 @@ export class AuthFormController {
     win.signUp = () => this.signUp();
     win.signInWithGoogle = () => this.signInWithGoogle();
     win.signInWithTelegram = () => this.signInWithTelegram();
+    win.__RIM_AUTH_FORM_SIGN_IN_WITH_TELEGRAM = win.signInWithTelegram;
     win.signInWithGithub = () => this.signInWithGithub();
     win.signInWithVk = () => this.signInWithVk();
     void this.handleTelegramCallback();
