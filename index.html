@@ -842,7 +842,9 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     list.innerHTML = posts.map(p => {
       const initial = (p.author || 'Р')[0].toUpperCase();
       const views = p.views || 0;
-      const comments = (loadFeedComments()[p.id] || []).length;
+      const comments = Number(p.commentCount ?? (loadFeedComments()[p.id] || []).length);
+      const likes = Number(p.likeCount || 0);
+      const liked = p.likedByMe === true;
       const media = p.mediaUrl
         ? `<div class="rim-feed-post-media"><img src="${p.mediaUrl}" alt="" /></div>`
         : '';
@@ -858,6 +860,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
         ${media}
         <div class="rim-feed-post-stats">
           <span class="rim-feed-stat" data-action="comments" data-post-id="${p.id}">💬 ${comments}</span>
+          <button type="button" class="rim-feed-stat rim-feed-like" data-action="like" data-post-id="${p.id}" aria-pressed="${liked}" style="background:none;border:0;color:inherit;font:inherit;cursor:pointer;padding:0">${liked ? '♥' : '♡'} ${likes}</button>
           <span class="rim-feed-stat">👁 ${views}</span>
         </div>
       </article>`;
@@ -865,6 +868,16 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
 
     list.querySelectorAll('[data-action="comments"]').forEach(el => {
       el.addEventListener('click', () => openFeedComments(el.getAttribute('data-post-id')));
+    });
+    list.querySelectorAll('[data-action="like"]').forEach(el => {
+      el.addEventListener('click', async () => {
+        if (el.disabled) return;
+        el.disabled = true;
+        const ok = await sbToggleFeedLike(el.getAttribute('data-post-id'));
+        if (ok) await window.renderFeedList?.();
+        else if (typeof toast === 'function') toast('Не удалось сохранить реакцию. Проверьте подключение.');
+        el.disabled = false;
+      });
     });
   }
 
@@ -1868,36 +1881,55 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     const db = rimDb();
     if (!db) return null;
     try {
-      const { data, error } = await db
-        .from('feed_posts')
-        .select('id,author_id,title,body,content,text,visibility,created_at,published_at,deleted_at,is_pinned')
+      const { data, error } = await db.from('feed_posts')
+        .select('id,author_id,title,body,visibility,comments_enabled,created_at,published_at,deleted_at,is_pinned,media_paths')
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(50);
       if (error) { console.warn('feed_posts', error.message); return null; }
       const rows = data || [];
-      const authorIds = [...new Set(rows.map(r => r.author_id).filter(Boolean))];
-      let profiles = {};
-      if (authorIds.length) {
-        const pr = await db.from('profiles').select('id,username,display_name').in('id', authorIds);
-        if (!pr.error) for (const p of pr.data || []) profiles[String(p.id)] = p;
+      if (!rows.length) return [];
+      const ids = rows.map(row => row.id);
+      const authorIds = [...new Set(rows.map(row => row.author_id).filter(Boolean))];
+      const userId = rimUserId();
+      const [profileResult, likeResult, commentResult] = await Promise.all([
+        authorIds.length ? db.from('profiles').select('id,username,display_name').in('id', authorIds) : Promise.resolve({ data: [], error: null }),
+        db.from('feed_post_likes').select('post_id,user_id').in('post_id', ids),
+        db.from('feed_post_comments').select('post_id').in('post_id', ids).is('deleted_at', null)
+      ]);
+      const profiles = {};
+      for (const profile of profileResult.data || []) profiles[String(profile.id)] = profile;
+      const likes = {};
+      const likedByMe = {};
+      for (const row of likeResult.data || []) {
+        const key = String(row.post_id);
+        likes[key] = (likes[key] || 0) + 1;
+        if (userId && String(row.user_id) === String(userId)) likedByMe[key] = true;
       }
-      return rows.map(r => {
-        const p = profiles[String(r.author_id)] || {};
+      const comments = {};
+      for (const row of commentResult.data || []) {
+        const key = String(row.post_id);
+        comments[key] = (comments[key] || 0) + 1;
+      }
+      return rows.map(row => {
+        const profile = profiles[String(row.author_id)] || {};
         return {
-          id: r.id,
-          author: p.display_name || p.username || 'Автор',
-          authorId: r.author_id,
-          text: r.body || r.content || r.text || r.title || '',
-          createdAt: Date.parse(r.published_at || r.created_at) || Date.now(),
+          id: row.id,
+          author: profile.display_name || profile.username || 'Автор',
+          authorId: row.author_id,
+          text: row.body || row.title || '',
+          createdAt: Date.parse(row.published_at || row.created_at) || Date.now(),
           views: 0,
           mediaUrl: null,
+          likeCount: likes[String(row.id)] || 0,
+          likedByMe: !!likedByMe[String(row.id)],
+          commentCount: comments[String(row.id)] || 0,
           fromChannel: false,
           _remote: true
         };
       });
-    } catch (e) {
-      console.warn('sbListFeedPosts', e);
+    } catch (error) {
+      console.warn('sbListFeedPosts', error);
       return null;
     }
   }
@@ -1906,69 +1938,94 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     const db = rimDb();
     const uid = rimUserId();
     if (!db || !uid || !text) return null;
-    const attempts = [
-      { author_id: uid, body: text, visibility: 'public' },
-      { author_id: uid, content: text, visibility: 'public' },
-      { author_id: uid, text: text, visibility: 'public' }
-    ];
-    for (const payload of attempts) {
-      try {
-        const { data, error } = await db.from('feed_posts').insert(payload).select('id,created_at').maybeSingle();
-        if (!error && data) return { id: data.id, createdAt: Date.parse(data.created_at) || Date.now(), _remote: true };
-      } catch {}
+    try {
+      const { data, error } = await db.from('feed_posts').insert({
+        author_id: uid,
+        body: text,
+        title: '',
+        visibility: 'public',
+        content_format: 'plain',
+        published_at: new Date().toISOString()
+      }).select('id,created_at').single();
+      if (error) throw error;
+      return { id: data.id, createdAt: Date.parse(data.created_at) || Date.now(), _remote: true };
+    } catch (error) {
+      console.warn('sbCreateFeedPost', error);
+      return null;
     }
-    return null;
   }
 
   async function sbListComments(postId) {
     const db = rimDb();
     if (!db || !postId) return null;
     try {
-      const { data, error } = await db
-        .from('feed_post_comments')
-        .select('id,post_id,author_id,user_id,body,content,text,created_at,deleted_at')
+      const { data, error } = await db.from('feed_post_comments')
+        .select('id,post_id,author_id,body,created_at,edited_at,parent_comment_id,deleted_at')
         .eq('post_id', postId)
         .is('deleted_at', null)
         .order('created_at', { ascending: true })
         .limit(100);
-      if (error) return null;
+      if (error) throw error;
       const rows = data || [];
-      const ids = [...new Set(rows.map(r => r.author_id || r.user_id).filter(Boolean))];
-      let profiles = {};
-      if (ids.length) {
-        const pr = await db.from('profiles').select('id,username,display_name').in('id', ids);
-        if (!pr.error) for (const p of pr.data || []) profiles[String(p.id)] = p;
-      }
-      return rows.map(r => {
-        const uid = r.author_id || r.user_id;
-        const p = profiles[String(uid)] || {};
+      const ids = [...new Set(rows.map(row => row.author_id).filter(Boolean))];
+      const profileResult = ids.length
+        ? await db.from('profiles').select('id,username,display_name').in('id', ids)
+        : { data: [], error: null };
+      const profiles = {};
+      for (const profile of profileResult.data || []) profiles[String(profile.id)] = profile;
+      return rows.map(row => {
+        const profile = profiles[String(row.author_id)] || {};
         return {
-          id: r.id,
-          author: p.display_name || p.username || 'Пользователь',
-          text: r.body || r.content || r.text || '',
-          createdAt: Date.parse(r.created_at) || Date.now(),
+          id: row.id,
+          parentCommentId: row.parent_comment_id || null,
+          author: profile.display_name || profile.username || 'Пользователь',
+          text: row.body || '',
+          createdAt: Date.parse(row.created_at) || Date.now(),
           _remote: true
         };
       });
-    } catch { return null; }
+    } catch (error) {
+      console.warn('sbListComments', error);
+      return null;
+    }
   }
 
   async function sbAddComment(postId, text) {
     const db = rimDb();
     const uid = rimUserId();
     if (!db || !uid || !postId || !text) return null;
-    const attempts = [
-      { post_id: postId, author_id: uid, body: text },
-      { post_id: postId, user_id: uid, body: text },
-      { post_id: postId, author_id: uid, content: text }
-    ];
-    for (const payload of attempts) {
-      try {
-        const { data, error } = await db.from('feed_post_comments').insert(payload).select('id').maybeSingle();
-        if (!error && data) return data;
-      } catch {}
+    try {
+      const { data, error } = await db.from('feed_post_comments')
+        .insert({ post_id: postId, author_id: uid, body: text })
+        .select('id').single();
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.warn('sbAddComment', error);
+      return null;
     }
-    return null;
+  }
+
+  async function sbToggleFeedLike(postId) {
+    const db = rimDb();
+    const uid = rimUserId();
+    if (!db || !uid || !postId) return false;
+    try {
+      const existing = await db.from('feed_post_likes').select('post_id')
+        .eq('post_id', postId).eq('user_id', uid).maybeSingle();
+      if (existing.error) throw existing.error;
+      if (existing.data) {
+        const removed = await db.from('feed_post_likes').delete().eq('post_id', postId).eq('user_id', uid);
+        if (removed.error) throw removed.error;
+      } else {
+        const added = await db.from('feed_post_likes').insert({ post_id: postId, user_id: uid });
+        if (added.error) throw added.error;
+      }
+      return true;
+    } catch (error) {
+      console.warn('sbToggleFeedLike', error);
+      return false;
+    }
   }
 
   async function sbListChannels() {
@@ -2067,7 +2124,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       const postIds = [...new Set(rows.map(r => r.post_id).filter(Boolean))];
       let posts = {};
       if (postIds.length) {
-        const pr = await db.from('feed_posts').select('id,author_id,body,content,text,title').in('id', postIds);
+        const pr = await db.from('feed_posts').select('id,author_id,body,title').in('id', postIds);
         if (!pr.error) for (const p of pr.data || []) posts[String(p.id)] = p;
       }
       const userIds = [...new Set(rows.flatMap(r => {
@@ -2092,7 +2149,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
           scopeId: r.post_id,
           scopeTitle: 'Лента',
           messageId: r.post_id,
-          messagePreview: post.body || post.content || post.text || post.title || '',
+          messagePreview: post.body || post.title || '',
           reporter: reporter.username || reporter.display_name || String(r.reporter_id || '').slice(0, 8),
           targetUser: author.username || author.display_name || String(post.author_id || '').slice(0, 8),
           createdAt: Date.parse(r.created_at) || Date.now(),
@@ -2131,13 +2188,9 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
   const _renderFeedListWindow = window.renderFeedList;
   window.renderFeedList = async function() {
     const remote = await sbListFeedPosts(getFeedMode());
-    if (remote && remote.length) {
-      // merge remote into local cache for offline display
-      const local = _loadFeedPostsLocal();
-      const byId = new Map(local.map(p => [String(p.id), p]));
-      remote.forEach(p => { if (!byId.has(String(p.id))) byId.set(String(p.id), p); });
-      const merged = [...byId.values()];
-      saveFeedPosts(merged.filter(p => !p._remote).concat(remote));
+    if (remote !== null) {
+      // Supabase is authoritative. Never mix demo/local-only posts into the shared feed.
+      saveFeedPosts(remote);
     }
     if (typeof _renderFeedListWindow === 'function') return _renderFeedListWindow();
   };
@@ -2152,7 +2205,11 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       if (typeof toast === 'function') toast('Напишите текст или добавьте медиа');
       return;
     }
-    const remote = text ? await sbCreateFeedPost(text) : null;
+    if (!text) {
+      if (typeof toast === 'function') toast('Публикация только с медиа пока не поддерживается серверной лентой.');
+      return;
+    }
+    const remote = await sbCreateFeedPost(text);
     if (remote) {
       const posts = loadFeedPosts();
       posts.unshift({
@@ -2170,7 +2227,8 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       if (typeof toast === 'function') toast('Пост опубликован (Supabase)');
       return;
     }
-    return _publishFeedPost();
+    if (typeof toast === 'function') toast('Пост не опубликован: Supabase отклонил запись. Локальная копия не создавалась.');
+    return;
   };
 
   const _openFeedComments = openFeedComments;
@@ -2198,7 +2256,8 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       if (typeof toast === 'function') toast('Комментарий отправлен');
       return;
     }
-    return _sendFeedComment();
+    if (typeof toast === 'function') toast('Комментарий не отправлен: сервер не подтвердил запись.');
+    return;
   };
 
   // Imperial: override renderers to use supabase
