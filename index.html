@@ -96,6 +96,7 @@
     <button type="button" class="rim-feed-tab selected" data-feed-mode="for_you">Для вас</button>
     <button type="button" class="rim-feed-tab" data-feed-mode="following">Подписки</button>
     <button type="button" class="rim-feed-tab" data-feed-mode="recommended">Рекомендации</button>
+    <button type="button" class="rim-feed-tab" data-feed-mode="saved">Сохранённое</button>
   </div>
   <div class="rim-feed-list" id="rimFeedList">
     <div class="rim-feed-empty muted">Пока нет постов. Нажмите + чтобы создать первый.</div>
@@ -1298,7 +1299,9 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     const imp = getImpPrefs();
     let list = (posts || []).slice();
 
-    if (mode === 'following') {
+    if (mode === 'saved') {
+      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    } else if (mode === 'following') {
       // Prefer own posts + fromChannel
       list.sort((a, b) => {
         const as = (a.author === currentUserLabel() || a.fromChannel) ? 1 : 0;
@@ -1957,6 +1960,13 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
         const followedIds = [...new Set((follows.data || []).map(x => x.followed_id).filter(Boolean))];
         if (!followedIds.length) return [];
         query = query.in('author_id', followedIds);
+      } else if (mode === 'saved') {
+        if (!uid) return [];
+        const saves = await db.from('rim_feed_post_saves').select('post_id').eq('user_id', uid).order('created_at', { ascending: false }).limit(50);
+        if (saves.error) throw saves.error;
+        const savedIds = [...new Set((saves.data || []).map(x => x.post_id).filter(Boolean))];
+        if (!savedIds.length) return [];
+        query = query.in('id', savedIds);
       }
 
       query = query.order('is_pinned', { ascending: false }).order('published_at', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false }).limit(50);
