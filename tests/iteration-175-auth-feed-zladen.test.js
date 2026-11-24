@@ -48,7 +48,7 @@ test('feed reads only columns present in the deployed feed schema', () => {
 test('feed comments use author_id and body rather than nonexistent aliases', () => {
   const listComments = between(index, 'async function sbListComments(postId)', 'async function sbAddComment(postId, text)');
   assert.match(listComments, /id,post_id,author_id,body,created_at,edited_at,parent_comment_id,deleted_at/);
-  assert.doesNotMatch(listComments, /\\.select\\([^)]*\\b(?:user_id|content|text)\\b/);
+  assert.doesNotMatch(listComments, /\.select\([^)]*\b(?:user_id|content|text)\b/);
   const addComment = between(index, 'async function sbAddComment(postId, text)', 'async function sbListChannels()');
   assert.match(addComment, /post_id: postId, author_id: uid, body: text/);
 });
