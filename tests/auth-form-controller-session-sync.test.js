@@ -34,7 +34,7 @@ test('email sign-in mirrors the authenticated user into the classic runtime befo
   assert.deepEqual(f.mirrored, [user]);
   assert.equal(initializedWith, user);
   assert.equal(f.elements.loginBtn.disabled, false);
-  assert.match(f.elements.authStatus.textContent, /готов к работе/);
+  assert.match(f.elements.authStatus.textContent, /Открываем RIM/);
 });
 
 test('email sign-in reports thrown network failures and releases the login button', async () => {
