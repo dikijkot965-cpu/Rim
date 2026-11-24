@@ -72,6 +72,8 @@
     if (processing) return;
     processing = true;
     try {
+      const cleanUrl = new URL(redirectUri());
+      window.history?.replaceState?.({}, '', cleanUrl.toString());
       if (providerError) throw new Error(url.searchParams.get('error_description') || 'Telegram отклонил вход.');
       const raw = window.sessionStorage?.getItem(STORAGE_KEY);
       window.sessionStorage?.removeItem(STORAGE_KEY);
@@ -102,8 +104,6 @@
       if (!data?.user || !data?.session) throw new Error('Supabase не выдал действующую сессию.');
       window.__RIM_LEGACY_CONTEXT?.setUser?.(data.user);
       window.currentUser = data.user;
-      const clean = new URL(redirectUri());
-      window.history?.replaceState?.({}, '', clean.toString());
       status('Вход через Telegram выполнен. Загружаем RIM…');
       await window.initializeApp?.();
       status('Вы вошли через Telegram. РИМ готов к работе.');
