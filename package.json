@@ -1,6 +1,6 @@
 {
   "name": "rim-messenger",
-  "version": "4.1.8-iteration.174",
+  "version": "4.1.8-iteration.175",
   "private": true,
   "type": "module",
   "description": "RIM messenger — Zladen community platform foundation and Signal Protocol SDK integration",

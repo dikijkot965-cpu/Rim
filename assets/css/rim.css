@@ -3002,3 +3002,19 @@ body[data-theme="light"] .composer.grok-style .send-btn {
   gap: 6px;
   flex-wrap: wrap;
 }
+
+.rim-feed-post-stats button.rim-feed-stat {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+.rim-feed-post-stats button.rim-feed-stat:disabled {
+  opacity: .55;
+  cursor: wait;
+}
+.rim-feed-post-stats .rim-feed-like[aria-pressed="true"] {
+  color: var(--gold2);
+}

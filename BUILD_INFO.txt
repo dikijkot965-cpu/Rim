@@ -1,8 +1,7 @@
-RIM 4.1.8 — Iteration 174
-Base: RIM_4.1.8_ITERATION_173_DIRECT_E2E.zip
-Changes: fixed unique per-recipient Signal SDK timestamps in private group/channel fan-out; added three-account encrypted Signal SDK round-trip tests; expanded opt-in E2E Live Lab to secret direct chats, private groups and closed channels.
-Build: Cloudflare Worker build passed (167 assets); Cloudflare Pages output passed (168 Pages-only files).
-Validation: project check passed; syntax check passed; full Node test suite 662/662 passed; focused SDK tests 3/3 passed; relay adapter integration tests 2/2 passed.
-Production: Supabase was inspected read-only. Required E2E RPCs/schema and rim-e2e-relay v2 are present. No production SQL migration or Edge Function was changed in this iteration. Read-only counts: 0 registered E2E devices, 0 secret direct conversations, 3 private groups currently E2E off, 0 E2E-required private channels. Live two-real-account production E2E remains unverified.
-
-Patch overlay (2026-11-23): canonicalized Grok redesign into root index.html; fixed dynamic template URL validation; removed duplicate feed-compose stub. See docs/ITERATION_174_PATCH_REPORT.md.
+RIM 4.1.8 — Iteration 175 (Auth + Feed + Zladen)
+Base: RIM 4.1.8 Iteration 174.
+Changes: fixed the empty modular-bundle delivery path by building the modular app bundle in CI and packaging the generated Cloudflare output; implemented Telegram OIDC authorization-code + PKCE client flow against the existing telegram-auth Edge Function; aligned feed reads/writes/comments/reports with the deployed Supabase columns; added Following feed filtering, persisted likes, pinned/recommended ordering, and refresh-safe remote cache replacement; automatically installs the system Zladen bot after authenticated startup through the existing rim-zladen Edge Function.
+E2E: no Signal protocol, relay, device, encryption, or E2E SQL changes.
+Production DB: inspected read-only; existing feed schema, RLS, Zladen triggers, and RPCs are already present. No production SQL changes were required for this code patch.
+Validation: GitHub Actions workflow added to run npm ci, project checks, syntax checks, unit tests, Cloudflare build, and produce a ZIP + SHA-256 artifact. Results are pending workflow execution.
+Known limitation: Telegram login requires TELEGRAM_REDIRECT_URI to exactly match the active deployment origin/path and the Telegram OAuth client configuration. Feed media upload/storage integration remains a follow-up; this patch restores text posts, comments, likes, and Following mode.
