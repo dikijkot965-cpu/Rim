@@ -847,6 +847,15 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     } catch { return 'Вы'; }
   }
 
+  function hydrateFeedMedia(root) {
+    root?.querySelectorAll?.('[data-rim-feed-media-src]').forEach(node => {
+      node.src = node.getAttribute('data-rim-feed-media-src') || '';
+    });
+    root?.querySelectorAll?.('[data-rim-feed-media-href]').forEach(node => {
+      node.href = node.getAttribute('data-rim-feed-media-href') || '';
+    });
+  }
+
   function renderFeedList() {
     if (window.renderFeedList && window.renderFeedList !== renderFeedList && window.__rimFeedRankReady) {
       return window.renderFeedList();
@@ -865,10 +874,10 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       const safeMediaUrl = p.mediaUrl ? escapeHtml(p.mediaUrl) : '';
       const media = safeMediaUrl
         ? '<div class="rim-feed-post-media">' +
-          (p.mediaType === 'video' ? '<video src="' + safeMediaUrl + '" controls playsinline preload="metadata"></video>' :
-           p.mediaType === 'audio' ? '<audio src="' + safeMediaUrl + '" controls preload="metadata"></audio>' :
-           p.mediaType === 'document' ? '<a href="' + safeMediaUrl + '" target="_blank" rel="noopener noreferrer">📎 ' + escapeHtml(p.mediaName || 'Открыть файл') + '</a>' :
-           '<img src="' + safeMediaUrl + '" alt="' + escapeHtml(p.mediaName || '') + '" loading="lazy" />') +
+          (p.mediaType === 'video' ? '<video data-rim-feed-media-src="' + safeMediaUrl + '" controls playsinline preload="metadata"></video>' :
+           p.mediaType === 'audio' ? '<audio data-rim-feed-media-src="' + safeMediaUrl + '" controls preload="metadata"></audio>' :
+           p.mediaType === 'document' ? '<a data-rim-feed-media-href="' + safeMediaUrl + '" target="_blank" rel="noopener noreferrer">📎 ' + escapeHtml(p.mediaName || 'Открыть файл') + '</a>' :
+           '<img data-rim-feed-media-src="' + safeMediaUrl + '" alt="' + escapeHtml(p.mediaName || '') + '" loading="lazy" />') +
           '</div>'
         : '';
       return `<article class="rim-feed-post" data-post-id="${p.id}">
@@ -889,6 +898,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
         </div>
       </article>`;
     }).join('');
+    hydrateFeedMedia(list);
 
     list.querySelectorAll('[data-action="comments"]').forEach(el => {
       el.addEventListener('click', () => openFeedComments(el.getAttribute('data-post-id')));
@@ -1093,10 +1103,15 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     modal._pendingPreviewUrl = URL.createObjectURL(file);
     if (preview) {
       const mime = String(file.type || '');
-      if (mime.startsWith('image/')) preview.innerHTML = '<img src="' + modal._pendingPreviewUrl + '" alt="" />';
-      else if (mime.startsWith('video/')) preview.innerHTML = '<video src="' + modal._pendingPreviewUrl + '" controls playsinline></video>';
-      else if (mime.startsWith('audio/')) preview.innerHTML = '<audio src="' + modal._pendingPreviewUrl + '" controls></audio>';
-      else preview.textContent = '📎 ' + String(file.name || 'Файл') + ' · ' + (file.size / 1024 / 1024).toFixed(1) + ' МБ';
+      preview.replaceChildren();
+      if (mime.startsWith('image/') || mime.startsWith('video/') || mime.startsWith('audio/')) {
+        const node = document.createElement(mime.startsWith('image/') ? 'img' : mime.startsWith('video/') ? 'video' : 'audio');
+        if (node.tagName === 'VIDEO' || node.tagName === 'AUDIO') node.controls = true;
+        if (node.tagName === 'VIDEO') node.playsInline = true;
+        if (node.tagName === 'IMG') node.alt = '';
+        node.src = modal._pendingPreviewUrl;
+        preview.appendChild(node);
+      } else preview.textContent = '📎 ' + String(file.name || 'Файл') + ' · ' + (file.size / 1024 / 1024).toFixed(1) + ' МБ';
       preview.classList.remove('hidden');
     }
   }
@@ -1372,10 +1387,10 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       const safeMediaUrl = p.mediaUrl ? escapeHtml(p.mediaUrl) : '';
       const media = safeMediaUrl
         ? '<div class="rim-feed-post-media">' +
-          (p.mediaType === 'video' ? '<video src="' + safeMediaUrl + '" controls playsinline preload="metadata"></video>' :
-           p.mediaType === 'audio' ? '<audio src="' + safeMediaUrl + '" controls preload="metadata"></audio>' :
-           p.mediaType === 'document' ? '<a href="' + safeMediaUrl + '" target="_blank" rel="noopener noreferrer">📎 ' + escapeHtml(p.mediaName || 'Открыть файл') + '</a>' :
-           '<img src="' + safeMediaUrl + '" alt="' + escapeHtml(p.mediaName || '') + '" loading="lazy" />') +
+          (p.mediaType === 'video' ? '<video data-rim-feed-media-src="' + safeMediaUrl + '" controls playsinline preload="metadata"></video>' :
+           p.mediaType === 'audio' ? '<audio data-rim-feed-media-src="' + safeMediaUrl + '" controls preload="metadata"></audio>' :
+           p.mediaType === 'document' ? '<a data-rim-feed-media-href="' + safeMediaUrl + '" target="_blank" rel="noopener noreferrer">📎 ' + escapeHtml(p.mediaName || 'Открыть файл') + '</a>' :
+           '<img data-rim-feed-media-src="' + safeMediaUrl + '" alt="' + escapeHtml(p.mediaName || '') + '" loading="lazy" />') +
           '</div>'
         : '';
       const badge = p.fromChannel ? '<span class="rim-feed-badge">канал</span>' : '';
@@ -1397,6 +1412,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
         </div>
       </article>`;
     }).join('');
+    hydrateFeedMedia(list);
     list.querySelectorAll('[data-action="comments"]').forEach(el => {
       el.addEventListener('click', () => openFeedComments(el.getAttribute('data-post-id')));
     });
