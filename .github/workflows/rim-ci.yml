@@ -17,6 +17,8 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: package-lock.json
+      - name: Refresh lockfile for pinned browser client
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
       - name: Install exact locked dependencies
         run: npm ci --no-audit --no-fund
       - name: Verify Signal SDK entrypoint and browser stores
