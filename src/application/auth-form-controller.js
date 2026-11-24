@@ -156,7 +156,7 @@ export class AuthFormController {
       this.#setCurrentUser(data.user);
       this.#setStatus('Вход подтверждён. Загружаем RIM…');
       await this.onSignedIn(data.user);
-      this.#setStatus('Вы вошли. RIM готов к работе.');
+      this.#setStatus('Вход выполнен. Открываем RIM…');
       return Ok(data.user);
     } catch (error) {
       this.#setStatus(error?.message || 'Не удалось выполнить вход. Проверьте соединение и повторите попытку.');
