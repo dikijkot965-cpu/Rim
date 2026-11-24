@@ -38,8 +38,8 @@ test('Telegram login has a callable OIDC PKCE handler and validates callback sta
 test('authenticated startup waits for the modular entrypoint and loads the auth bridge', () => {
   assert.match(runtime, /__RIM_APP_MODULES_READY_PROMISE/);
   assert.match(runtime, /waitForRimAppModulesReady/);
-  assert.match(index, /src="\.\/assets\/js\/rim-app\.bundle\.js"/);
-  assert.match(index, /src="\.\/assets\/js\/rim-auth-zladen-bridge\.js"/);
+  assert.match(index, /src="\.\/assets\/js\/rim-app\.bundle\.js(?:\?[^"]*)?"/);
+  assert.match(index, /src="\.\/assets\/js\/rim-auth-zladen-bridge\.js(?:\?[^"]*)?"/);
 });
 
 test('feed reads only columns present in the deployed feed schema', () => {
