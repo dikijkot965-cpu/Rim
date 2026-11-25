@@ -1,0 +1,1 @@
+var t;(function(e){e.SENDING="sending",e.RECEIVING="receiving"})(t||(t={}));var n;(function(e){e.NEW_IDENTITY="new_identity",e.UNCHANGED="unchanged",e.CHANGED="changed",e.ROLLBACK="rollback"})(n||(n={}));var r={trustNewIdentitiesAutomatically:!0,allowReceivingFromUntrusted:!1,requireReverificationAfterChange:!0,archiveSessionsOnIdentityChange:!0};export{t as a,n as b,r as c};
