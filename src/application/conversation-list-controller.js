@@ -242,7 +242,9 @@ export class ConversationListController {
         if (!item || !list.contains(item)) return;
         event.preventDefault();
         const id = item.getAttribute('data-conversation-id');
-        if (id) this.window?.openConversation?.(id);
+        if (!id) return;
+        if (item.dataset.rimEntityKind === 'channel') this.window?.openChannel?.(id);
+        else this.window?.openConversation?.(id);
       });
     }
     this.ensureFavoritesRow();
