@@ -53,30 +53,67 @@ export class ConversationRepository {
   async listForUser(userId) {
     if (!userId) return Err(new Error('Conversation list requires an authenticated user.'));
 
-    const members = await this.client
-      .from('conversation_members')
-      .select('conversation_id')
-      .eq('user_id', userId);
+    const [members, channelMemberships, ownedChannels] = await Promise.all([
+      this.client.from('conversation_members').select('conversation_id').eq('user_id', userId),
+      this.client.from('channel_members').select('channel_id').eq('user_id', userId),
+      this.client.from('channels').select('id').eq('owner_id', userId)
+    ]);
     if (members.error) return Err(members.error);
+    if (channelMemberships.error) return Err(channelMemberships.error);
+    if (ownedChannels.error) return Err(ownedChannels.error);
 
     const ids = uniqueIds((members.data || []).map(row => row.conversation_id));
-    if (!ids.length) return Ok([]);
-
+    const channelIds = uniqueIds([
+      ...(channelMemberships.data || []).map(row => row.channel_id),
+      ...(ownedChannels.data || []).map(row => row.id)
+    ]);
     const conversations = [];
+
     for (const batch of chunks(ids, this.batchSize)) {
-      const response = await this.client
-        .from('conversations')
+      const response = await this.client.from('conversations')
         .select('id,type,title,description,created_at,created_by,is_private,avatar_path,invite_code,is_secret,e2e_mode,e2e_epoch,e2e_protocol')
-        .in('id', batch)
-        .order('created_at', { ascending: false });
+        .in('id', batch).order('created_at', { ascending: false });
       if (response.error) return Err(response.error);
       conversations.push(...(response.data || []));
     }
 
+    // Channels retain their own membership, feed and open route.
+    for (const batch of chunks(channelIds, this.batchSize)) {
+      const response = await this.client.from('channels')
+        .select('id,type,title,description,username,is_public,created_at,avatar_path,e2e_mode')
+        .in('id', batch);
+      if (response.error) return Err(response.error);
+      conversations.push(...(response.data || []).map(channel => ({
+        ...channel, type: 'channel', _rimEntityKind: 'channel', is_private: channel.is_public === false
+      })));
+    }
+
+    if (channelIds.length) {
+      const latestPosts = await this.client.from('channel_posts')
+        .select('id,channel_id,body,image_path,created_at')
+        .in('channel_id', channelIds.slice(0, 200))
+        .order('created_at', { ascending: false })
+        .limit(Math.min(500, Math.max(50, channelIds.length * 3)));
+      if (latestPosts.error) return Err(latestPosts.error);
+      const latestByChannel = new Map();
+      for (const post of latestPosts.data || []) {
+        const id = String(post.channel_id);
+        if (!latestByChannel.has(id)) latestByChannel.set(id, post);
+      }
+      for (const channel of conversations) {
+        if (channel._rimEntityKind !== 'channel') continue;
+        const latest = latestByChannel.get(String(channel.id));
+        if (!latest) continue;
+        channel._rimLastMessageAt = latest.created_at;
+        channel._rimLastMessageId = latest.id;
+        channel._rimLastMessagePreview = String(latest.body || (latest.image_path ? 'Фото' : 'Публикация')).replace(/\s+/g, ' ').trim().slice(0, 100);
+      }
+    }
+
     conversations.sort((a, b) => {
-      const time = new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
-      if (time) return time;
-      return String(a.id).localeCompare(String(b.id));
+      const time = new Date(b._rimLastMessageAt || b.created_at || 0).getTime()
+        - new Date(a._rimLastMessageAt || a.created_at || 0).getTime();
+      return time || String(a.id).localeCompare(String(b.id));
     });
     return Ok(conversations);
   }
