@@ -105,3 +105,26 @@ test('GitHub Pages host uses canonical public redirect URI', async () => {
   const pending = JSON.parse(values.get(TELEGRAM_AUTH_STORAGE_KEY));
   assert.equal(pending.redirectUri, 'https://dikijkot965-cpu.github.io/Rim/');
 });
+
+
+test('Telegram callback invokes the browser Window.fetch with its required receiver', async () => {
+  const win = makeWindow('https://rim.example/index.html?code=auth-code-123456&state=expected-state');
+  win.sessionStorage.setItem(TELEGRAM_AUTH_STORAGE_KEY, JSON.stringify({
+    state: 'expected-state', nonce: 'nonce-value-which-is-long-enough', verifier: 'v'.repeat(48),
+    redirectUri: 'https://rim.example/index.html', createdAt: Date.now()
+  }));
+  let fetchReceiver = null;
+  win.fetch = async function(url, options) {
+    fetchReceiver = this;
+    assert.ok(url.endsWith('/functions/v1/telegram-auth'));
+    return { ok: true, async json() { return { token_hash: 'hash-once' }; } };
+  };
+  const client = {
+    supabaseUrl: 'https://project.supabase.co',
+    rest: { headers: { apikey: 'sb_publishable_test' } },
+    auth: { async verifyOtp() { return { data: { user: { id: 'u1' }, session: { access_token: 'token' } }, error: null }; } }
+  };
+  const result = await new TelegramAuthService({ client, windowRef: win }).handleCallback();
+  assert.equal(result.ok, true);
+  assert.equal(fetchReceiver, win, 'Window.fetch must be called with window as its receiver');
+});
