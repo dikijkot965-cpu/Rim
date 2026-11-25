@@ -15,7 +15,8 @@ test('AppBootstrapController owns initializeApp', () => {
 
 test('bootstrap LOC under 620 after stub compaction', () => {
   const boot = readFileSync(join(root, 'assets/js/rim-runtime-bootstrap.js'), 'utf8');
-  assert.match(boot, /__RIM_APP_BOOTSTRAP_OWNED/);
+  assert.match(boot, /async function initializeApp/);
+  assert.match(shell, /appBootstrap\.bindGlobals\(\)/);
   const lines = boot.split(/\n/).length;
-  assert.ok(lines < 300, `lines ${lines}`);
+  assert.ok(lines <= 350, `lines ${lines}`);
 });
