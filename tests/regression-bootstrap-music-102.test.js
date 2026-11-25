@@ -15,6 +15,7 @@ test('music domain rejects empty title and huge files', () => {
 
 test('bootstrap music and chat-info are ownership stubs', () => {
   const boot = readFileSync(join(root, 'assets/js/rim-runtime-bootstrap.js'), 'utf8');
+  const surface = readFileSync(join(root, 'src/composition/features-surface.js'), 'utf8');
   const audience = readFileSync(join(root, 'src/composition/chat-audience.js'), 'utf8');
   const shell = readFileSync(join(root, 'src/composition/shell-surface.js'), 'utf8');
   assert.match(surface, /__RIM_MUSIC_OWNED/);
