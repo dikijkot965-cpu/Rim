@@ -13,39 +13,62 @@ const SUPABASE_KEY = "sb_publishable_8uEQ0o-7uF66sPZi8EVp5g_SDHXXJx0";
 window.RIM_SUPABASE_PUBLISHABLE_KEY = SUPABASE_KEY;
 
 // The classic bootstrap can finish Supabase getSession() before the large
-// modular application graph has loaded. Never initialize authenticated UI
-// against the temporary no-op loadConversations/openConversation shims.
+// modular application graph has loaded. Authenticated UI must wait for the
+// real module-ready signal, but a fixed wall-clock cutoff is not a load strategy:
+// slow mobile networks must not be mistaken for a broken application.
 let __rimResolveModulesReady;
+let __rimRejectModulesReady;
 let __rimModulesReadyResolved = false;
 window.__RIM_APP_MODULES_READY_STATE = 'loading';
-window.__RIM_APP_MODULES_READY_PROMISE = new Promise(resolve => {
+window.__RIM_APP_MODULES_READY_PROMISE = new Promise((resolve, reject) => {
   __rimResolveModulesReady = resolve;
+  __rimRejectModulesReady = reject;
 });
 window.__rimMarkAppModulesReady = () => {
-  if (__rimModulesReadyResolved) return true;
+  if (__rimModulesReadyResolved || window.__RIM_APP_MODULES_READY_STATE === 'failed') return false;
   __rimModulesReadyResolved = true;
   window.__RIM_APP_MODULES_READY_STATE = 'ready';
   try { __rimResolveModulesReady?.(true); } catch (_) { /* no-op */ }
   return true;
 };
+window.__rimFailAppModules = reason => {
+  if (__rimModulesReadyResolved || window.__RIM_APP_MODULES_READY_STATE === 'failed') return false;
+  const error = reason instanceof Error ? reason : new Error(String(reason || 'Unknown application module error'));
+  window.__RIM_APP_MODULES_READY_STATE = 'failed';
+  window.__RIM_APP_MODULES_READY_ERROR = error.message;
+  try { __rimRejectModulesReady?.(error); } catch (_) { /* no-op */ }
+  return true;
+};
 
-async function waitForRimAppModulesReady(timeoutMs = 20000) {
+// Catch both module-script network failures and uncaught exceptions originating
+// in the app entry/chunks. This turns a silent 20-second timeout into the real
+// browser error, while allowing arbitrarily slow but successful downloads.
+window.addEventListener('error', event => {
+  const targetSrc = String(event.target?.src || '');
+  const filename = String(event.filename || '');
+  const isAppModule = /(?:rim-app\\.bundle\\.js|\\/chunks\\/)/.test(targetSrc)
+    || /(?:rim-app\\.bundle\\.js|\\/chunks\\/)/.test(filename);
+  if (!isAppModule) return;
+  const detail = event.message || (targetSrc ? `Не удалось загрузить ${targetSrc}` : 'Ошибка выполнения модулей RIM');
+  window.__rimFailAppModules(new Error(detail));
+}, true);
+
+async function waitForRimAppModulesReady() {
   if (window.__RIM_APP_MODULES_READY_STATE === 'ready') return true;
+  if (window.__RIM_APP_MODULES_READY_STATE === 'failed') {
+    throw new Error(window.__RIM_APP_MODULES_READY_ERROR || 'Не удалось запустить модули RIM.');
+  }
   const promise = window.__RIM_APP_MODULES_READY_PROMISE;
   if (!promise || typeof promise.then !== 'function') return true;
-  let timer = null;
-  const ready = await Promise.race([
-    promise,
-    new Promise(resolve => { timer = setTimeout(() => resolve(false), timeoutMs); })
-  ]);
-  if (timer !== null) clearTimeout(timer);
-  if (ready !== true) {
-    const message = 'Модули RIM не загрузились за 20 секунд. Обнови страницу; если ошибка повторится, проверь загрузку assets/js/rim-app.bundle.js.';
+  try {
+    await promise;
+    return true;
+  } catch (error) {
+    const message = `Не удалось запустить модули RIM: ${error?.message || error}`;
     const list = document.getElementById('chatList');
     if (list) list.innerHTML = `<div class="notice">${message}</div><button class="action-btn" type="button" onclick="location.reload()">Перезагрузить RIM</button>`;
-    throw new Error(message);
+    throw new Error(message, { cause: error });
   }
-  return true;
 }
 
 window.signInWithTelegram = () => {
