@@ -154,6 +154,9 @@ test('listForUser reads membership ids then conversation rows in batches', async
         order(column, options) { state.orders.push([column, options]); return this; },
         then(resolve, reject) {
           calls.push(state);
+          if (table === 'channel_members' || table === 'channels') {
+            return Promise.resolve({ data: [], error: null }).then(resolve, reject);
+          }
           if (table === 'conversation_members') {
             return Promise.resolve({
               data: [{ conversation_id: 'c2' }, { conversation_id: 'c1' }, { conversation_id: 'c1' }],
@@ -181,6 +184,7 @@ test('listForUser reads membership ids then conversation rows in batches', async
   assert.equal(result.value[1].id, 'c1');
   const members = calls.find(call => call.table === 'conversation_members');
   const conversations = calls.find(call => call.table === 'conversations');
+  assert.ok(calls.some(call => call.table === 'channel_members'));
   assert.equal(members.columns, 'conversation_id');
   assert.deepEqual(members.filters, [['user_id', 'user-1']]);
   assert.match(conversations.columns, /id,type,title/);
@@ -204,7 +208,7 @@ test('listForUser returns empty list without conversation query when user has no
   const result = await new ConversationRepository(client).listForUser('user-1');
   assert.equal(result.ok, true);
   assert.deepEqual(result.value, []);
-  assert.deepEqual(calls, ['conversation_members']);
+  assert.deepEqual(calls.sort(), ['channel_members', 'channels', 'conversation_members']);
 });
 
 test('getAccessibleConversation verifies membership before loading the conversation', async () => {
@@ -273,4 +277,14 @@ test('conversation list selects E2E metadata for secret and private group scopes
   assert.equal(result.ok, true);
   const selection = calls.find(call => call.table === 'conversations')?.columns || '';
   for (const field of ['is_secret', 'e2e_mode', 'e2e_epoch', 'e2e_protocol']) assert.match(selection, new RegExp(field));
+});
+
+
+test('listForUser projects channel membership and latest posts into chat-list entries', async () => {
+  const source = await import('node:fs/promises');
+  const code = await source.readFile(new URL('../src/infrastructure/supabase/conversation-repository.js', import.meta.url), 'utf8');
+  assert.match(code, /from\('channel_members'\)/);
+  assert.match(code, /from\('channels'\).*owner_id/s);
+  assert.match(code, /from\('channel_posts'\)/);
+  assert.match(code, /_rimEntityKind: 'channel'/);
 });
