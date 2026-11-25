@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { installAuthEntrypoint } from '../src/application/auth-entrypoint.js';
 
 function fixture() {
@@ -77,4 +78,13 @@ test('auth entrypoint replaces the Telegram loading shim with the controller han
     f.windowRef.signInWithTelegram
   );
   assert.equal(f.windowRef.__RIM_AUTH_FORM_READY, true);
+});
+
+test('index loads the small auth entrypoint before the large application bundle', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const authIndex = html.indexOf('assets/js/rim-auth-entrypoint.js');
+  const appIndex = html.indexOf('assets/js/rim-app.bundle.js');
+  assert.ok(authIndex >= 0, 'auth entrypoint must be referenced by index.html');
+  assert.ok(appIndex >= 0, 'application bundle must be referenced by index.html');
+  assert.ok(authIndex < appIndex, 'auth controller must bind before the large app bundle loads');
 });
