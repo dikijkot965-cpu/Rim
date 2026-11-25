@@ -37,10 +37,18 @@ async function sha256Base64Url(value, cryptoRef) {
 }
 
 export class TelegramAuthService {
-  constructor({ client, windowRef = globalThis.window, fetchRef = globalThis.fetch, clientId = TELEGRAM_CLIENT_ID, publicAppUrl = null } = {}) {
+  constructor({ client, windowRef = globalThis.window, fetchRef = null, clientId = TELEGRAM_CLIENT_ID, publicAppUrl = null } = {}) {
     this.client = client;
     this.window = windowRef;
-    this.fetch = fetchRef;
+    // Window.fetch is a Web IDL method and must retain its Window receiver.
+    // Explicitly injected test/custom fetch implementations remain untouched.
+    this.fetch = typeof fetchRef === 'function'
+      ? fetchRef
+      : typeof windowRef?.fetch === 'function'
+        ? windowRef.fetch.bind(windowRef)
+        : typeof globalThis.fetch === 'function'
+          ? globalThis.fetch.bind(globalThis)
+          : null;
     this.clientId = String(clientId);
     this.publicAppUrl = publicAppUrl;
     this.processing = false;

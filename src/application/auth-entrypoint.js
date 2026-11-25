@@ -27,6 +27,7 @@ export function installAuthEntrypoint({
         throw new Error('Основной модуль RIM ещё не подготовил запуск приложения. Обновите страницу и повторите вход.');
       }
       await windowRef.initializeApp();
+      await windowRef.rimMaybeShowSecurityOnboarding?.();
     }
   });
 

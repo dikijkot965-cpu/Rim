@@ -53,30 +53,24 @@ export function bindShellSurface({
   lifecycle?.add?.(() => shellModal.dispose());
 
 
-  const authForm = new AuthFormController({
+  // The early entrypoint already owns the auth controller and processes
+  // Telegram's one-time callback. Reuse it; never create a second callback consumer.
+  const authForm = win.__RIM_AUTH_FORM_CONTROLLER || new AuthFormController({
     client: client || container?.get?.('client') || win.__RIM_LEGACY_CONTEXT?.db || null,
     documentRef,
     windowRef: win,
-    onSignedIn: (user) => {
+    onSignedIn: async user => {
       win.currentUser = user;
-      // Authentication success must not be held hostage by profile/chat/feed
-      // queries. Open the app immediately and let its bootstrap hydrate panels.
-      try {
-        const startup = typeof win.initializeApp === 'function'
-          ? win.initializeApp()
-          : Promise.resolve();
-        Promise.resolve(startup)
-          .then(() => win.rimMaybeShowSecurityOnboarding?.())
-          .catch(error => logger?.warn?.('app.bootstrap.after_auth.failed', {
-            message: error?.message || String(error)
-          }));
-      } catch (error) {
-        logger?.warn?.('app.bootstrap.after_auth.failed', { message: error?.message || String(error) });
-      }
+      const startup = typeof win.initializeApp === 'function' ? win.initializeApp() : Promise.resolve();
+      await startup;
+      await win.rimMaybeShowSecurityOnboarding?.();
     },
     logger
   });
-  authForm.bindGlobals();
+  if (!win.__RIM_AUTH_FORM_CONTROLLER) {
+    authForm.bindGlobals();
+    win.__RIM_AUTH_FORM_CONTROLLER = authForm;
+  }
   container?.value?.('authForm', authForm);
   lifecycle?.add?.(() => { win.__RIM_AUTH_FORM_OWNED = false; });
 

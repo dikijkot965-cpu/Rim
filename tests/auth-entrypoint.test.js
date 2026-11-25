@@ -88,3 +88,13 @@ test('index loads the small auth entrypoint before the large application bundle'
   assert.ok(appIndex >= 0, 'application bundle must be referenced by index.html');
   assert.ok(authIndex < appIndex, 'auth controller must bind before the large app bundle loads');
 });
+
+
+test('the early auth controller is reused by the modular shell instead of creating a second Telegram callback consumer', () => {
+  const shell = readFileSync(new URL('../src/composition/shell-surface.js', import.meta.url), 'utf8');
+  const entry = readFileSync(new URL('../src/application/auth-entrypoint.js', import.meta.url), 'utf8');
+  assert.match(entry, /windowRef\.__RIM_AUTH_FORM_CONTROLLER = controller/);
+  assert.match(shell, /win\.__RIM_AUTH_FORM_CONTROLLER \|\| new AuthFormController/);
+  assert.match(shell, /if \(!win\.__RIM_AUTH_FORM_CONTROLLER\)/);
+  assert.match(entry, /rimMaybeShowSecurityOnboarding/);
+});
