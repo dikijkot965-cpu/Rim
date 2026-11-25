@@ -14,7 +14,7 @@ test('module readiness does not reject a slow but still-loading application afte
 test('module readiness propagates app bundle and split-chunk failures instead of hiding them as timeouts', () => {
   assert.match(bootstrap, /window\.__rimFailAppModules\s*=\s*reason\s*=>/);
   assert.match(bootstrap, /window\.addEventListener\('error'/);
-  assert.ok(bootstrap.includes('rim-app\\\\.bundle\\\\.js'));
-  assert.ok(bootstrap.includes('\\\\/chunks\\\\/'));
+  assert.ok(bootstrap.includes('rim-app\\.bundle\\.js'));
+  assert.ok(bootstrap.includes('\\/chunks\\/'));
   assert.match(bootstrap, /Не удалось запустить модули RIM:/);
 });
