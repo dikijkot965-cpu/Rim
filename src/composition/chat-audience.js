@@ -69,6 +69,26 @@ export function bindChatAudience({
     if (!result.ok && result.error?.message) notify?.(result.error.message);
     return result;
   };
+  win.pinMessage = async messageId => {
+    const user = getUser?.();
+    const conversation = win.activeConversation || null;
+    if (!user?.id || !conversation?.id || !messageId) {
+      notify?.('Не удалось закрепить сообщение: чат или пользователь не определён.');
+      return { ok: false };
+    }
+    const { error } = await client.from('message_pins').upsert({
+      user_id: user.id,
+      conversation_id: conversation.id,
+      message_id: messageId
+    }, { onConflict: 'user_id,message_id' });
+    if (error) {
+      logger?.warn?.('message.pin.failed', { message: error.message });
+      notify?.('Не удалось закрепить сообщение.');
+      return { ok: false, error };
+    }
+    notify?.('Сообщение добавлено в закреплённые.');
+    return { ok: true };
+  };
   lifecycle?.add?.(() => { win.__RIM_PINNED_MESSAGES_OWNED = false; });
 
   logger?.info?.('composition.chatAudience.bound', {});
