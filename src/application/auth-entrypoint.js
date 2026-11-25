@@ -20,12 +20,8 @@ export function installAuthEntrypoint({
     windowRef,
     logger,
     onSignedIn: async user => {
-      if (typeof windowRef.__RIM_SET_CURRENT_USER === 'function') {
-        windowRef.__RIM_SET_CURRENT_USER(user);
-      } else {
-        windowRef.currentUser = user;
-      }
-
+      // AuthFormController already mirrors the user through
+      // __RIM_SET_CURRENT_USER before invoking this callback.
       if (typeof windowRef.initializeApp !== 'function') {
         throw new Error('Основной модуль RIM ещё не подготовил запуск приложения. Обновите страницу и повторите вход.');
       }
