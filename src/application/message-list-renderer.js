@@ -70,6 +70,7 @@ export class MessageListRenderer {
     client,
     getUser,
     getMessages,
+    getActiveConversation = () => null,
     getOutboxMessages = null,
     documentRef = globalThis.document,
     windowRef = globalThis.window,
@@ -78,6 +79,7 @@ export class MessageListRenderer {
     this.client = client;
     this.getUser = getUser;
     this.getMessages = getMessages;
+    this.getActiveConversation = getActiveConversation;
     this.getOutboxMessages = getOutboxMessages;
     this.peerReadAt = null;
     this.receiptsEnabled = true;
@@ -117,6 +119,8 @@ export class MessageListRenderer {
       case 'forward': this.window?.rimForwardChoose?.(messageId); break;
       case 'more': this.window?.rimOpenMessageActions?.(messageId); break;
       case 'favorite': this.window?.rimSaveMessageToFavorites?.(messageId); break;
+      case 'pin': this.window?.pinMessage?.(messageId); break;
+      case 'report': this.window?.openReportForm?.({ messageId, conversationId: this.getActiveConversation?.()?.id }); break;
       default: break;
     }
     this.#closeSheet();
@@ -145,11 +149,25 @@ export class MessageListRenderer {
         <button type="button" class="rim-msg-sheet-item" data-rim-msg-action="copy" data-message-id="${messageId}">⧉ Копировать</button>
         <button type="button" class="rim-msg-sheet-item" data-rim-msg-action="forward" data-message-id="${messageId}">→ Переслать</button>
         <button type="button" class="rim-msg-sheet-item" data-rim-msg-action="favorite" data-message-id="${messageId}">☆ В Избранное</button>
+        <button type="button" class="rim-msg-sheet-item" data-rim-msg-action="pin" data-message-id="${messageId}">⌖ Закрепить</button>
+        ${!mine && this.getActiveConversation?.()?.type === 'group' ? `<button type="button" class="rim-msg-sheet-item" data-rim-msg-action="report" data-message-id="${messageId}">⚑ Пожаловаться</button>` : ''}
         ${mine ? `<button type="button" class="rim-msg-sheet-item" data-rim-msg-action="edit" data-message-id="${messageId}">✎ Изменить</button>
         <button type="button" class="rim-msg-sheet-item danger" data-rim-msg-action="delete" data-message-id="${messageId}">🗑 Удалить</button>` : ''}
         <button type="button" class="rim-msg-sheet-item" data-rim-sheet-close="1">Закрыть</button>
       </div>`;
     doc.body.appendChild(sheet);
+    const panel = sheet.querySelector?.('.rim-msg-sheet-panel');
+    const rect = anchor?.getBoundingClientRect?.();
+    const viewportWidth = Number(this.window?.innerWidth || doc.documentElement?.clientWidth || 360);
+    const viewportHeight = Number(this.window?.innerHeight || doc.documentElement?.clientHeight || 640);
+    if (panel && rect) {
+      const width = Math.min(340, Math.max(260, viewportWidth - 24));
+      const left = Math.max(12, Math.min(rect.left, viewportWidth - width - 12));
+      panel.style.width = width + 'px'; panel.style.left = left + 'px'; panel.style.right = 'auto'; panel.style.bottom = 'auto';
+      panel.style.top = Math.max(12, rect.bottom + 8) + 'px';
+      const panelHeight = panel.getBoundingClientRect?.().height || 360;
+      if (rect.bottom + panelHeight + 20 > viewportHeight) { panel.style.top = 'auto'; panel.style.bottom = Math.max(12, viewportHeight - rect.top + 8) + 'px'; }
+    }
     sheet.addEventListener('click', (event) => {
       if (event.target?.closest?.('[data-rim-sheet-close]')) {
         this.#closeSheet();
