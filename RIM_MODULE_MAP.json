@@ -1,5 +1,5 @@
 {
-  "version": "4.1.8-iteration.178",
+  "version": "4.1.8-iteration.179",
   "layers": {
     "core": [
       "src/core/config.js",
