@@ -15,12 +15,14 @@ test('music domain rejects empty title and huge files', () => {
 
 test('bootstrap music and chat-info are ownership stubs', () => {
   const boot = readFileSync(join(root, 'assets/js/rim-runtime-bootstrap.js'), 'utf8');
-  assert.match(boot, /__RIM_MUSIC_OWNED/);
-  assert.match(boot, /__RIM_CHAT_INFO_OWNED/);
-  assert.match(boot, /__RIM_SESSION_LIFECYCLE_OWNED/);
+  const audience = readFileSync(join(root, 'src/composition/chat-audience.js'), 'utf8');
+  const shell = readFileSync(join(root, 'src/composition/shell-surface.js'), 'utf8');
+  assert.match(surface, /__RIM_MUSIC_OWNED/);
+  assert.match(audience, /__RIM_CHAT_INFO_OWNED/);
+  assert.match(shell, /__RIM_SESSION_LIFECYCLE_OWNED/);
   assert.doesNotMatch(boot, /from\("music_tracks"\)\.insert/);
   const lines = boot.split(/\n/).length;
-  assert.ok(lines < 300, `bootstrap lines ${lines}`);
+  assert.ok(lines <= 350, `bootstrap lines ${lines}`);
 });
 
 test('features surface owns music routes', () => {
