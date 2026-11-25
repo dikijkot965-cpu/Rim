@@ -25,13 +25,13 @@ async function provisionBot(ownerId:string){
  if(!ownerId)throw new Error("zladen_owner_not_configured_or_ambiguous");
  const username=String(registry.username||"zladen_bot").toLowerCase();
  const password=randomToken()+randomToken();
- const created=await db.auth.admin.createUser({email:"zladen@bots.rim.invalid",password,email_confirm:true,app_metadata:{rim_system_bot:true,rim_bot_owner_id:ownerId},user_metadata:{username,display_name:registry.display_name||"Злыдя"}});
+ const created=await db.auth.admin.createUser({email:"zladen@bots.rim.invalid",password,email_confirm:true,app_metadata:{rim_system_bot:true,rim_bot_owner_id:ownerId},user_metadata:{username,display_name:registry.display_name||"Злыдень"}});
  if(created.error||!created.data.user)throw new Error("zladen_auth_identity_create_failed");
  const botUserId=created.data.user.id;
- const profile=await db.from("profiles").upsert({id:botUserId,username,display_name:registry.display_name||"Злыдя",bio:"Системный помощник РИМа"},{onConflict:"id"});
+ const profile=await db.from("profiles").upsert({id:botUserId,username,display_name:registry.display_name||"Злыдень",bio:"Системный помощник РИМа"},{onConflict:"id"});
  if(profile.error){await db.auth.admin.deleteUser(botUserId);throw new Error("zladen_profile_create_failed");}
  const botToken=randomToken();
- const botRow=await db.from("rim_bots").insert({owner_id:ownerId,bot_user_id:botUserId,username,display_name:registry.display_name||"Злыдя",description:"Системный помощник РИМа",token_hash:await digest(botToken),commands:[{command:"start",description:"Начать работу"},{command:"help",description:"Список возможностей"}]});
+ const botRow=await db.from("rim_bots").insert({owner_id:ownerId,bot_user_id:botUserId,username,display_name:registry.display_name||"Злыдень",description:"Системный помощник РИМа",token_hash:await digest(botToken),commands:[{command:"start",description:"Начать работу"},{command:"help",description:"Список возможностей"}]});
  if(botRow.error){await db.from("profiles").delete().eq("id",botUserId);await db.auth.admin.deleteUser(botUserId);throw new Error("zladen_bot_registry_create_failed");}
  const saved=await db.from("rim_system_bot_registry").update({bot_user_id:botUserId,owner_id:ownerId,updated_at:new Date().toISOString()}).eq("bot_key","zladen").is("bot_user_id",null).select("*").maybeSingle();
  if(saved.error||!saved.data){
