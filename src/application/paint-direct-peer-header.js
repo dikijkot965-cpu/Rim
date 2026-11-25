@@ -9,6 +9,7 @@ export async function paintDirectPeerHeader({
   resolveChatHeader,
   applyPeerAvatar,
   documentRef = globalThis.document,
+  windowRef = globalThis.window,
   isCurrent = () => true,
   sequence = 0,
   logger = null
@@ -37,7 +38,23 @@ export async function paintDirectPeerHeader({
   });
 
   if (!isCurrent()) return null;
-  if (titleNode) titleNode.textContent = resolved.title;
+  if (titleNode) {
+    titleNode.textContent = resolved.title;
+    const username = resolved.peer?.username;
+    titleNode.onclick = username ? () => windowRef?.findUserByName?.(username) : null;
+    if (titleNode.style) titleNode.style.cursor = username ? 'pointer' : '';
+    titleNode.setAttribute?.('role', username ? 'button' : 'heading');
+    titleNode.setAttribute?.('tabindex', username ? '0' : '-1');
+    titleNode.setAttribute?.('aria-label', username ? 'Открыть профиль @' + username : resolved.title);
+    if (username && !titleNode.dataset.rimProfileKeydown) {
+      titleNode.dataset.rimProfileKeydown = '1';
+      titleNode.addEventListener('keydown', event => {
+        if ((event.key === 'Enter' || event.key === ' ') && typeof titleNode.onclick === 'function') {
+          event.preventDefault(); titleNode.onclick();
+        }
+      });
+    }
+  }
 
   const status = documentRef.getElementById?.('chatHeadStatus');
   const seenAt = resolved.peer?.last_seen_at ? new Date(resolved.peer.last_seen_at) : null;
