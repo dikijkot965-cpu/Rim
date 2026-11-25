@@ -22,6 +22,8 @@ test('social surface assigns peer profile and start chat', () => {
 
 test('bootstrap modal and direct-chat are dual-bound stubs', () => {
   const boot = readFileSync(join(root, 'assets/js/rim-runtime-bootstrap.js'), 'utf8');
+  const shell = readFileSync(join(root, 'src/composition/shell-surface.js'), 'utf8');
+  const social = readFileSync(join(root, 'src/composition/social-surface.js'), 'utf8');
   assert.match(shell, /shellModal\.bindGlobals\(\)/);
   assert.match(social, /__RIM_DIRECT_CHAT_OWNED/);
   assert.match(boot, /async function openConversation/);
