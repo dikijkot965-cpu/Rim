@@ -46,8 +46,8 @@ window.__rimFailAppModules = reason => {
 window.addEventListener('error', event => {
   const targetSrc = String(event.target?.src || '');
   const filename = String(event.filename || '');
-  const isAppModule = /(?:rim-app\\.bundle\\.js|\\/chunks\\/)/.test(targetSrc)
-    || /(?:rim-app\\.bundle\\.js|\\/chunks\\/)/.test(filename);
+  const isAppModule = /(?:rim-app\.bundle\.js|\/chunks\/)/.test(targetSrc)
+    || /(?:rim-app\.bundle\.js|\/chunks\/)/.test(filename);
   if (!isAppModule) return;
   const detail = event.message || (targetSrc ? `Не удалось загрузить ${targetSrc}` : 'Ошибка выполнения модулей RIM');
   window.__rimFailAppModules(new Error(detail));
