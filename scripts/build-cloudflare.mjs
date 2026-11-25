@@ -117,6 +117,14 @@ try {
   // cannot resolve the SDK's pinned bare package imports in a browser.
   fs.mkdirSync(path.join(root, 'assets/js'), { recursive: true });
   fs.cpSync(path.join(output, 'assets/js'), path.join(root, 'assets/js'), { recursive: true });
+  for (const target of [
+    path.join(root, 'assets/js/rim-auth-entrypoint.js'),
+    path.join(pagesOutput, 'assets/js/rim-auth-entrypoint.js')
+  ]) {
+    if (!fs.existsSync(target) || fs.statSync(target).size === 0) {
+      throw new Error(`Generated auth entrypoint was not copied to the public target: ${target}`);
+    }
+  }
   for (const htmlFile of [path.join(root, 'index.html'), path.join(output, 'index.html'), path.join(pagesOutput, 'index.html')]) {
     const htmlText = fs.readFileSync(htmlFile, 'utf8').replace('./src/app.js', './assets/js/rim-app.bundle.js');
     fs.writeFileSync(htmlFile, htmlText);
