@@ -213,10 +213,11 @@ export class ConversationListController {
     list.innerHTML = rows.map(chat => {
       const active = String(chat.id) === String(activeId) ? 'active' : '';
       const title = escapeHtml(this.conversationTitle(chat));
-      const preview = escapeHtml(conversationSubtitle(chat) || (chat.type === 'group' ? 'Групповая беседа' : 'Переписка'));
+      const preview = escapeHtml(conversationSubtitle(chat) || (chat.type === 'channel' ? (chat.username ? '@' + chat.username : 'Канал') : chat.type === 'group' ? 'Групповая беседа' : 'Переписка'));
       const id = escapeHtml(chat.id);
-      const glyph = chat.type === 'group' ? '♧' : '⚜';
-      return `<div class="chat-item ${active}" data-conversation-id="${id}" role="button" tabindex="0">
+      const glyph = chat.type === 'group' ? '♧' : chat.type === 'channel' ? '◉' : '⚜';
+      const entityKind = chat._rimEntityKind === 'channel' ? 'channel' : 'conversation';
+      return `<div class="chat-item ${active}" data-conversation-id="${id}" data-rim-entity-kind="${entityKind}" role="button" tabindex="0">
     <div class="avatar">${glyph}</div>
     <div class="chat-item-info">
      <div class="chat-item-name">${title}</div>
@@ -231,7 +232,9 @@ export class ConversationListController {
         const item = event.target?.closest?.('[data-conversation-id]');
         if (!item || !list.contains(item)) return;
         const id = item.getAttribute('data-conversation-id');
-        if (id) this.window?.openConversation?.(id);
+        if (!id) return;
+        if (item.dataset.rimEntityKind === 'channel') this.window?.openChannel?.(id);
+        else this.window?.openConversation?.(id);
       });
       list.addEventListener('keydown', event => {
         if (event.key !== 'Enter' && event.key !== ' ') return;
