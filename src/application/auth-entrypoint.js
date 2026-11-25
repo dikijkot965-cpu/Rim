@@ -3,7 +3,8 @@ import { AuthFormController } from './auth-form-controller.js';
 /**
  * Connect the tested modular auth controller to the classic HTML entrypoints.
  * The classic bootstrap has already created window.db and initializeApp before
- * this module script executes (index.html loads it after rim-app.bundle.js).
+ * this module script executes. index.html loads this small module before the
+ * large app bundle so the login controls are wired without waiting for it.
  */
 export function installAuthEntrypoint({
   windowRef = globalThis.window,
