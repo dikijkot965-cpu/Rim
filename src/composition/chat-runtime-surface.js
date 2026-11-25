@@ -45,6 +45,7 @@ export function bindChatRuntimeSurface({
     client,
     getUser,
     getMessages,
+    getActiveConversation,
     logger
   });
   container?.value?.('messageDecorations', messageDecorations);
