@@ -27,9 +27,11 @@ for (const target of [output, pagesOutput]) {
   }
 }
 
-// Bundle the browser entrypoint when development dependencies are installed.
-// The static fallback keeps the legacy build usable, but the SDK-backed E2E
-// loader is not usable until a dependency-aware bundle has been produced.
+// Build the initial browser entrypoint as a small minified ESM entry and keep
+// dynamic imports in separate same-origin chunks. Without splitting, esbuild
+// folds the on-demand Signal SDK imports into the initial app bundle, forcing
+// every phone to parse several megabytes before the module-ready barrier clears.
+// The static fallback keeps the legacy build usable when dev dependencies are absent.
 let bundledApp = false;
 try {
   const require = createRequire(import.meta.url);
@@ -37,13 +39,16 @@ try {
   esbuild.buildSync({
     entryPoints: [path.join(root, 'src/app.js')],
     bundle: true,
+    splitting: true,
     format: 'esm',
     platform: 'browser',
     target: ['es2022'],
-    outfile: path.join(output, 'assets/js/rim-app.bundle.js'),
+    outdir: path.join(output, 'assets/js'),
+    entryNames: 'rim-app.bundle',
+    chunkNames: 'chunks/[name]-[hash]',
+    minify: true,
     loader: { '.wasm': 'file' },
     assetNames: '[name]-[hash]',
-    chunkNames: '[name]-[hash]',
     legalComments: 'none',
     sourcemap: false
   });
