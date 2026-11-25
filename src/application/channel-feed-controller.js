@@ -420,6 +420,7 @@ export class ChannelFeedController {
       });
       const host = this.document.querySelector?.('.main') || this.document.body;
       host.appendChild(full);
+      this.document?.getElementById?.('app')?.classList.add('rim-channel-focus');
       // Ensure overlay is visible above the channel list
       try {
         full.style.position = full.style.position || 'absolute';
@@ -501,6 +502,7 @@ export class ChannelFeedController {
     this.boundRoot?.removeEventListener?.('change', this.changeHandler);
     this.boundRoot = null;
     this.document?.getElementById?.('rimChannelFull')?.remove?.();
+    this.document?.getElementById?.('app')?.classList.remove('rim-channel-focus');
   }
 
   async togglePinnedPost(button, postId) {
