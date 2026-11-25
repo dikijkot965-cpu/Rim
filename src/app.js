@@ -51,6 +51,8 @@ container.factory('messageRepository', c => new MessageRepository(c.get('db'), {
 // Protocol readiness is scope-specific; only a completed protected exchange for this exact scope can pass.
 // Legacy global protocolReady: false remains the default in E2EScopeRepository unless a verified scope callback is supplied.
 container.factory('e2eScopeRepository', c => new E2EScopeRepository(c.get('db'), { protocolReady: false, isScopeVerified: scope => e2eSignalRuntime.isScopeVerified(scope) }));
+// Resolve the registered repository once and share the same instance across all composed surfaces.
+const e2eScopeRepository = container.get('e2eScopeRepository');
 // Signal Protocol SDK and the RIM-owned Supabase relay are loaded on demand.
 // Scopes remain protected-only until every participant passes an encrypted
 // challenge/ack exchange and the active-device readiness RPC succeeds.
