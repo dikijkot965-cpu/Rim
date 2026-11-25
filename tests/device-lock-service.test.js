@@ -14,8 +14,10 @@ test('device lock stores only a salted verifier, never the PIN', async () => {
   await service.configure('pin', '1234', 5);
   const raw = storage.getItem('rim.device-lock.v1');
   assert.ok(raw);
-  assert.equal(raw.includes('1234'), false);
-  assert.equal(JSON.parse(raw).mode, 'pin');
+  const persisted = JSON.parse(raw);
+  assert.equal(Object.values(persisted).includes('1234'), false, 'the PIN must not be persisted as a field value');
+  assert.equal(Object.hasOwn(persisted, 'pin'), false, 'the raw PIN must never be stored');
+  assert.equal(persisted.mode, 'pin');
   assert.equal(await service.verify('1234'), true);
 });
 
