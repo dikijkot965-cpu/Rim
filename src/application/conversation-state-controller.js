@@ -54,7 +54,8 @@ export class ConversationStateController {
 
   async hydrateActivity(conversationIds = null) {
     const rows = this.getConversations?.() || [];
-    const ids = (conversationIds || rows.map(row => row.id)).map(String).filter(Boolean);
+    const allowedIds = new Set(eligibleRows.map(row => String(row.id)));
+    const ids = (conversationIds || [...allowedIds]).map(String).filter(id => allowedIds.has(id));
     if (!ids.length || !this.client) return;
     const token = ++this.refreshToken;
     try {
@@ -91,7 +92,8 @@ export class ConversationStateController {
     const user = this.getUser?.();
     const allConversations = this.getConversations?.() || [];
     const filterIds = onlyConversationIds ? new Set(onlyConversationIds.map(String)) : null;
-    const conversations = filterIds ? allConversations.filter(chat => filterIds.has(String(chat.id))) : allConversations;
+    const eligible = allConversations.filter(chat => chat?._rimEntityKind !== 'channel' && chat?.type !== 'channel');
+    const conversations = filterIds ? eligible.filter(chat => filterIds.has(String(chat.id))) : eligible;
     if (!user?.id || !conversations.length) {
       for (const chat of conversations) chat._rimUnreadCount = 0;
       return;
@@ -154,7 +156,7 @@ export class ConversationStateController {
     const message = event === 'DELETE' ? payload?.old : payload?.new;
     if (!message?.conversation_id) return;
     const rows = this.getConversations?.() || [];
-    const chat = rows.find(row => String(row.id) === String(message.conversation_id));
+    const chat = rows.find(row => row?._rimEntityKind !== 'channel' && row?.type !== 'channel' && String(row.id) === String(message.conversation_id));
     if (!chat) return;
 
     if (event === 'INSERT') {
