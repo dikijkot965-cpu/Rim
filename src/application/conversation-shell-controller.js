@@ -31,6 +31,10 @@ export class ConversationShellController {
     const isGroup = conversation.type === 'group';
 
     if (title) {
+      title.onclick = null;
+      if (title.style) title.style.cursor = '';
+      title.setAttribute?.('role', 'heading');
+      title.setAttribute?.('tabindex', '-1');
       title.textContent = conversation.title
         || (conversation.type === 'direct' ? 'Личная переписка' : 'Групповая беседа');
     }

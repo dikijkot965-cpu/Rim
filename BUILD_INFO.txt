@@ -1,5 +1,6 @@
-RIM 4.1.8 — Iteration 178 (Zladen + durable channel/feed bridge + creator drafts)
-Base: RIM 4.1.8 Iteration 177.
+RIM 4.1.8 — Iteration 179 (chat list, feed navigation, global search, profiles and bot bootstrap)
+Base: RIM 4.1.8 Iteration 178.
 Build: GitHub Actions; includes pinned Signal SDK dependencies and Cloudflare output.
-Production SQL: 20261124102503 channel/feed crossposts; 20261124103001 Zladen content filters; 20261124103102 filter hardening.
-E2E: no protocol, relay, key, SDK or message-path changes.
+Production SQL: existing schema retained; no destructive database migration in this iteration.
+E2E: Signal SDK version and cryptographic protocol unchanged. Relay two-account regression test passed.
+Changes: unified joined-channel/chat projection; feed section navigation; global plaintext message search (E2E excluded); profile navigation; named forwarding targets; message action popover; floating compose action; channel full-height shell; Zladen CORS preflight fix.

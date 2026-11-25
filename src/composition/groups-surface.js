@@ -112,8 +112,8 @@ export function bindGroupsSurface({
     return result;
   };
 
-  win.rimGroupAddMember = async id => {
-    const result = report(await groupCommands.addMember(id, doc.getElementById('rimGroupAddUsername')?.value));
+  win.rimGroupAddMember = async (id, username = null) => {
+    const result = report(await groupCommands.addMember(id, username ?? doc.getElementById('rimGroupAddUsername')?.value));
     if (result?.ok) notify?.('Участник добавлен.');
     return result;
   };

@@ -18,6 +18,7 @@ test('open paints search page shell', () => {
   assert.equal(pages[0].title, 'Поиск в РИМе');
   assert.match(pages[0].html, /rimSearchInput/);
   assert.match(pages[0].html, /data-rim-search-kind="users"/);
+  assert.match(pages[0].html, /data-rim-search-kind="messages"/);
   controller.dispose();
 });
 

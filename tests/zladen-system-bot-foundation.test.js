@@ -31,3 +31,10 @@ test('Zladen profile editing is owner-gated and the client installs on sign-in',
   assert.match(edge, /action==="owner_update"/);
   assert.match(app, /event === 'SIGNED_IN'\) void ensureZladenChat/);
 });
+
+
+test('Zladen CORS preflight permits Supabase client metadata headers', () => {
+  assert.match(edge, /Access-Control-Allow-Headers[^\n]*x-client-info/);
+  assert.match(edge, /Access-Control-Allow-Headers[^\n]*x-supabase-api-version/);
+  assert.match(edge, /Access-Control-Allow-Methods[^\n]*POST, OPTIONS/);
+});

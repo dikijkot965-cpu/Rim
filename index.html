@@ -13,7 +13,7 @@
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&amp;family=Roboto:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
-<script src="./assets/js/supabase-client.bundle.js?v=4.1.8.178-authfix8"></script>
+<script src="./assets/js/supabase-client.bundle.js?v=4.1.8.179-stability1"></script>
 
 
 <link href="assets/css/rim.css" rel="stylesheet"/><link href="assets/css/rim-architecture.css" rel="stylesheet"/></head>
@@ -586,9 +586,9 @@ window.__RIM_LEGACY_CONTEXT = Object.freeze({
 });
 try { window.__rimMirrorLegacyState?.(); } catch (_) {}
 </script>
-<script type="module" src="./assets/js/rim-auth-entrypoint.js?v=4.1.8.178-authfix8"></script>
-<script type="module" src="./assets/js/rim-app.bundle.js?v=4.1.8.178-authfix8"></script>
-<script type="module" src="./assets/js/rim-auth-zladen-bridge.js?v=4.1.8.178-authfix8"></script>
+<script type="module" src="./assets/js/rim-auth-entrypoint.js?v=4.1.8.179-stability1"></script>
+<script type="module" src="./assets/js/rim-app.bundle.js?v=4.1.8.179-stability1"></script>
+<script type="module" src="./assets/js/rim-auth-zladen-bridge.js?v=4.1.8.179-stability1"></script>
 
 <script>
 /* RIM Design Refresh bootstrap — topbar + Grok composer behavior */
@@ -2073,6 +2073,8 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     if (composer) composer.innerHTML = '<span class="rim-feed-compose-topic-title">Темы поста:</span>' + rimFeedTopicsCache.map(t=>`<label class="rim-feed-compose-topic"><input type="checkbox" data-feed-compose-topic value="${escapeHtml(t.id)}"> ${escapeHtml(t.icon||'•')} ${escapeHtml(label(t.slug))}</label>`).join('');
     if (host && !host.dataset.bound) { host.dataset.bound='1'; host.addEventListener('click',async event=>{const button=event.target.closest('[data-feed-topic]');if(!button)return;const topicId=button.dataset.feedTopic;const current=rimFeedTopicPrefs.get(String(topicId))||0;const next=current>0?0:25;const {error}=await rimDb().from('rim_user_topic_preferences').upsert({user_id:rimUserId(),topic_id:topicId,preference:next,source:'user',updated_at:new Date().toISOString()},{onConflict:'user_id,topic_id'});if(error){if(typeof toast==='function')toast('Не удалось сохранить интерес: '+error.message);return;}rimFeedTopicPrefs.set(String(topicId),next);button.classList.toggle('selected',next>0);button.setAttribute('aria-pressed',next>0?'true':'false');window.renderFeedList?.();}); }
   }
+
+  window.rimLoadFeedTopics = loadFeedTopics;
 
   async function sbTrackFeedEvent(postId,eventType) {
     const db=rimDb(),uid=rimUserId(); if(!db||!uid||!postId)return;

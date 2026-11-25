@@ -64,6 +64,7 @@ export function conversationSubtitle(conversation) {
   if (conversation?._rimLastMessagePreview) return String(conversation._rimLastMessagePreview).slice(0, 100);
   if (isDirectConversation(conversation)) return 'Личные сообщения';
   if (isGroupConversation(conversation)) return 'Групповая беседа';
+  if (conversation?.type === 'channel') return conversation?.username ? '@' + conversation.username : 'Канал';
   return '';
 }
 

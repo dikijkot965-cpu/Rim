@@ -60,12 +60,20 @@ export function bindSocialSurface({
       <p>${esc(profile?.bio || 'Пользователь пока не добавил описание.')}</p>
       <div class="modal-actions"><button class="action-btn" onclick="closeModal()">Закрыть</button>
       <button class="primary-btn" onclick="closeModal();startChatWith('${esc(profile?.id)}')">Написать</button>
-      <button class="action-btn" onclick="closeModal();startSecretChatWith('${esc(profile?.id)}')">🔒 Секретный чат E2E</button></div>`);
+      <button class="action-btn" onclick="closeModal();startSecretChatWith('${esc(profile?.id)}')">🔒 Секретный чат E2E</button><button class="action-btn" onclick="closeModal();rimOpenAddUserToGroup('${esc(profile?.id)}','${esc(profile?.username || '')}')">Добавить в группу</button></div>`);
   };
   win.findUserByName = async username => {
     const result = await directChat.findByUsername(username);
     if (!result.ok) notify?.(result.error?.message || 'Пользователь не найден.');
     return result;
+  };
+  win.rimOpenAddUserToGroup = async (userId, username) => {
+    const groups = (getConversations?.() || []).filter(row => row?.type === 'group');
+    if (!groups.length) { notify?.('Сначала создайте группу или вступите в существующую.'); return null; }
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+    const rows = groups.map(group => '<button type="button" class="rim-search-result-card" style="width:100%;color:var(--text)" onclick="rimGroupAddMember(\'' + esc(group.id) + '\',\'' + esc(username) + '\')"><span class="grow"><b>' + esc(group.title || 'Группа') + '</b><small class="rim-update-muted">Добавить @' + esc(username) + '</small></span><span>›</span></button>').join('');
+    win.showModal?.('<h2 class="modal-title">Добавить пользователя в группу</h2><p class="feature-small">Права администратора проверяются на сервере.</p>' + rows + '<button class="action-btn" style="width:100%;margin-top:10px" onclick="closeModal()">Отмена</button>');
+    return { userId, username };
   };
   win.startChatWith = async userId => {
     const result = await directChat.startWith(userId);

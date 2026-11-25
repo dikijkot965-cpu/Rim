@@ -89,7 +89,19 @@ export function bindMessageTimelineSurface({
     logger
   });
   win.rimSearchInConversation = () => messageSearch.open();
-  lifecycle?.add?.(() => { delete win.rimSearchInConversation; messageSearch.dispose(); });
+  win.rimOpenGlobalMessageSearchResult = async target => {
+    if (!target?.id || !target?.created_at || !target?.conversation_id) return [];
+    if (String(getActiveConversation?.()?.id) !== String(target.conversation_id)) await win.openConversation?.(target.conversation_id);
+    if (String(getActiveConversation?.()?.id) !== String(target.conversation_id)) return [];
+    const rows = await timeline.loadAround(target);
+    const escape = win.CSS?.escape || (value => String(value).replace(/[^a-zA-Z0-9_-]/g, ''));
+    const node = doc.querySelector?.('.message[data-id="' + escape(target.id) + '"]');
+    node?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    node?.classList?.add('rim-search-hit-active');
+    win.setTimeout?.(() => node?.classList?.remove('rim-search-hit-active'), 2200);
+    return rows;
+  };
+  lifecycle?.add?.(() => { delete win.rimSearchInConversation; delete win.rimOpenGlobalMessageSearchResult; messageSearch.dispose(); });
   container?.value?.('messageSearch', messageSearch);
 
   const replyTargets = new ReplyTargetController({

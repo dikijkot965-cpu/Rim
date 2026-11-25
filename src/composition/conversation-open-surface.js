@@ -122,6 +122,7 @@ export function bindConversationOpenSurface({
         resolveChatHeader,
         applyPeerAvatar,
         documentRef,
+        windowRef: win,
         isCurrent: () =>
           isCurrent() &&
           String((context?.getActiveConversation?.() || getActiveConversation?.())?.id) === String(state.id),

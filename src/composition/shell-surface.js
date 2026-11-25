@@ -250,6 +250,7 @@ export function bindShellSurface({
 
   const searchController = new SearchController({
     client,
+    getUser,
     logger
   });
   container?.value?.('search', searchController);

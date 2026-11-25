@@ -21,3 +21,11 @@ test('bootstrap conversation open/load/send are stubs', () => {
   const lines = boot.split(/\n/).length;
   assert.ok(lines < 880, `lines ${lines}`);
 });
+
+
+test('feed tab is explicitly shown and refreshes remote posts and topics', () => {
+  const src = readFileSync(join(root, 'src/application/navigation-section-controller.js'), 'utf8');
+  assert.match(src, /feed/);
+  assert.match(src, /renderFeedList/);
+  assert.match(src, /rimLoadFeedTopics/);
+});
