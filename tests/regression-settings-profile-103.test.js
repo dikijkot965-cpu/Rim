@@ -27,6 +27,7 @@ test('settings surface binds loadProfile and loadSettings', () => {
 
 test('bootstrap settings/profile dual-bind to modular owners', () => {
   const boot = readFileSync(join(root, 'assets/js/rim-runtime-bootstrap.js'), 'utf8');
+  const surface = readFileSync(join(root, 'src/composition/settings-surface.js'), 'utf8');
   assert.match(surface, /__RIM_PROFILE_OWNED/);
   assert.match(surface, /__RIM_APPEARANCE_OWNED/);
   assert.match(boot, /async function loadProfile/);
