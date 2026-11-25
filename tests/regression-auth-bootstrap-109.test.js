@@ -6,10 +6,11 @@ import { dirname, join } from 'node:path';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 test('bootstrap auth dual-binds to AuthFormController', () => {
-  const boot = readFileSync(join(root, 'assets/js/rim-runtime-bootstrap.js'), 'utf8');
-  assert.match(boot, /__RIM_AUTH_FORM_OWNED.*signIn/s);
-  assert.match(boot, /__RIM_AUTH_FORM_OWNED.*signUp/s);
-  assert.match(boot, /__RIM_AUTH_FORM_OWNED.*showLoginForm/s);
-  const lines = boot.split(/\n/).length;
-  assert.ok(lines < 300, `lines ${lines}`);
+  const entry = readFileSync(join(root, 'src/application/auth-entrypoint.js'), 'utf8');
+  const controller = readFileSync(join(root, 'src/application/auth-form-controller.js'), 'utf8');
+  assert.match(entry, /new AuthFormController/);
+  assert.match(entry, /controller\.bindGlobals\(\)/);
+  assert.match(controller, /win\.signIn =/);
+  assert.match(controller, /win\.signUp =/);
+  assert.match(controller, /win\.showLoginForm =/);
 });
