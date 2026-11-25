@@ -19,6 +19,7 @@ test('composer chrome and viewport controllers exist', () => {
 
 test('bootstrap dual-binds composer and viewport', () => {
   const boot = readFileSync(join(root, 'assets/js/rim-runtime-bootstrap.js'), 'utf8');
+  const shell = readFileSync(join(root, 'src/composition/shell-surface.js'), 'utf8');
   assert.match(shell, /composerChrome\.bindGlobals\(\)/);
   assert.match(shell, /viewport\.bindGlobals\(\)/);
   const lines = boot.split(/\n/).length;
