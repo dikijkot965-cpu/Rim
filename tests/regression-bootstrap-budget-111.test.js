@@ -12,7 +12,7 @@ test('bootstrap under 450 LOC and still dual-binds core owners', () => {
   const commands = readFileSync(join(root, 'src/composition/message-commands-surface.js'), 'utf8');
   const lines = boot.split(/\n/).length;
   assert.ok(lines <= 350, `lines ${lines}`);
-  assert.match(shell, /__RIM_APP_BOOTSTRAP_OWNED/);
+  assert.match(shell, /appBootstrap\.bindGlobals\(\)/);
   assert.match(auth, /controller\.bindGlobals\(\)/);
   assert.match(commands, /__RIM_MESSAGE_COMMANDS_OWNED/);
   assert.match(boot, /__rimMirrorLegacyState/);
