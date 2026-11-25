@@ -15,6 +15,13 @@ test('Cloudflare build emits only public RIM client assets', () => {
   assert.ok(fs.existsSync(path.join(dist, 'src/app.js')));
   assert.ok(fs.existsSync(path.join(dist, 'assets/css/rim.css')));
   assert.ok(fs.existsSync(path.join(dist, 'manifest.json')));
+  const appBundle = path.join(dist, 'assets/js/rim-app.bundle.js');
+  assert.ok(fs.existsSync(appBundle), 'the browser app entry bundle must exist');
+  assert.ok(fs.statSync(appBundle).size < 2 * 1024 * 1024,
+    'the initial app bundle must stay below 2 MiB; heavy on-demand SDK code belongs in split chunks');
+  const appChunks = path.join(dist, 'assets/js/chunks');
+  assert.ok(fs.existsSync(appChunks) && fs.readdirSync(appChunks).length > 0,
+    'dynamic imports must be emitted as separately loadable ESM chunks');
   assert.ok(fs.existsSync(path.join(pages, 'index.html')));
   assert.ok(fs.existsSync(path.join(pages, '_headers')));
   for (const privateEntry of ['supabase', 'tests', 'docs', 'sql', 'scripts', 'package.json', 'wrangler.jsonc']) {
