@@ -111,7 +111,7 @@ else {
       const generatedSources = new Map([
         ['assets/js/rim-auth-entrypoint.js', 'src/application/auth-entrypoint.js']
       ]);
-      const sourcePath = generatedSources.get(localPath);
+      const sourcePath = generatedSources.get(localPath.replace(/^\.\//, ''));
       if (!sourcePath || !fs.existsSync(path.join(root, sourcePath))) {
         report(`Missing local HTML asset: ${reference}`);
       }
