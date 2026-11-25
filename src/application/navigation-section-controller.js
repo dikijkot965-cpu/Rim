@@ -21,6 +21,8 @@ export class NavigationSectionController {
     const win = this.window;
     const name = String(section || 'chats');
     try { win.currentSection = name; } catch { /* ignore */ }
+    const createButton = doc.getElementById?.('rimCreateHandle');
+    if (createButton) createButton.hidden = name !== 'chats';
 
     ['moreSection', 'toolsSection'].forEach(id => {
       const el = doc.getElementById?.(id);
@@ -32,15 +34,15 @@ export class NavigationSectionController {
     doc.getElementById?.('tabMoreFull')?.classList.remove('selected');
     doc.getElementById?.('tabToolsFull')?.classList.remove('selected');
 
-    ['chats', 'channels', 'music'].forEach(key => {
+    ['chats', 'feed', 'channels', 'music'].forEach(key => {
       const sec = doc.getElementById?.(`${key}Section`);
       if (!sec) return;
       const on = key === name;
       sec.classList.toggle('hidden', !on);
-      if (key === 'chats') {
+      if (key === 'chats' || key === 'feed') {
         sec.style.display = on ? 'flex' : 'none';
-      } else if (on) {
-        sec.style.display = '';
+      } else {
+        sec.style.display = on ? '' : 'none';
       }
       const tab = doc.getElementById?.(`tab${key.charAt(0).toUpperCase()}${key.slice(1)}`);
       tab?.classList.toggle('selected', on);
@@ -51,6 +53,10 @@ export class NavigationSectionController {
       doc.getElementById?.('chatWindow')?.classList.remove('open', 'mobile-active');
     } catch { /* ignore */ }
 
+    if (name === 'feed') {
+      try { win.renderFeedList?.(); } catch (e) { this.logger?.warn?.('section.feed.render', e); }
+      try { void win.rimLoadFeedTopics?.(); } catch (e) { this.logger?.warn?.('section.feed.topics', e); }
+    }
     if (name === 'channels') {
       try { void this.loadChannels?.(); } catch (e) { this.logger?.warn?.('section.channels.load', e); }
     }
