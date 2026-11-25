@@ -45,14 +45,15 @@ export class ForwardMessageService {
 
   chooseTarget(messageId) {
     const activeId = this.getActiveConversation?.()?.id;
-    const chats = (this.getConversations?.() || []).filter(c => String(c.id) !== String(activeId));
+    const chats = (this.getConversations?.() || []).filter(c => ['direct', 'group'].includes(c?.type) && String(c.id) !== String(activeId));
     const esc = (v) => String(v ?? '').replace(/[&<>"']/g, ch => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     })[ch]);
     const id = esc(messageId);
     const list = chats.map(c => {
-      const title = esc(c.title || (c.type === 'direct' ? 'Личная переписка' : 'Группа'));
-      const kind = c.type === 'group' ? 'Групповая беседа' : 'Личный чат';
+      const peer = c.other_profile || c.peer_profile || null;
+      const title = esc(c.type === 'direct' ? (peer?.display_name?.trim() || peer?.username?.trim() || c.title?.trim() || 'Пользователь без имени') : (c.title?.trim() || 'Группа без названия'));
+      const kind = c.type === 'group' ? 'Групповая беседа' : (peer?.username ? 'Личный чат · @' + esc(peer.username) : 'Личный чат');
       return `<button class="rim-search-result-card" style="width:100%;color:var(--text)" type="button" onclick="rimForwardMessage('${id}','${esc(c.id)}')">
         <span class="grow"><b>${title}</b><small class="rim-update-muted">${kind}</small></span><span>›</span></button>`;
     }).join('') || '<div class="empty-state">Нет других переписок.</div>';
