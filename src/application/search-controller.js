@@ -8,12 +8,14 @@ export class SearchController {
     documentRef = globalThis.document,
     windowRef = globalThis.window,
     openPage = null,
+    getUser = () => null,
     logger = null
   } = {}) {
     this.client = client;
     this.document = documentRef;
     this.window = windowRef;
     this.openPage = openPage || ((title, html) => this.window?.fullPage?.(title, html));
+    this.getUser = getUser;
     this.logger = logger;
     this.kind = 'all';
     this.timer = null;
@@ -30,6 +32,7 @@ export class SearchController {
        <div class="rim-search-tabs">
          <button type="button" class="action-btn active" data-rim-search-kind="all">Всё</button>
          <button type="button" class="action-btn" data-rim-search-kind="users">Люди</button>
+         <button type="button" class="action-btn" data-rim-search-kind="messages">Сообщения</button>
          <button type="button" class="action-btn" data-rim-search-kind="channels">Каналы</button>
          <button type="button" class="action-btn" data-rim-search-kind="groups">Группы</button>
        </div>
@@ -73,6 +76,11 @@ export class SearchController {
       const parts = [];
       if (this.kind === 'all' || this.kind === 'users') {
         parts.push(this.#searchUsers(q));
+      } else {
+        parts.push(Promise.resolve(''));
+      }
+      if (this.kind === 'all' || this.kind === 'messages') {
+        parts.push(this.#searchMessages(q));
       } else {
         parts.push(Promise.resolve(''));
       }
@@ -131,6 +139,32 @@ export class SearchController {
     return html;
   }
 
+  async #searchMessages(q) {
+    const user = this.getUser?.();
+    if (!user?.id) return '';
+    const memberships = await this.client.from('conversation_members').select('conversation_id').eq('user_id', user.id).limit(500);
+    if (memberships.error) throw memberships.error;
+    const ids = [...new Set((memberships.data || []).map(row => String(row.conversation_id)).filter(Boolean))].slice(0, 200);
+    if (!ids.length) return '';
+    const scopes = await this.client.from('conversations').select('id,type,title,e2e_mode,is_secret').in('id', ids);
+    if (scopes.error) throw scopes.error;
+    const allowed = (scopes.data || []).filter(row => row.e2e_mode === 'off' && row.is_secret !== true && ['direct','group'].includes(row.type));
+    if (!allowed.length) return '';
+    const allowedIds = allowed.map(row => String(row.id));
+    const result = await this.client.from('chat_messages').select('id,conversation_id,body,created_at').in('conversation_id', allowedIds).ilike('body', '%' + q + '%').order('created_at', { ascending: false }).limit(25);
+    if (result.error) throw result.error;
+    const titles = new Map(allowed.map(row => [String(row.id), row.title || (row.type === 'direct' ? 'Личный чат' : 'Группа')]));
+    return (result.data || []).map(row => '<button type="button" class="rim-search-result" data-rim-search-conversation="' + escapeHtml(row.conversation_id) + '"><b>' + escapeHtml(titles.get(String(row.conversation_id)) || 'Переписка') + '</b><span class="feature-small">' + escapeHtml(String(row.body || 'Вложение').slice(0, 180)) + '</span></button>').join('') + this.#bindMessageResults();
+  }
+
+  #bindMessageResults() {
+    queueMicrotask(() => this.document.querySelectorAll?.('[data-rim-search-conversation]')?.forEach?.(node => {
+      if (node.dataset.bound) return;
+      node.dataset.bound = '1';
+      node.addEventListener('click', () => { this.window?.closePage?.(); this.window?.openConversation?.(node.dataset.rimSearchConversation); });
+    }));
+    return '';
+  }
   async #searchChannels(q) {
     const { data, error } = await this.client
       .from('channels')
