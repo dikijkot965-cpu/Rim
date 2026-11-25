@@ -90,6 +90,23 @@ try {
     sourcemap: false
   });
 
+  // The auth controller is a separate, small browser entrypoint. The legacy
+  // bootstrap defines the Supabase client and initializeApp first; this module
+  // then binds the controller's globals to the actual login/register buttons.
+  const authEntry = path.join(root, 'src/application/auth-entrypoint.js');
+  if (!fs.existsSync(authEntry)) throw new Error('RIM auth entrypoint is missing.');
+  esbuild.buildSync({
+    entryPoints: [authEntry],
+    bundle: true,
+    format: 'esm',
+    platform: 'browser',
+    target: ['es2022'],
+    outfile: path.join(output, 'assets/js/rim-auth-entrypoint.js'),
+    minify: true,
+    legalComments: 'none',
+    sourcemap: false
+  });
+
   fs.mkdirSync(path.join(pagesOutput, 'assets/js'), { recursive: true });
   // Copy the complete JS asset directory: esbuild may emit the OPFS worker
   // and the SQLite Wasm binary as separate same-origin assets.
