@@ -16,6 +16,7 @@ test('ProfileRepository exists and session binds getProfiles', () => {
 
 test('bootstrap getProfiles dual-binds and viewport is conditional', () => {
   const boot = readFileSync(join(root, 'assets/js/rim-runtime-bootstrap.js'), 'utf8');
+  const session = readFileSync(join(root, 'src/composition/conversation-session-surface.js'), 'utf8');
   assert.match(session, /win\.getProfiles/);
   const shell = readFileSync(join(root, 'src/composition/shell-surface.js'), 'utf8');
   assert.match(shell, /viewport\.bindGlobals\(\)/);
