@@ -90,6 +90,23 @@ try {
     sourcemap: false
   });
 
+  // The auth controller is a separate, small browser entrypoint. The legacy
+  // bootstrap defines the Supabase client and initializeApp first; this module
+  // then binds the controller's globals to the actual login/register buttons.
+  const authEntry = path.join(root, 'src/application/auth-entrypoint.js');
+  if (!fs.existsSync(authEntry)) throw new Error('RIM auth entrypoint is missing.');
+  esbuild.buildSync({
+    entryPoints: [authEntry],
+    bundle: true,
+    format: 'esm',
+    platform: 'browser',
+    target: ['es2022'],
+    outfile: path.join(output, 'assets/js/rim-auth-entrypoint.js'),
+    minify: true,
+    legalComments: 'none',
+    sourcemap: false
+  });
+
   fs.mkdirSync(path.join(pagesOutput, 'assets/js'), { recursive: true });
   // Copy the complete JS asset directory: esbuild may emit the OPFS worker
   // and the SQLite Wasm binary as separate same-origin assets.
@@ -100,6 +117,14 @@ try {
   // cannot resolve the SDK's pinned bare package imports in a browser.
   fs.mkdirSync(path.join(root, 'assets/js'), { recursive: true });
   fs.cpSync(path.join(output, 'assets/js'), path.join(root, 'assets/js'), { recursive: true });
+  for (const target of [
+    path.join(root, 'assets/js/rim-auth-entrypoint.js'),
+    path.join(pagesOutput, 'assets/js/rim-auth-entrypoint.js')
+  ]) {
+    if (!fs.existsSync(target) || fs.statSync(target).size === 0) {
+      throw new Error(`Generated auth entrypoint was not copied to the public target: ${target}`);
+    }
+  }
   for (const htmlFile of [path.join(root, 'index.html'), path.join(output, 'index.html'), path.join(pagesOutput, 'index.html')]) {
     const htmlText = fs.readFileSync(htmlFile, 'utf8').replace('./src/app.js', './assets/js/rim-app.bundle.js');
     fs.writeFileSync(htmlFile, htmlText);
