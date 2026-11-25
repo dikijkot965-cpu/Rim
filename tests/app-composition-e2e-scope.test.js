@@ -14,5 +14,5 @@ test('E2E scope repository is resolved from the DI container before composed sur
   assert.ok(resolution > factory, 'the factory must be resolved into a local binding');
   assert.ok(socialInjection > resolution, 'social surface must receive the resolved repository');
   assert.ok(chatRuntimeInjection > socialInjection, 'chat runtime must receive the same resolved repository');
-  assert.doesNotMatch(app.slice(0, resolution), /\\be2eScopeRepository\\s*=/, 'no duplicate or premature local binding');
+  assert.doesNotMatch(app.slice(0, resolution), /\be2eScopeRepository\s*=/, 'no duplicate or premature local binding');
 });
