@@ -928,94 +928,12 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     }).join('');
   }
 
+  // One renderer owns the feed DOM. The ranked/remote implementation is
+  // installed below; all older call sites delegate to that single entrypoint.
   function renderFeedList() {
-    if (window.renderFeedList && window.renderFeedList !== renderFeedList && window.__rimFeedRankReady) {
-      return window.renderFeedList();
-    }
-    const list = document.getElementById('rimFeedList');
-    if (!list) return;
-    const posts = loadFeedPosts();
-    if (!posts.length) {
-      list.innerHTML = '<div class="rim-feed-empty muted">Пока нет постов. Нажмите + чтобы создать первый.</div>';
-      return;
-    }
-    list.innerHTML = posts.map(p => {
-      const initial = escapeHtml((p.author || 'Р')[0].toUpperCase());
-      const views = p.views || 0;
-      const comments = Number.isFinite(Number(p.commentsCount)) ? Number(p.commentsCount) : (loadFeedComments()[p.id] || []).length;
-      const bodyHtml = renderFeedBodyWithMedia(p);
-      return `<article class="rim-feed-post" data-post-id="${escapeHtml(p.id)}">
-        <div class="rim-feed-post-header">
-          <div class="rim-feed-post-avatar">${initial}</div>
-          <div class="rim-feed-post-meta">
-            <div class="rim-feed-post-author">${escapeHtml(p.author || 'Автор')}</div>
-            <div class="rim-feed-post-time">${formatFeedTime(p.createdAt)}</div>
-          </div>
-        </div>
-        <div class="rim-feed-post-body">${bodyHtml}</div>
-        <div class="rim-feed-post-stats">
-          <button type="button" class="rim-feed-stat rim-feed-like" data-action="like" data-post-id="${escapeHtml(p.id)}" aria-pressed="${p.likedByMe ? 'true' : 'false'}">${p.likedByMe ? '♥' : '♡'} ${Number(p.likesCount || 0)}</button>
-          <button type="button" class="rim-feed-stat rim-feed-save" data-action="save" data-post-id="${escapeHtml(p.id)}" aria-pressed="${p.savedByMe ? 'true' : 'false'}">${p.savedByMe ? '🔖' : '♧'} Сохранить</button>
-          <button type="button" class="rim-feed-stat" data-action="comments" data-post-id="${escapeHtml(p.id)}">💬 ${comments}</button>
-          <span class="rim-feed-stat">👁 ${views}</span>
-        </div>
-      </article>`;
-    }).join('');
-    hydrateFeedMedia(list);
-
-    list.querySelectorAll('[data-action="comments"]').forEach(el => {
-      el.addEventListener('click', () => openFeedComments(el.getAttribute('data-post-id')));
-    });
-    list.querySelectorAll('[data-action="like"]').forEach(el => {
-      el.addEventListener('click', async () => {
-        const postId = el.getAttribute('data-post-id');
-        el.disabled = true;
-        try {
-          const result = await sbToggleFeedLike(postId);
-          if (!result) {
-            if (typeof toast === 'function') toast('Не удалось сохранить реакцию');
-            return;
-          }
-          const posts = loadFeedPosts().map(post => {
-            if (String(post.id) !== String(postId)) return post;
-            const count = Math.max(0, Number(post.likesCount || 0) + (result.liked ? 1 : -1));
-            return { ...post, likesCount: count, likedByMe: result.liked };
-          });
-          saveFeedPosts(posts);
-          renderFeedList();
-        } finally { el.disabled = false; }
-      });
-    });
-    list.querySelectorAll('[data-action="share"]').forEach(el => {
-      el.addEventListener('click', async () => {
-        const postId = el.getAttribute('data-post-id');
-        const url = new URL(window.location.href);
-        url.hash = 'feed-post-' + postId;
-        try {
-          if (navigator.share) await navigator.share({ title: 'Публикация в РИМе', url: url.toString() });
-          else if (navigator.clipboard?.writeText) {
-            await navigator.clipboard.writeText(url.toString());
-            if (typeof toast === 'function') toast('Ссылка на публикацию скопирована');
-          } else if (typeof toast === 'function') toast(url.toString());
-        } catch (error) {
-          if (error?.name !== 'AbortError') console.warn('feed.share.failed', error);
-        }
-      });
-    });
-    list.querySelectorAll('[data-action="save"]').forEach(el => {
-      el.addEventListener('click', async () => {
-        const postId = el.getAttribute('data-post-id');
-        el.disabled = true;
-        try {
-          const result = await sbToggleFeedSave(postId);
-          if (!result) { if (typeof toast === 'function') toast('Не удалось сохранить публикацию'); return; }
-          const posts = loadFeedPosts().map(post => String(post.id) === String(postId) ? { ...post, savedByMe: result.saved } : post);
-          saveFeedPosts(posts);
-          renderFeedList();
-          if (typeof toast === 'function') toast(result.saved ? 'Публикация сохранена' : 'Публикация удалена из сохранённого');
-        } finally { el.disabled = false; }
-      });
-    });
+    return typeof window.renderFeedList === 'function'
+      ? window.renderFeedList()
+      : undefined;
   }
 
   function escapeHtml(s) {
@@ -1481,7 +1399,6 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
   }
 
   // Override renderFeedList ranking
-  const _renderFeedListOrig = typeof renderFeedList === 'function' ? renderFeedList : null;
   window.__rimFeedRankReady = true;
   window.renderFeedList = function() {
     const list = document.getElementById('rimFeedList');
