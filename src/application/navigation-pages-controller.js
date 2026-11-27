@@ -33,7 +33,7 @@ export class NavigationPagesController {
   #showOnly(sectionId) {
     const doc = this.document;
     if (!doc || typeof doc.getElementById !== 'function') return;
-    ['chatsSection', 'channelsSection', 'musicSection', 'moreSection', 'toolsSection'].forEach(id => {
+    ['chatsSection', 'feedSection', 'channelsSection', 'musicSection', 'moreSection', 'toolsSection'].forEach(id => {
       const el = doc.getElementById(id);
       if (!el) return;
       const on = id === sectionId;
