@@ -80,7 +80,7 @@ export class ConversationRepository {
     // Channels retain their own membership, feed and open route.
     for (const batch of chunks(channelIds, this.batchSize)) {
       const response = await this.client.from('channels')
-        .select('id,type,title,description,username,is_public,created_at,avatar_path,e2e_mode')
+        .select('id,title,description,username,is_public,created_at,avatar_path,e2e_mode')
         .in('id', batch);
       if (response.error) return Err(response.error);
       conversations.push(...(response.data || []).map(channel => ({
