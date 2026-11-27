@@ -3112,7 +3112,7 @@ body[data-theme="light"] .composer.grok-style .send-btn {
 .rim-search-hit-active{outline:2px solid var(--gold);outline-offset:3px;border-radius:12px}
 
 
-/* Iteration 180 — structured community feed and VK-like discussion surface. */
+/* Iteration 181 — structured community feed and VK-like discussion surface. */
 #feedSection{align-items:stretch}
 .rim-feed-header{padding:14px 16px 10px;background:var(--panel);border-bottom:1px solid var(--border)}
 .rim-feed-title{font-size:21px;letter-spacing:-.02em}

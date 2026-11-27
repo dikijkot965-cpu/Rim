@@ -230,7 +230,10 @@ export function bindShellSurface({
     if (!result.ok) notify?.(result.error?.message || 'Не удалось создать секретный чат');
     return result;
   };
-  lifecycle?.add?.(() => { win.__RIM_COMPOSE_CHAT_OWNED = false; });
+  lifecycle?.add?.(() => {
+    win.__RIM_COMPOSE_CHAT_OWNED = false;
+    try { delete win.newSecretDirectChat; } catch { /* ignore */ }
+  });
 
   const imperialCabinet = new ImperialCabinetController({
     notificationCount: () => {
