@@ -26,6 +26,6 @@
   window.rimTrackPlay=id=>{const card=[...document.querySelectorAll('.rim-music-track')].find(x=>x.querySelector(`button[onclick*="${id}"]`));const a=card?.querySelector('audio');if(a){a.play().catch(()=>{});a.scrollIntoView({behavior:'smooth',block:'center'});}};
   const baseUploadMusic=window.uploadMusic;if(typeof baseUploadMusic==='function')window.uploadMusic=async function(){await baseUploadMusic.apply(this,arguments);await loadMusicStable();};
   window.loadMusic=loadMusicStable;
-  const baseShowSection=window.showSection;if(typeof baseShowSection==='function')window.showSection=function(name){const r=baseShowSection.apply(this,arguments);if(name==='music')loadMusicStable();return r;};
+  const baseShowSection=window.showSection;if(typeof baseShowSection==='function')window.showSection=function(name){const r=baseShowSection.apply(this,arguments);if(name==='music'&&!window.__RIM_MUSIC_OWNED)loadMusicStable();return r;};
 })();
 
