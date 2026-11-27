@@ -1564,6 +1564,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     } catch {}
     el.classList.remove('hidden');
     el.setAttribute('aria-hidden', 'false');
+    void refreshAvatar(true);
   }
   function closeTgSettings() {
     const el = document.getElementById('rimTgSettings');

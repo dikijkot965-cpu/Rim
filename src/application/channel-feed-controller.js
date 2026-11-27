@@ -34,8 +34,7 @@ export class ChannelFeedController {
     documentRef = globalThis.document,
     windowRef = globalThis.window,
     logger = null,
-    notify = null,
-    isImperator = null
+    notify = null
   } = {}) {
     this.repository = repository;
     this.getUser = getUser;
@@ -51,7 +50,6 @@ export class ChannelFeedController {
       if (typeof fn === 'function') fn(String(message ?? 'Неизвестная ошибка'));
       else console.info(String(message ?? 'Неизвестная ошибка'));
     });
-    this.isImperator = isImperator || (() => this.window?.isImperator?.() === true);
     this.requestEpoch = 0;
     this.activeChannelId = null;
     this.clickHandler = this.#onClick.bind(this);

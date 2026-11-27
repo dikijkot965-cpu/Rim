@@ -3177,3 +3177,64 @@ body[data-theme="light"] .composer.grok-style .send-btn {
   .rim-feed-comments-header{padding-top:calc(10px + env(safe-area-inset-top))}
   .rim-feed-comments-composer{padding-bottom:calc(12px + env(safe-area-inset-bottom))}
 }
+
+
+/* Iteration 181 — Reddit-inspired feed hierarchy and compact vote rail */
+.rim-feed-list { display:flex; flex-direction:column; gap:10px; padding:8px 10px 32px; }
+.rim-feed-post {
+  display:grid;
+  grid-template-columns:42px minmax(0,1fr);
+  gap:0;
+  max-width:820px;
+  margin:0 auto;
+  padding:0;
+  overflow:hidden;
+  border:1px solid var(--border);
+  border-radius:15px;
+  background:var(--panel);
+  box-shadow:0 3px 14px #0000000d;
+}
+.rim-feed-vote-rail {
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
+  padding:14px 4px;
+  background:color-mix(in srgb,var(--panel2) 68%,transparent);
+  border-right:1px solid var(--border);
+}
+.rim-feed-vote-rail .rim-feed-like {
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
+  gap:3px;
+  min-width:30px;
+  padding:5px 2px;
+  border:0;
+  border-radius:9px;
+  color:var(--muted);
+  background:transparent;
+  font-size:12px;
+  font-weight:800;
+}
+.rim-feed-vote-rail .rim-feed-like[aria-pressed="true"] { color:var(--accent); background:color-mix(in srgb,var(--accent) 12%,transparent); }
+.rim-feed-vote-arrow { font-size:18px; line-height:1; }
+.rim-feed-post-content { min-width:0; padding:13px 15px 11px; }
+.rim-feed-post-header { min-width:0; margin-bottom:10px; }
+.rim-feed-post-community { min-width:0; }
+.rim-feed-post-title { font-size:18px; line-height:1.32; margin:2px 0 9px; }
+.rim-feed-post-body { margin:0 0 12px; }
+.rim-feed-post-stats { gap:6px; padding-top:9px; }
+.rim-feed-post-stats .rim-feed-stat { min-height:32px; padding:6px 9px; border-radius:8px; background:color-mix(in srgb,var(--panel2) 70%,transparent); }
+.rim-feed-post-stats .rim-feed-stat:hover { background:var(--panel2); }
+.rim-feed-post-stats .rim-feed-views { margin-left:auto; background:transparent; }
+.rim-feed-empty { display:flex; flex-direction:column; align-items:center; gap:8px; padding:28px 18px; text-align:center; }
+.rim-feed-empty span { color:var(--muted); font-size:13px; overflow-wrap:anywhere; }
+@media (max-width:520px) {
+  .rim-feed-list { padding:6px 7px 24px; gap:8px; }
+  .rim-feed-post { grid-template-columns:36px minmax(0,1fr); border-radius:12px; }
+  .rim-feed-post-content { padding:11px 10px 9px; }
+  .rim-feed-vote-rail { padding:12px 2px; }
+  .rim-feed-post-title { font-size:16px; }
+  .rim-feed-post-stats .rim-feed-stat { padding:5px 7px; font-size:11px; }
+}
