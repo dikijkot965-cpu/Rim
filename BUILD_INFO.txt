@@ -1,7 +1,7 @@
-RIM 4.1.8 — Iteration 181 (chat creation, search, E2E access, avatar isolation, channel RBAC and feed consolidation)
-Base: RIM 4.1.8 Iteration 180.
+RIM 4.1.8 — Iteration 182 (account defaults, Zladen provisioning, profile editing and UI lifecycle hardening)
+Base: RIM 4.1.8 Iteration 181.
 Build: GitHub Actions; pinned Signal SDK 14.7.0 and Cloudflare output retained.
-Production SQL: no schema migration in this iteration; live projections were checked against the existing Supabase schema.
-E2E: Signal protocol, key lifecycle and SDK unchanged. Secret direct-chat creation now has a first-class compose route; private-group activation is exposed in group information.
-Changes: fixed global search route and invalid group-search columns; added secret direct-chat creation; added direct Zladen entry and group picker under More; moved group E2E control into group information; isolated channel privileges to channel ownership/membership; cleared stale group avatars; added a bottom-right chat creation FAB; refreshed profile avatars from the private avatars bucket; consolidated feed rendering to one global entrypoint and added explicit feed-load error feedback.
-Verification: 126 mapped source modules; 24 legacy scripts; JavaScript syntax checked; full regression suite and Signal relay tests run in GitHub Actions. Manual authenticated-device acceptance remains required.
+Production SQL: no schema migration in this iteration; feed preference persistence uses the existing owner-scoped table.
+E2E: Signal protocol, key lifecycle, relay, SDK and encrypted payload contracts unchanged.
+Changes: fixed Zladen Auth provisioning password length (Supabase maximum 72 characters) and deployed Edge Function v4; wired the missing group creation entrypoint; insert the Favorites virtual row regardless of which conversation renderer is active; persist feed preferences per account in Supabase; open profile editor directly from Settings; center-crop avatar images to 512px WebP with MIME/size validation and preview; synchronously mount the music library to prevent retired UI flash; clarify member_number as a registration serial rather than a live account count.
+Verification: 127 mapped source modules; 24 legacy scripts; 730 regression tests; pinned Signal SDK and browser stores verified in GitHub Actions; Signal relay integration tests passed. Real authenticated multi-account UI acceptance remains required.

@@ -267,7 +267,7 @@
     "sdk": "Restored exact SDK 14.7.0 from verified offline bootstrap artifact; npm dependencies restored; root lockfile unchanged.",
     "e2e": "Signal Protocol and E2E SQL unchanged; relay integration tests pass."
   },
-  "node_tests": 728,
+  "node_tests": 730,
   "iteration_178": {
     "zladen": "Configurable link and administrator-defined word/phrase filters with server-side pre-insert enforcement, metadata-only audit and E2E scope exclusion.",
     "feed": "Public channel posts can be cross-posted into the home feed manually or during publish; source IDs are unique and server-validated. Home feed text/topics autosave per account.",

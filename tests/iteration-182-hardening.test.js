@@ -10,3 +10,22 @@ test('Favorites row is inserted after either modular or legacy conversation rend
 test('music component claims musicSection synchronously during composition', async () => { const s = await read('src/composition/features-surface.js'); const mount=s.indexOf("const musicSection = doc.getElementById('musicSection')"); const load=s.indexOf('win.loadMusic = async'); assert.ok(mount>=0 && load>mount); assert.match(s.slice(mount,load), /musicSection\.replaceChildren\(musicRoot\)/); });
 test('Telegram settings opens profile editor from Account', async () => { const s=await read('index.html'); assert.match(s,/if \(action === 'account'\)[\s\S]{0,180}window\.openProfile/); assert.match(s,/id="rimTgProfileCard" data-tg-action="account"/); });
 test('feed personalization is account-scoped and persisted in Supabase', async () => { const s=await read('index.html'); assert.match(s,/FEED_PREFS_KEY\}:\$\{rimUserId\(\) \|\| 'guest'\}/); assert.match(s,/from\('rim_user_feed_preferences'\)\.upsert/); assert.match(s,/feed\.preferences\.load\.failed/); });
+
+test('avatar processor rejects unsupported and oversized files', async () => {
+  const { prepareAvatarImage } = await import('../src/application/avatar-image-processor.js');
+  await assert.rejects(() => prepareAvatarImage({ type: 'image/svg+xml', size: 12 }), /JPG, PNG, WebP и GIF/);
+  await assert.rejects(() => prepareAvatarImage({ type: 'image/png', size: 4 * 1024 * 1024 }), /3 МБ/);
+});
+
+test('avatar processor center-crops and releases the decoded bitmap', async () => {
+  const { prepareAvatarImage } = await import('../src/application/avatar-image-processor.js');
+  let drawArgs; let closed = false;
+  const canvas = { width: 0, height: 0, getContext: () => ({ drawImage: (...args) => { drawArgs = args; } }), toBlob: callback => callback(new Blob(['webp'], { type: 'image/webp' })) };
+  const bitmap = { width: 800, height: 400, close: () => { closed = true; } };
+  const file = new Blob(['image'], { type: 'image/png' });
+  const result = await prepareAvatarImage(file, { documentRef: { createElement: () => canvas }, createImageBitmapRef: async () => bitmap });
+  assert.equal(result.type, 'image/webp');
+  assert.equal(result.name, 'rim-avatar.webp');
+  assert.deepEqual(drawArgs, [bitmap, 200, 0, 400, 400, 0, 0, 512, 512]);
+  assert.equal(closed, true);
+});
