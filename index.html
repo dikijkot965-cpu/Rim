@@ -954,9 +954,9 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
         </div>
         <div class="rim-feed-post-body">${bodyHtml}</div>
         <div class="rim-feed-post-stats">
-          <button type="button" class="rim-feed-stat rim-feed-like" data-action="like" data-post-id="${p.id}" aria-pressed="${p.likedByMe ? 'true' : 'false'}">${p.likedByMe ? '♥' : '♡'} ${Number(p.likesCount || 0)}</button>
-          <button type="button" class="rim-feed-stat rim-feed-save" data-action="save" data-post-id="${p.id}" aria-pressed="${p.savedByMe ? 'true' : 'false'}">${p.savedByMe ? '🔖' : '♧'} Сохранить</button>
-          <button type="button" class="rim-feed-stat" data-action="comments" data-post-id="${p.id}">💬 ${comments}</button>
+          <button type="button" class="rim-feed-stat rim-feed-like" data-action="like" data-post-id="${escapeHtml(p.id)}" aria-pressed="${p.likedByMe ? 'true' : 'false'}">${p.likedByMe ? '♥' : '♡'} ${Number(p.likesCount || 0)}</button>
+          <button type="button" class="rim-feed-stat rim-feed-save" data-action="save" data-post-id="${escapeHtml(p.id)}" aria-pressed="${p.savedByMe ? 'true' : 'false'}">${p.savedByMe ? '🔖' : '♧'} Сохранить</button>
+          <button type="button" class="rim-feed-stat" data-action="comments" data-post-id="${escapeHtml(p.id)}">💬 ${comments}</button>
           <span class="rim-feed-stat">👁 ${views}</span>
         </div>
       </article>`;
@@ -1496,7 +1496,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       return;
     }
     list.innerHTML = posts.map(p => {
-      const initial = (p.author || 'Р')[0].toUpperCase();
+      const initial = escapeHtml((p.author || 'Р')[0].toUpperCase());
       const views = p.views || 0;
       const comments = Number.isFinite(Number(p.commentsCount)) ? Number(p.commentsCount) : (loadFeedComments()[p.id] || []).length;
       const bodyHtml = renderFeedBodyWithMedia(p);
@@ -1507,7 +1507,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
         : initial;
       const title = p.title ? `<h3 class="rim-feed-post-title">${escapeHtml(p.title)}</h3>` : '';
       const origin = p.fromChannel ? '<span class="rim-feed-origin">из канала</span>' : '';
-      return `<article class="rim-feed-post" data-post-id="${p.id}">
+      return `<article class="rim-feed-post" data-post-id="${escapeHtml(p.id)}">
         <div class="rim-feed-post-header">
           <div class="rim-feed-post-avatar">${avatar}</div>
           <div class="rim-feed-post-meta">
@@ -1518,10 +1518,10 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
         ${title}
         <div class="rim-feed-post-body">${bodyHtml}</div>
         <div class="rim-feed-post-stats">
-          <button type="button" class="rim-feed-stat rim-feed-like" data-action="like" data-post-id="${p.id}" aria-label="Оценить публикацию" aria-pressed="${p.likedByMe ? 'true' : 'false'}"><span class="rim-feed-vote-arrow">▲</span> ${Number(p.likesCount || 0)}</button>
-          <button type="button" class="rim-feed-stat" data-action="comments" data-post-id="${p.id}">▤ <span>Комментарии</span> <b>${comments}</b></button>
-          <button type="button" class="rim-feed-stat" data-action="share" data-post-id="${p.id}">↗ <span>Поделиться</span></button>
-          <button type="button" class="rim-feed-stat rim-feed-save" data-action="save" data-post-id="${p.id}" aria-pressed="${p.savedByMe ? 'true' : 'false'}">${p.savedByMe ? '🔖' : '♧'} <span>${p.savedByMe ? 'Сохранено' : 'Сохранить'}</span></button>
+          <button type="button" class="rim-feed-stat rim-feed-like" data-action="like" data-post-id="${escapeHtml(p.id)}" aria-label="Оценить публикацию" aria-pressed="${p.likedByMe ? 'true' : 'false'}"><span class="rim-feed-vote-arrow">▲</span> ${Number(p.likesCount || 0)}</button>
+          <button type="button" class="rim-feed-stat" data-action="comments" data-post-id="${escapeHtml(p.id)}">▤ <span>Комментарии</span> <b>${comments}</b></button>
+          <button type="button" class="rim-feed-stat" data-action="share" data-post-id="${escapeHtml(p.id)}">↗ <span>Поделиться</span></button>
+          <button type="button" class="rim-feed-stat rim-feed-save" data-action="save" data-post-id="${escapeHtml(p.id)}" aria-pressed="${p.savedByMe ? 'true' : 'false'}">${p.savedByMe ? '🔖' : '♧'} <span>${p.savedByMe ? 'Сохранено' : 'Сохранить'}</span></button>
           <span class="rim-feed-stat rim-feed-views">◉ ${views}</span>
         </div>
       </article>`;
