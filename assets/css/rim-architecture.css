@@ -20,7 +20,7 @@
 .rim-writer-launch-icon{font-size:54px;color:var(--gold)}
 .rim-writer-launch p{max-width:460px;color:var(--muted)}
 .rim-local-music{max-width:1000px;min-height:100dvh;margin:auto;padding:clamp(14px,3vw,28px);background:var(--bg);color:var(--text)}
-#rimLocalMusicRoot{position:fixed;inset:0;z-index:10030;overflow:auto;background:var(--bg);display:none}
+#rimLocalMusicRoot{position:relative;inset:auto;z-index:auto;width:100%;min-height:0;overflow:visible;background:transparent;display:none}
 #rimLocalMusicRoot:not(:empty){display:block}
 #app.rim-feature-hidden{display:none!important}
 .rim-local-music-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
