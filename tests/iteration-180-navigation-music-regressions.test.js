@@ -43,3 +43,11 @@ test('feed has an obvious composer and renders channel-origin posts as community
   assert.match(html, /from\('channels'\)\.select\('id,title,username'\)/);
   assert.match(html, /data-action="share"/);
 });
+
+test('feed rendering has one owner and legacy call sites delegate to it', async () => {
+  const html = await read('../index.html');
+  assert.equal((html.match(/function renderFeedList\(\)/g) || []).length, 1);
+  assert.match(html, /return typeof window\.renderFeedList === 'function'[\s\S]{0,100}\? window\.renderFeedList\(\)/);
+  assert.doesNotMatch(html, /_renderFeedListOrig/);
+  assert.match(html, /window\.renderFeedList = async function\(\)/);
+});
