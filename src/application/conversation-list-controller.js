@@ -68,6 +68,9 @@ export class ConversationListController {
         list.innerHTML = '<div class="empty-state">Пока нет переписок.<br>Создай новый чат кнопкой ＋</div>';
       }
 
+      // Favorites is a first-party virtual row, not a database conversation.
+      // Insert it after whichever renderer owns the current list (modular or legacy).
+      this.ensureFavoritesRow();
       await this.refresh();
       return result.value;
     } catch (error) {
@@ -247,7 +250,6 @@ export class ConversationListController {
         else this.window?.openConversation?.(id);
       });
     }
-    this.ensureFavoritesRow();
   }
 
 

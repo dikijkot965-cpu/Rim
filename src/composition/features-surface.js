@@ -24,7 +24,11 @@ export function bindFeaturesSurface({
   const writer = new LiteWriterWorkspace({ db: client, getUser, logger });
   const musicRoot = doc.createElement('div');
   musicRoot.id = 'rimLocalMusicRoot';
-  doc.body.append(musicRoot);
+  // Claim the section during composition, before the first navigation paint.
+  // This prevents the retired server-rendered music screen from flashing.
+  const musicSection = doc.getElementById('musicSection');
+  if (musicSection) musicSection.replaceChildren(musicRoot);
+  else doc.body.append(musicRoot);
   const music = new LocalMusicLibrary({ root: musicRoot, logger, client, getUser });
   win.__RIM_MUSIC_OWNED = true;
   win.loadMusic = async () => {

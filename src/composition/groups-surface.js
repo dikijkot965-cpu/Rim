@@ -59,6 +59,8 @@ export function bindGroupsSurface({
   lifecycle?.add?.(() => {
     win.__RIM_GROUP_SETTINGS_OWNED = false;
     win.rimOpenZladenConsole = undefined;
+    win.newGroupChat = undefined;
+    win.rimCreateGroup = undefined;
     groupSettings.dispose();
     zladenConsole.dispose();
   });
@@ -94,6 +96,25 @@ export function bindGroupsSurface({
     }));
     if (result?.ok) notify?.('Группа создана.');
     return result;
+  };
+
+  // Public entrypoint used by the floating + menu.
+  win.newGroupChat = () => {
+    if (typeof win.showModal !== 'function') { notify?.('Не удалось открыть форму создания группы.'); return false; }
+    win.showModal(`<h2 class="modal-title">Создать группу</h2>
+      <label class="field-label" for="rimGroupTitle">Название группы</label>
+      <input class="field" id="rimGroupTitle" maxlength="80" placeholder="Например, Совет директоров" required>
+      <label class="field-label" for="rimGroupUsername">Username группы (необязательно)</label>
+      <input class="field" id="rimGroupUsername" maxlength="24" placeholder="group_name">
+      <label class="field-label" for="rimGroupMembers">Участники по username (через запятую, необязательно)</label>
+      <input class="field" id="rimGroupMembers" placeholder="username1, username2">
+      <label class="field-label" for="rimGroupAvatar">Аватар группы</label>
+      <input class="field" id="rimGroupAvatar" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
+      <div class="rim-settings-line"><div><b>Публичная группа</b><small>Её можно будет найти в каталоге.</small></div>
+      <input class="rim-switch" id="rimGroupPublic" type="checkbox"></div>
+      <div class="modal-actions"><button class="action-btn" type="button" onclick="closeModal()">Отмена</button>
+      <button class="primary-btn" type="button" onclick="rimCreateGroup()">Создать группу</button></div>`);
+    return true;
   };
 
   win.rimJoinPublicGroup = async id => {

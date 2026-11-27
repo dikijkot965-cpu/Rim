@@ -24,9 +24,9 @@ async function provisionBot(ownerId:string){
  if(registry.bot_user_id)return registry;
  if(!ownerId)throw new Error("zladen_owner_not_configured_or_ambiguous");
  const username=String(registry.username||"zladen_bot").toLowerCase();
- const password=randomToken()+randomToken();
+ const password=randomToken();
  const created=await db.auth.admin.createUser({email:"zladen@bots.rim.invalid",password,email_confirm:true,app_metadata:{rim_system_bot:true,rim_bot_owner_id:ownerId},user_metadata:{username,display_name:registry.display_name||"Злыдень"}});
- if(created.error||!created.data.user)throw new Error("zladen_auth_identity_create_failed");
+ if(created.error||!created.data.user){console.error("zladen.auth.create.failed",{status:created.error?.status||null,code:created.error?.code||null,message:created.error?.message||"missing_user"});throw new Error("zladen_auth_identity_create_failed");}
  const botUserId=created.data.user.id;
  const profile=await db.from("profiles").upsert({id:botUserId,username,display_name:registry.display_name||"Злыдень",bio:"Системный помощник РИМа"},{onConflict:"id"});
  if(profile.error){await db.auth.admin.deleteUser(botUserId);throw new Error("zladen_profile_create_failed");}

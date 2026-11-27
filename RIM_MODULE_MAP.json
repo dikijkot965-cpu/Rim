@@ -1,5 +1,5 @@
 {
-  "version": "4.1.8-iteration.180",
+  "version": "4.1.8-iteration.182",
   "layers": {
     "core": [
       "src/core/config.js",
@@ -33,6 +33,7 @@
       "src/application/appearance-preferences-service.js",
       "src/application/auth-entrypoint.js",
       "src/application/auth-form-controller.js",
+      "src/application/avatar-image-processor.js",
       "src/application/block-list-service.js",
       "src/application/bot-platform-controller.js",
       "src/application/calls-placeholder-controller.js",
@@ -266,12 +267,18 @@
     "sdk": "Restored exact SDK 14.7.0 from verified offline bootstrap artifact; npm dependencies restored; root lockfile unchanged.",
     "e2e": "Signal Protocol and E2E SQL unchanged; relay integration tests pass."
   },
-  "node_tests": 697,
+  "node_tests": 728,
   "iteration_178": {
     "zladen": "Configurable link and administrator-defined word/phrase filters with server-side pre-insert enforcement, metadata-only audit and E2E scope exclusion.",
     "feed": "Public channel posts can be cross-posted into the home feed manually or during publish; source IDs are unique and server-validated. Home feed text/topics autosave per account.",
     "privacy": "Private and E2E channels are excluded from cross-posting.",
     "e2e": "No E2E implementation, relay, key, SDK or message-path changes in this iteration.",
     "database": "Production migrations 20261124102503, 20261124103001 and 20261124103102 applied."
+  },
+  "iteration_182": {
+    "architecture": "Account-scoped feed preferences, consistent virtual Favorites row across legacy/modular renderers, wired group-create route, synchronous music-section ownership, direct profile-edit entry from Settings, and a validated center-cropped avatar pipeline.",
+    "zladen": "Fixed Auth provisioning password generation to respect Supabase Auth 72-character maximum; added diagnostic logging for Auth Admin creation failures.",
+    "identity": "Clarified member_number as a historical registration serial, not the live account count.",
+    "e2e": "Signal SDK 14.7.0, relay, key material, ciphertext storage and E2E policy are intentionally unchanged."
   }
 }
