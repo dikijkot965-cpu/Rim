@@ -1461,9 +1461,9 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     return list;
   }
 
-  // Override renderFeedList ranking
-  window.__rimFeedRankReady = true;
-  window.renderFeedList = function() {
+  // Pure DOM renderer. The global async entrypoint below owns remote refresh
+  // and calls this function exactly once after the read model is updated.
+  function renderFeedListNow() {
     const list = document.getElementById('rimFeedList');
     if (!list) return;
     const mode = getFeedMode();
@@ -2101,7 +2101,10 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
 
   async function sbListFeedPosts(mode) {
     const db = rimDb();
-    if (!db) return null;
+    if (!db) {
+      window.__RIM_FEED_LAST_ERROR = 'Supabase-клиент не инициализирован.';
+      return null;
+    }
     try {
       const uid = rimUserId();
       let topicWeights = new Map(); let mutedTopics = new Set(); let mutedAuthors = new Set(); let personalizationEnabled = true;
@@ -2139,7 +2142,11 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
 
       query = query.order('is_pinned', { ascending: false }).order('published_at', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false }).limit(50);
       const { data, error } = await query;
-      if (error) { console.warn('feed_posts', error.message); return null; }
+      if (error) {
+        window.__RIM_FEED_LAST_ERROR = String(error.message || 'Ошибка чтения feed_posts');
+        console.warn('feed_posts', error.message);
+        return null;
+      }
       const rows = data || [];
       const authorIds = [...new Set(rows.map(r => r.author_id).filter(Boolean))];
       const postIds = rows.map(r => r.id);
@@ -2607,7 +2614,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
   const _loadFeedPostsLocal = loadFeedPosts;
   loadFeedPosts = function() { return _loadFeedPostsLocal(); };
 
-  const _renderFeedListWindow = window.renderFeedList;
+  const _renderFeedListWindow = renderFeedListNow;
   window.renderFeedList = async function() {
     const remote = await sbListFeedPosts(getFeedMode());
     if (remote !== null) {

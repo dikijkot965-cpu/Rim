@@ -342,6 +342,10 @@ window.rimOpenZladenChat = async () => {
     legacy.notify?.(result?.error?.message || 'Не удалось открыть личный чат со Злыдей.');
     return result;
   }
+  if (result.value?.installed !== true) {
+    legacy.notify?.('Чат Злыди не активен. Проверьте состояние бота в настройках.');
+    return result;
+  }
   const conversationId = result.value?.conversation_id;
   if (!conversationId) {
     legacy.notify?.('Системный чат Злыди пока не создан.');

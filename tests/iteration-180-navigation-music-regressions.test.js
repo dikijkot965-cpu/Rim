@@ -44,10 +44,11 @@ test('feed has an obvious composer and renders channel-origin posts as community
   assert.match(html, /data-action="share"/);
 });
 
-test('feed rendering has one owner and legacy call sites delegate to it', async () => {
+test('feed has one global renderer with a single remote-refresh owner', async () => {
   const html = await read('../index.html');
-  assert.equal((html.match(/function renderFeedList\(\)/g) || []).length, 1);
-  assert.match(html, /return typeof window\.renderFeedList === 'function'[\s\S]{0,100}\? window\.renderFeedList\(\)/);
-  assert.doesNotMatch(html, /_renderFeedListOrig/);
+  assert.equal((html.match(/window\.renderFeedList\s*=/g) || []).length, 1);
+  assert.match(html, /function renderFeedListNow\(\)/);
+  assert.match(html, /const _renderFeedListWindow = renderFeedListNow/);
   assert.match(html, /window\.renderFeedList = async function\(\)/);
+  assert.doesNotMatch(html, /window\.__rimFeedRankReady/);
 });

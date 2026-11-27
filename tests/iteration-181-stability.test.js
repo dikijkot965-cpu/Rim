@@ -104,6 +104,7 @@ test('feed rendering uses a Reddit-like vote rail and preserves comments and ret
   assert.match(html, /rim-feed-vote-rail/);
   assert.match(html, /data-action="comments"/);
   assert.match(html, /data-rim-feed-retry/);
+  assert.equal((html.match(/window\.renderFeedList\s*=/g) || []).length, 1);
   assert.match(css, /\.rim-feed-vote-rail/);
   assert.match(css, /\.rim-feed-post-content/);
 });
