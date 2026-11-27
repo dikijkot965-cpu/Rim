@@ -2161,57 +2161,75 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       const authorIds = [...new Set(rows.map(r => r.author_id).filter(Boolean))];
       const postIds = rows.map(r => r.id);
       const channelIds = [...new Set(rows.map(r => r.source_channel_id).filter(Boolean))];
-      let profiles = {};
-      let sourceChannels = {};
-      if (channelIds.length) {
-        const channels = await db.from('channels').select('id,title,username').in('id', channelIds);
-        if (!channels.error) {
-          for (const channel of channels.data || []) sourceChannels[String(channel.id)] = channel;
+      const emptyResult = { data: [], error: null };
+      const [profileResult, channelResult, likeResult, commentResult, mediaResult, saveResult] = await Promise.all([
+        authorIds.length
+          ? db.from('profiles').select('id,username,display_name,avatar_url').in('id', authorIds)
+          : Promise.resolve(emptyResult),
+        channelIds.length
+          ? db.from('channels').select('id,title,username').in('id', channelIds)
+          : Promise.resolve(emptyResult),
+        postIds.length
+          ? db.from('feed_post_likes').select('post_id,user_id').in('post_id', postIds)
+          : Promise.resolve(emptyResult),
+        postIds.length
+          ? db.from('feed_post_comments').select('post_id').in('post_id', postIds).is('deleted_at', null)
+          : Promise.resolve(emptyResult),
+        postIds.length
+          ? db.from('rim_feed_post_media').select('post_id,storage_path,media_type,alt_text,sort_order').in('post_id', postIds).order('sort_order', { ascending: true })
+          : Promise.resolve(emptyResult),
+        uid && postIds.length
+          ? db.from('rim_feed_post_saves').select('post_id').eq('user_id', uid).in('post_id', postIds)
+          : Promise.resolve(emptyResult)
+      ]);
+
+      const profiles = Object.fromEntries((profileResult.data || []).map(profile => [String(profile.id), profile]));
+      const sourceChannels = Object.fromEntries((channelResult.data || []).map(channel => [String(channel.id), channel]));
+      const likes = {};
+      const commentCounts = {};
+      const mediaByPost = {};
+      const savedByPost = {};
+
+      if (likeResult.error) console.warn('feed_post_likes', likeResult.error.message);
+      else for (const item of likeResult.data || []) {
+        const key = String(item.post_id);
+        if (!likes[key]) likes[key] = { count: 0, likedByMe: false };
+        likes[key].count += 1;
+        if (uid && String(item.user_id) === String(uid)) likes[key].likedByMe = true;
+      }
+
+      if (commentResult.error) console.warn('feed_post_comments', commentResult.error.message);
+      else for (const item of commentResult.data || []) {
+        const key = String(item.post_id);
+        commentCounts[key] = (commentCounts[key] || 0) + 1;
+      }
+
+      if (mediaResult.error) console.warn('feed.media.list.failed', mediaResult.error.message);
+      else if ((mediaResult.data || []).length) {
+        const paths = [...new Set(mediaResult.data.map(item => item.storage_path).filter(Boolean))];
+        const signed = paths.length
+          ? await db.storage.from('feed-media').createSignedUrls(paths, 1800)
+          : { data: [] };
+        if (signed.error) console.warn('feed.media.sign.failed', signed.error.message);
+        const urls = new Map((signed.data || [])
+          .filter(item => item.path && item.signedUrl)
+          .map(item => [item.path, item.signedUrl]));
+        for (const item of mediaResult.data || []) {
+          const url = urls.get(item.storage_path);
+          if (!url) continue;
+          const key = String(item.post_id);
+          if (!mediaByPost[key]) mediaByPost[key] = [];
+          mediaByPost[key].push({
+            url,
+            mediaType: item.media_type,
+            mediaName: item.alt_text || '',
+            sortOrder: item.sort_order || 0
+          });
         }
       }
-      let likes = {};
-      let commentCounts = {};
-      let mediaByPost = {};
-      let savedByPost = {};
-      if (authorIds.length) {
-        const pr = await db.from('profiles').select('id,username,display_name,avatar_url').in('id', authorIds);
-        if (!pr.error) for (const p of pr.data || []) profiles[String(p.id)] = p;
-      }
-      if (postIds.length) {
-        const lr = await db.from('feed_post_likes').select('post_id,user_id').in('post_id', postIds);
-        if (!lr.error) {
-          for (const item of lr.data || []) {
-            const key = String(item.post_id);
-            if (!likes[key]) likes[key] = { count: 0, likedByMe: false };
-            likes[key].count += 1;
-            if (uid && String(item.user_id) === String(uid)) likes[key].likedByMe = true;
-          }
-        } else {
-          console.warn('feed_post_likes', lr.error.message);
-        }
-      }
-      if (postIds.length) {
-        const cr = await db.from('feed_post_comments').select('post_id').in('post_id', postIds).is('deleted_at', null);
-        if (!cr.error) for (const item of cr.data || []) commentCounts[String(item.post_id)] = (commentCounts[String(item.post_id)] || 0) + 1;
-        else console.warn('feed_post_comments', cr.error.message);
-        const mr = await db.from('rim_feed_post_media').select('post_id,storage_path,media_type,alt_text,sort_order').in('post_id', postIds).order('sort_order', { ascending: true });
-        if (!mr.error && (mr.data || []).length) {
-          const paths = [...new Set(mr.data.map(item => item.storage_path).filter(Boolean))];
-          const signed = paths.length ? await db.storage.from('feed-media').createSignedUrls(paths, 1800) : { data: [] };
-          const urls = new Map((signed.data || []).filter(item => item.path && item.signedUrl).map(item => [item.path, item.signedUrl]));
-          for (const item of mr.data || []) {
-            const url = urls.get(item.storage_path);
-            if (!url) continue;
-            const key = String(item.post_id);
-            if (!mediaByPost[key]) mediaByPost[key] = [];
-            mediaByPost[key].push({ url, mediaType: item.media_type, mediaName: item.alt_text || '', sortOrder: item.sort_order || 0 });
-          }
-        }
-        if (uid) {
-          const sr = await db.from('rim_feed_post_saves').select('post_id').eq('user_id', uid).in('post_id', postIds);
-          if (!sr.error) for (const item of sr.data || []) savedByPost[String(item.post_id)] = true;
-        }
-      }
+
+      if (saveResult.error) console.warn('feed.saves.list.failed', saveResult.error.message);
+      else for (const item of saveResult.data || []) savedByPost[String(item.post_id)] = true;
       const result = rows.filter(r => !mutedAuthors.has(String(r.author_id)) && !(r.topic_ids||[]).some(id=>mutedTopics.has(String(id)))).map(r => {
         const p = profiles[String(r.author_id)] || {};
         const like = likes[String(r.id)] || { count: 0, likedByMe: false };
