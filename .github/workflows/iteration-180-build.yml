@@ -1,0 +1,83 @@
+name: RIM Iteration 180 build and verification
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'assets/css/**'
+      - 'assets/js/legacy/**'
+      - 'assets/js/core/**'
+      - 'assets/js/rim-runtime-bootstrap.js'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/**'
+      - 'tests/**'
+      - '.github/workflows/iteration-180-build.yml'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  verify-build-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.12.0'
+          cache: npm
+      - name: Install exact locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Verify Signal SDK and browser stores
+        run: |
+          node --input-type=module -e "import('@open-e2ee/signal-protocol-sdk').then(m => { if (typeof m.createSignalProtocolClient !== 'function') process.exit(2); console.log('Signal SDK entrypoint OK'); })"
+          test -f node_modules/@open-e2ee/signal-protocol-sdk/dist/local/store/web-sqlite/index.js
+          test -f node_modules/@open-e2ee/signal-protocol-sdk/dist/local/store/web/index.js
+      - name: Build browser and Cloudflare assets
+        run: npm run build:cloudflare
+      - name: Architecture and syntax checks
+        run: |
+          npm run check
+          npm run check:syntax
+          npm run audit:html
+      - name: Full unit and regression suite
+        run: npm test
+      - name: Signal relay integration tests
+        run: npm run test:e2e:relay
+      - name: Publish generated browser bundle
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/js/
+          test -s assets/js/rim-app.bundle.js
+          test -d assets/js/chunks
+          test "$(find assets/js/chunks -maxdepth 1 -type f -name '*.js' | wc -l)" -gt 0
+          if git diff --cached --quiet; then
+            echo "Generated browser assets are already current."
+          else
+            git commit -m "Build RIM Iteration 180 browser assets"
+            git push origin HEAD:main
+          fi
+      - name: Package complete source project
+        run: |
+          zip -qr RIM_4.1.8_ITERATION_180.zip . -x './.git/*' './node_modules/*' './.env' './.env.*' './**/.env' './**/.env.*'
+          sha256sum RIM_4.1.8_ITERATION_180.zip > RIM_4.1.8_ITERATION_180.zip.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RIM_4.1.8_ITERATION_180
+          path: |
+            RIM_4.1.8_ITERATION_180.zip
+            RIM_4.1.8_ITERATION_180.zip.sha256
+          if-no-files-found: error
+          retention-days: 14
