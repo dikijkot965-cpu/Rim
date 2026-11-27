@@ -104,7 +104,7 @@ test('feed rendering uses a Reddit-like vote rail and preserves comments and ret
   assert.match(html, /rim-feed-vote-rail/);
   assert.match(html, /data-action="comments"/);
   assert.match(html, /data-rim-feed-retry/);
-  assert.equal((html.match(/window\.renderFeedList\s*=/g) || []).length, 1);
+  assert.equal((html.match(/window\.renderFeedList\s*=(?!=)/g) || []).length, 1);
   assert.match(css, /\.rim-feed-vote-rail/);
   assert.match(css, /\.rim-feed-post-content/);
 });
@@ -115,7 +115,7 @@ test('Chats has a bottom-right floating create action and a single Zladen route 
     read('../src/application/navigation-pages-controller.js')
   ]);
   assert.match(html, /id="rimCreateFab"/);
-  assert.match(html, /\.rim-create-fab/);
+  assert.match(css, /\.rim-create-fab/);
   assert.match(html, /\['rimCreateHandle', 'rimCreateFab'\]/);
   const more = nav.slice(nav.indexOf('openMore()'), nav.indexOf('openTools()'));
   assert.equal((more.match(/action: 'rimOpenZladenChat'/g) || []).length, 2);

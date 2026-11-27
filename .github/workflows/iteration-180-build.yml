@@ -1,7 +1,7 @@
-name: RIM Iteration 180 build and verification
+name: RIM Iteration 181 build and verification
 
 concurrency:
-  group: rim-iteration-180-${{ github.ref }}
+  group: rim-iteration-181-${{ github.ref }}
   cancel-in-progress: true
 
 on:
@@ -72,22 +72,22 @@ jobs:
           if git diff --cached --quiet; then
             echo "Generated browser assets are already current."
           else
-            git commit -m "Build RIM Iteration 180 browser assets"
+            git commit -m "Build RIM Iteration 181 browser assets"
             git push origin HEAD:main
           fi
       - name: Package complete source project
         run: |
-          ARCHIVE="$RUNNER_TEMP/RIM_4.1.8_ITERATION_180.zip"
-          CHECKSUM="$RUNNER_TEMP/RIM_4.1.8_ITERATION_180.zip.sha256"
+          ARCHIVE="$RUNNER_TEMP/RIM_4.1.8_ITERATION_181.zip"
+          CHECKSUM="$RUNNER_TEMP/RIM_4.1.8_ITERATION_181.zip.sha256"
           rm -f "$ARCHIVE" "$CHECKSUM"
           zip -qr "$ARCHIVE" . -x './.git/*' './**/.git/*' './node_modules/*' './**/node_modules/*' './*.zip' './*.zip.sha256' './**/*.zip' './**/*.zip.sha256' './.env' './.env.*' './**/.env' './**/.env.*'
           sha256sum "$ARCHIVE" > "$CHECKSUM"
           unzip -t "$ARCHIVE" | tail -n 2
       - uses: actions/upload-artifact@v4
         with:
-          name: RIM_4.1.8_ITERATION_180
+          name: RIM_4.1.8_ITERATION_181
           path: |
-            ${{ runner.temp }}/RIM_4.1.8_ITERATION_180.zip
-            ${{ runner.temp }}/RIM_4.1.8_ITERATION_180.zip.sha256
+            ${{ runner.temp }}/RIM_4.1.8_ITERATION_181.zip
+            ${{ runner.temp }}/RIM_4.1.8_ITERATION_181.zip.sha256
           if-no-files-found: error
           retention-days: 14

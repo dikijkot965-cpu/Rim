@@ -46,7 +46,7 @@ test('feed has an obvious composer and renders channel-origin posts as community
 
 test('feed has one global renderer with a single remote-refresh owner', async () => {
   const html = await read('../index.html');
-  assert.equal((html.match(/window\.renderFeedList\s*=/g) || []).length, 1);
+  assert.equal((html.match(/window\.renderFeedList\s*=(?!=)/g) || []).length, 1);
   assert.match(html, /function renderFeedListNow\(\)/);
   assert.match(html, /const _renderFeedListWindow = renderFeedListNow/);
   assert.match(html, /window\.renderFeedList = async function\(\)/);

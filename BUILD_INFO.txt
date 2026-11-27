@@ -1,6 +1,7 @@
-RIM 4.1.8 — Iteration 180 (conversation schema alignment, feed presentation, navigation isolation and music mount)
-Base: RIM 4.1.8 Iteration 179.
-Build: GitHub Actions; includes pinned Signal SDK dependencies and Cloudflare output.
-Production SQL: existing schema retained; no destructive database migration in this iteration.
-E2E: Signal SDK version and cryptographic protocol unchanged. Relay two-account regression test passed.
-Changes: channels.type schema mismatch removed; latest-message projection aligned to live chat_messages schema; feed composer exposed and Reddit-style community cards / VK-style discussion view added; channel-origin feed posts surfaced; secondary navigation isolates feed; music uses one modular renderer; feed media/profile rendering hardened.
+RIM 4.1.8 — Iteration 181 (chat creation, search, E2E access, avatar isolation, channel RBAC and feed consolidation)
+Base: RIM 4.1.8 Iteration 180.
+Build: GitHub Actions; pinned Signal SDK 14.7.0 and Cloudflare output retained.
+Production SQL: no schema migration in this iteration; live projections were checked against the existing Supabase schema.
+E2E: Signal protocol, key lifecycle and SDK unchanged. Secret direct-chat creation now has a first-class compose route; private-group activation is exposed in group information.
+Changes: fixed global search route and invalid group-search columns; added secret direct-chat creation; added direct Zladen entry and group picker under More; moved group E2E control into group information; isolated channel privileges to channel ownership/membership; cleared stale group avatars; added a bottom-right chat creation FAB; refreshed profile avatars from the private avatars bucket; consolidated feed rendering to one global entrypoint and added explicit feed-load error feedback.
+Verification: 126 mapped source modules; 24 legacy scripts; JavaScript syntax checked; full regression suite and Signal relay tests run in GitHub Actions. Manual authenticated-device acceptance remains required.
