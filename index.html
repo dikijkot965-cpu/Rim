@@ -1518,6 +1518,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
         <div class="rim-feed-post-stats">
           <button type="button" class="rim-feed-stat rim-feed-like" data-action="like" data-post-id="${p.id}" aria-label="Оценить публикацию" aria-pressed="${p.likedByMe ? 'true' : 'false'}"><span class="rim-feed-vote-arrow">▲</span> ${Number(p.likesCount || 0)}</button>
           <button type="button" class="rim-feed-stat" data-action="comments" data-post-id="${p.id}">▤ <span>Комментарии</span> <b>${comments}</b></button>
+          <button type="button" class="rim-feed-stat" data-action="share" data-post-id="${p.id}">↗ <span>Поделиться</span></button>
           <button type="button" class="rim-feed-stat rim-feed-save" data-action="save" data-post-id="${p.id}" aria-pressed="${p.savedByMe ? 'true' : 'false'}">${p.savedByMe ? '🔖' : '♧'} <span>${p.savedByMe ? 'Сохранено' : 'Сохранить'}</span></button>
           <span class="rim-feed-stat rim-feed-views">◉ ${views}</span>
         </div>
