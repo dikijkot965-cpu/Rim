@@ -92,6 +92,11 @@
     <div class="rim-feed-title">Лента</div>
     <button class="rim-feed-compose-btn" id="rimFeedComposeBtn" type="button" title="Новый пост" aria-label="Новый пост">+</button>
   </div>
+  <button class="rim-feed-create-prompt" id="rimFeedCreatePrompt" type="button">
+    <span class="rim-feed-create-avatar">Р</span>
+    <span class="rim-feed-create-placeholder">Что хотите обсудить?</span>
+    <span class="rim-feed-create-action">Создать пост</span>
+  </button>
   <div class="rim-feed-interest-label">Интересы для персональных рекомендаций</div>
   <div class="rim-feed-topics" id="rimFeedTopics"><span class="muted">Загрузка тем…</span></div>
   <div class="rim-feed-tabs" id="rimFeedTabs">
@@ -980,6 +985,22 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
         } finally { el.disabled = false; }
       });
     });
+    list.querySelectorAll('[data-action="share"]').forEach(el => {
+      el.addEventListener('click', async () => {
+        const postId = el.getAttribute('data-post-id');
+        const url = new URL(window.location.href);
+        url.hash = 'feed-post-' + postId;
+        try {
+          if (navigator.share) await navigator.share({ title: 'Публикация в РИМе', url: url.toString() });
+          else if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(url.toString());
+            if (typeof toast === 'function') toast('Ссылка на публикацию скопирована');
+          } else if (typeof toast === 'function') toast(url.toString());
+        } catch (error) {
+          if (error?.name !== 'AbortError') console.warn('feed.share.failed', error);
+        }
+      });
+    });
     list.querySelectorAll('[data-action="save"]').forEach(el => {
       el.addEventListener('click', async () => {
         const postId = el.getAttribute('data-post-id');
@@ -1092,6 +1113,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
 
     preview.innerHTML = `
       <div class="rim-feed-post-author">${escapeHtml(post.author)}</div>
+      ${post.title ? `<h3 class="rim-feed-post-title">${escapeHtml(post.title)}</h3>` : ''}
       <div class="rim-feed-post-body" style="margin:6px 0 0">${renderFeedBodyWithMedia(post)}</div>
     `;
     const comments = loadFeedComments()[postId] || [];
@@ -1141,6 +1163,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
 
   // Wire feed UI
   document.getElementById('rimFeedComposeBtn')?.addEventListener('click', openFeedCompose);
+  document.getElementById('rimFeedCreatePrompt')?.addEventListener('click', openFeedCompose);
   document.querySelectorAll('[data-close-feed-compose]').forEach(el => el.addEventListener('click', closeFeedCompose));
   document.getElementById('rimFeedPublishBtn')?.addEventListener('click', publishFeedPost);
   document.querySelectorAll('[data-close-feed-comments]').forEach(el => el.addEventListener('click', closeFeedComments));
@@ -1477,20 +1500,26 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       const comments = Number.isFinite(Number(p.commentsCount)) ? Number(p.commentsCount) : (loadFeedComments()[p.id] || []).length;
       const bodyHtml = renderFeedBodyWithMedia(p);
       const badge = p.fromChannel ? '<span class="rim-feed-badge">канал</span>' : '';
+      const avatar = p.authorAvatarUrl
+        ? `<img src="${escapeHtml(p.authorAvatarUrl)}" alt="" loading="lazy" decoding="async">`
+        : initial;
+      const title = p.title ? `<h3 class="rim-feed-post-title">${escapeHtml(p.title)}</h3>` : '';
+      const origin = p.fromChannel ? '<span class="rim-feed-origin">из канала</span>' : '';
       return `<article class="rim-feed-post" data-post-id="${p.id}">
         <div class="rim-feed-post-header">
-          <div class="rim-feed-post-avatar">${initial}</div>
+          <div class="rim-feed-post-avatar">${avatar}</div>
           <div class="rim-feed-post-meta">
-            <div class="rim-feed-post-author">${escapeHtml(p.author || 'Автор')} ${badge}</div>
+            <div class="rim-feed-post-community">r/РИМ <span>·</span> <b>${escapeHtml(p.author || 'Автор')}</b> ${badge} ${origin}</div>
             <div class="rim-feed-post-time">${formatFeedTime(p.createdAt)}</div>
           </div>
         </div>
+        ${title}
         <div class="rim-feed-post-body">${bodyHtml}</div>
         <div class="rim-feed-post-stats">
-          <button type="button" class="rim-feed-stat rim-feed-like" data-action="like" data-post-id="${p.id}" aria-pressed="${p.likedByMe ? 'true' : 'false'}">${p.likedByMe ? '♥' : '♡'} ${Number(p.likesCount || 0)}</button>
-          <button type="button" class="rim-feed-stat rim-feed-save" data-action="save" data-post-id="${p.id}" aria-pressed="${p.savedByMe ? 'true' : 'false'}">${p.savedByMe ? '🔖' : '♧'} Сохранить</button>
-          <button type="button" class="rim-feed-stat" data-action="comments" data-post-id="${p.id}">💬 ${comments}</button>
-          <span class="rim-feed-stat">👁 ${views}</span>
+          <button type="button" class="rim-feed-stat rim-feed-like" data-action="like" data-post-id="${p.id}" aria-label="Оценить публикацию" aria-pressed="${p.likedByMe ? 'true' : 'false'}"><span class="rim-feed-vote-arrow">▲</span> ${Number(p.likesCount || 0)}</button>
+          <button type="button" class="rim-feed-stat" data-action="comments" data-post-id="${p.id}">▤ <span>Комментарии</span> <b>${comments}</b></button>
+          <button type="button" class="rim-feed-stat rim-feed-save" data-action="save" data-post-id="${p.id}" aria-pressed="${p.savedByMe ? 'true' : 'false'}">${p.savedByMe ? '🔖' : '♧'} <span>${p.savedByMe ? 'Сохранено' : 'Сохранить'}</span></button>
+          <span class="rim-feed-stat rim-feed-views">◉ ${views}</span>
         </div>
       </article>`;
     }).join('');
@@ -2100,7 +2129,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
         if (!fp.error && fp.data) personalizationEnabled = fp.data.personalization_enabled !== false;
       }
       let query = db.from('feed_posts')
-        .select('id,author_id,title,body,media_paths,visibility,comments_enabled,created_at,published_at,deleted_at,is_pinned,topic_ids,language_code')
+        .select('id,author_id,title,body,media_paths,visibility,comments_enabled,created_at,published_at,deleted_at,is_pinned,topic_ids,language_code,source_channel_id,source_channel_post_id')
         .is('deleted_at', null);
 
       if (mode === 'following') {
@@ -2131,7 +2160,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       let mediaByPost = {};
       let savedByPost = {};
       if (authorIds.length) {
-        const pr = await db.from('profiles').select('id,username,display_name').in('id', authorIds);
+        const pr = await db.from('profiles').select('id,username,display_name,avatar_url').in('id', authorIds);
         if (!pr.error) for (const p of pr.data || []) profiles[String(p.id)] = p;
       }
       if (postIds.length) {
@@ -2180,6 +2209,10 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
           id: r.id,
           author: p.display_name || p.username || 'Автор',
           authorId: r.author_id,
+          authorAvatarUrl: p.avatar_url || '',
+          title: r.title || '',
+          sourceChannelId: r.source_channel_id || null,
+          sourceChannelPostId: r.source_channel_post_id || null,
           topicIds,
           personalizationScore,
           text: r.body || r.title || '',
@@ -2193,7 +2226,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
           mediaType: mediaByPost[String(r.id)]?.[0]?.mediaType || null,
           mediaName: mediaByPost[String(r.id)]?.[0]?.mediaName || '',
           savedByMe: !!savedByPost[String(r.id)],
-          fromChannel: false,
+          fromChannel: !!r.source_channel_id,
           isPinned: !!r.is_pinned,
           _remote: true
         };
