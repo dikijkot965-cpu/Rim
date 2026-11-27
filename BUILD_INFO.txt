@@ -1,6 +1,6 @@
-RIM 4.1.8 — Iteration 179 (chat list, feed navigation, global search, profiles and bot bootstrap)
-Base: RIM 4.1.8 Iteration 178.
+RIM 4.1.8 — Iteration 180 (conversation schema alignment, feed presentation, navigation isolation and music mount)
+Base: RIM 4.1.8 Iteration 179.
 Build: GitHub Actions; includes pinned Signal SDK dependencies and Cloudflare output.
 Production SQL: existing schema retained; no destructive database migration in this iteration.
 E2E: Signal SDK version and cryptographic protocol unchanged. Relay two-account regression test passed.
-Changes: unified joined-channel/chat projection; feed section navigation; global plaintext message search (E2E excluded); profile navigation; named forwarding targets; message action popover; floating compose action; channel full-height shell; Zladen CORS preflight fix.
+Changes: channels.type schema mismatch removed; latest-message projection aligned to live chat_messages schema; feed composer exposed and Reddit-style community cards / VK-style discussion view added; channel-origin feed posts surfaced; secondary navigation isolates feed; music uses one modular renderer; feed media/profile rendering hardened.
