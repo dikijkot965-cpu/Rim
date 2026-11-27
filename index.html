@@ -1507,11 +1507,14 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
         : initial;
       const title = p.title ? `<h3 class="rim-feed-post-title">${escapeHtml(p.title)}</h3>` : '';
       const origin = p.fromChannel ? '<span class="rim-feed-origin">из канала</span>' : '';
+      const community = p.sourceChannelTitle
+        ? `c/${escapeHtml(p.sourceChannelTitle)}`
+        : 'r/РИМ';
       return `<article class="rim-feed-post" data-post-id="${escapeHtml(p.id)}">
         <div class="rim-feed-post-header">
           <div class="rim-feed-post-avatar">${avatar}</div>
           <div class="rim-feed-post-meta">
-            <div class="rim-feed-post-community">r/РИМ <span>·</span> <b>${escapeHtml(p.author || 'Автор')}</b> ${badge} ${origin}</div>
+            <div class="rim-feed-post-community">${community} <span>·</span> <b>${escapeHtml(p.author || 'Автор')}</b> ${badge} ${origin}</div>
             <div class="rim-feed-post-time">${formatFeedTime(p.createdAt)}</div>
           </div>
         </div>
@@ -2157,7 +2160,15 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       const rows = data || [];
       const authorIds = [...new Set(rows.map(r => r.author_id).filter(Boolean))];
       const postIds = rows.map(r => r.id);
+      const channelIds = [...new Set(rows.map(r => r.source_channel_id).filter(Boolean))];
       let profiles = {};
+      let sourceChannels = {};
+      if (channelIds.length) {
+        const channels = await db.from('channels').select('id,title,username').in('id', channelIds);
+        if (!channels.error) {
+          for (const channel of channels.data || []) sourceChannels[String(channel.id)] = channel;
+        }
+      }
       let likes = {};
       let commentCounts = {};
       let mediaByPost = {};
@@ -2216,6 +2227,8 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
           title: r.title || '',
           sourceChannelId: r.source_channel_id || null,
           sourceChannelPostId: r.source_channel_post_id || null,
+          sourceChannelTitle: sourceChannels[String(r.source_channel_id)]?.title || '',
+          sourceChannelUsername: sourceChannels[String(r.source_channel_id)]?.username || '',
           topicIds,
           personalizationScore,
           text: r.body || r.title || '',
