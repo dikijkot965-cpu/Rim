@@ -19,7 +19,7 @@
 
 ## Verification
 - 127 mapped source modules; 24 legacy scripts.
-- 730 automated tests in GitHub Actions.
+- 735 automated tests in GitHub Actions.
 - Signal SDK entrypoint and browser stores verified.
 - Cloudflare build, architecture checks, syntax checks, HTML audit, regression suite and Signal relay tests passed.
 - Manual multi-account Android acceptance remains necessary for visual and session-specific behavior.
