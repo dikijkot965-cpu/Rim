@@ -274,7 +274,7 @@
     <div style="width:40px"></div>
   </div>
   <div class="rim-tg-settings-scroll">
-    <div class="rim-tg-profile-card" id="rimTgProfileCard">
+    <div class="rim-tg-profile-card" id="rimTgProfileCard" data-tg-action="account" role="button" tabindex="0" aria-label="Изменить профиль">
       <div class="rim-tg-profile-avatar" id="rimTgProfileAvatar">Р</div>
       <div class="rim-tg-profile-info">
         <div class="rim-tg-profile-name" id="rimTgProfileName">Пользователь</div>
@@ -1373,20 +1373,32 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
   function setFeedMode(mode) {
     try { localStorage.setItem(FEED_MODE_KEY, mode); } catch {}
   }
+  function feedPrefsStorageKey() {
+    return `${FEED_PREFS_KEY}:${rimUserId() || 'guest'}`;
+  }
   function getFeedPrefs() {
+    const defaults = { personalization: true, recommendations: true, sensitive: false, officialBoost: false };
     try {
-      return Object.assign({
-        personalization: true,
-        recommendations: true,
-        sensitive: false,
-        officialBoost: false
-      }, JSON.parse(localStorage.getItem(FEED_PREFS_KEY) || '{}'));
+      return Object.assign(defaults, JSON.parse(localStorage.getItem(feedPrefsStorageKey()) || '{}'));
     } catch {
-      return { personalization: true, recommendations: true, sensitive: false, officialBoost: false };
+      return defaults;
     }
   }
   function saveFeedPrefs(p) {
-    try { localStorage.setItem(FEED_PREFS_KEY, JSON.stringify(p)); } catch {}
+    const next = Object.assign({ personalization: true, recommendations: true, sensitive: false, officialBoost: false }, p || {});
+    try { localStorage.setItem(feedPrefsStorageKey(), JSON.stringify(next)); } catch {}
+    const db = rimDb();
+    const uid = rimUserId();
+    if (!db || !uid) return;
+    void db.from('rim_user_feed_preferences').upsert({
+      user_id: uid,
+      personalization_enabled: next.personalization !== false,
+      show_reposts: next.recommendations !== false,
+      hide_sensitive_content: next.sensitive === true,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id' }).then(({ error }) => {
+      if (error) console.warn('feed.preferences.save.failed', error.message);
+    }).catch(error => console.warn('feed.preferences.save.failed', error?.message || error));
   }
   function getImpPrefs() {
     try {
@@ -1593,12 +1605,25 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
 
   document.getElementById('rimTgSettingsBack')?.addEventListener('click', closeTgSettings);
 
+  document.getElementById('rimTgSettings')?.addEventListener('keydown', (e) => {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target?.closest?.('#rimTgProfileCard')) {
+      e.preventDefault();
+      closeTgSettings();
+      window.openProfile?.();
+    }
+  });
   document.getElementById('rimTgSettings')?.addEventListener('click', (e) => {
     const row = e.target.closest('[data-tg-action]');
     if (!row) return;
     const action = row.getAttribute('data-tg-action');
     if (action === 'imperial') {
       openImperialPanel();
+      return;
+    }
+    if (action === 'account') {
+      closeTgSettings();
+      if (typeof window.openProfile === 'function') window.openProfile();
+      else if (typeof toast === 'function') toast('Редактор профиля пока недоступен');
       return;
     }
     if (action === 'feed-prefs') {
@@ -2118,7 +2143,28 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
         if (!tp.error) topicWeights = new Map((tp.data||[]).map(x=>[String(x.topic_id),Number(x.preference||0)]));
         if (!mt.error) mutedTopics = new Set((mt.data||[]).map(x=>String(x.topic_id)));
         if (!ma.error) mutedAuthors = new Set((ma.data||[]).map(x=>String(x.muted_user_id)));
-        if (!fp.error && fp.data) personalizationEnabled = fp.data.personalization_enabled !== false;
+        if (fp.error) {
+          console.warn('feed.preferences.load.failed', fp.error.message);
+        } else if (fp.data) {
+          personalizationEnabled = fp.data.personalization_enabled !== false;
+          const local = Object.assign({ personalization: true, recommendations: true, sensitive: false, officialBoost: false }, getFeedPrefs(), {
+            personalization: fp.data.personalization_enabled !== false,
+            recommendations: fp.data.show_reposts !== false,
+            sensitive: fp.data.hide_sensitive_content === true
+          });
+          try { localStorage.setItem(feedPrefsStorageKey(), JSON.stringify(local)); } catch {}
+        } else {
+          const defaults = getFeedPrefs();
+          personalizationEnabled = defaults.personalization !== false;
+          const { error: seedError } = await db.from('rim_user_feed_preferences').upsert({
+            user_id: uid,
+            personalization_enabled: personalizationEnabled,
+            show_reposts: defaults.recommendations !== false,
+            hide_sensitive_content: defaults.sensitive === true,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'user_id' });
+          if (seedError) console.warn('feed.preferences.seed.failed', seedError.message);
+        }
       }
       let query = db.from('feed_posts')
         .select('id,author_id,title,body,media_paths,visibility,comments_enabled,created_at,published_at,deleted_at,is_pinned,topic_ids,language_code,source_channel_id,source_channel_post_id')

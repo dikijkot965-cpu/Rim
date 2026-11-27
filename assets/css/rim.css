@@ -3112,7 +3112,7 @@ body[data-theme="light"] .composer.grok-style .send-btn {
 .rim-search-hit-active{outline:2px solid var(--gold);outline-offset:3px;border-radius:12px}
 
 
-/* Iteration 181 — structured community feed and VK-like discussion surface. */
+/* Iteration 182 — structured community feed and VK-like discussion surface. */
 #feedSection{align-items:stretch}
 .rim-feed-header{padding:14px 16px 10px;background:var(--panel);border-bottom:1px solid var(--border)}
 .rim-feed-title{font-size:21px;letter-spacing:-.02em}
@@ -3179,7 +3179,7 @@ body[data-theme="light"] .composer.grok-style .send-btn {
 }
 
 
-/* Iteration 181 — Reddit-inspired feed hierarchy and compact vote rail */
+/* Iteration 182 — Reddit-inspired feed hierarchy and compact vote rail */
 .rim-feed-list { display:flex; flex-direction:column; gap:10px; padding:8px 10px 32px; }
 .rim-feed-post {
   display:grid;
@@ -3240,7 +3240,7 @@ body[data-theme="light"] .composer.grok-style .send-btn {
 }
 
 
-/* Iteration 181 — bottom-right create action */
+/* Iteration 182 — bottom-right create action */
 .rim-chats-toolbar { display:none !important; }
 .rim-create-fab {
   position:fixed;

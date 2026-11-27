@@ -1,4 +1,5 @@
 import { Err, Ok } from '../core/result.js';
+import { prepareAvatarImage } from './avatar-image-processor.js';
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, ch => ({
@@ -102,7 +103,7 @@ export class ProfileController {
     const avatar = p.avatar_display_url || p.avatar_url || '';
     const roleLine = this.isImperator?.()
       ? '⚜ Император'
-      : `Участник № ${p.member_number ?? '—'}`;
+      : `Регистрационный № ${p.member_number ?? '—'}`;
     const name = p.display_name || p.username || 'Пользователь';
     const html = `
       <h2 class="modal-title">Мой профиль</h2>
@@ -137,7 +138,23 @@ export class ProfileController {
     this.showModal(html);
     queueMicrotask(() => {
       const tap = this.document.getElementById('rimProfileAvatarTap');
-      tap?.addEventListener?.('click', () => this.document.getElementById('avatarFile')?.click());
+      const input = this.document.getElementById('avatarFile');
+      tap?.addEventListener?.('click', () => input?.click());
+      input?.addEventListener?.('change', () => {
+        const selected = input.files?.[0];
+        if (!selected || !tap) return;
+        try {
+          if (this.previewUrl) URL.revokeObjectURL(this.previewUrl);
+          this.previewUrl = URL.createObjectURL(selected);
+          const image = this.document.createElement('img');
+          image.src = this.previewUrl;
+          image.alt = 'Предпросмотр аватара';
+          image.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:inherit';
+          tap.replaceChildren(image);
+        } catch (error) {
+          this.notify(error?.message || 'Не удалось показать предпросмотр аватара.');
+        }
+      });
     });
     return result;
   }
@@ -152,6 +169,8 @@ export class ProfileController {
     const nameColor = this.document.getElementById('editNameColor')?.value || null;
     const file = this.document.getElementById('avatarFile')?.files?.[0] || null;
 
+    if (!displayName || displayName.length > 48) return Err(new Error('Имя должно содержать от 1 до 48 символов.'));
+    if (bio.length > 500) return Err(new Error('Описание «О себе» не должно превышать 500 символов.'));
     if (!/^[a-z0-9_]{3,24}$/i.test(username)) {
       return Err(new Error('Username должен содержать 3–24 символа: латиница, цифры, _.'));
     }
@@ -165,11 +184,11 @@ export class ProfileController {
       if (nameColor) patch.name_color = nameColor;
 
       if (file) {
-        if (file.size > 3 * 1024 * 1024) return Err(new Error('Аватар должен быть не больше 3 МБ.'));
-        const ext = (file.name?.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+        const processedAvatar = await prepareAvatarImage(file, { documentRef: this.document });
+        const ext = processedAvatar.type === 'image/webp' ? 'webp' : (processedAvatar.name?.split('.').pop() || 'jpg').toLowerCase();
         const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
-        const { error: up } = await this.client.storage.from('avatars').upload(path, file, {
-          contentType: file.type || 'image/jpeg',
+        const { error: up } = await this.client.storage.from('avatars').upload(path, processedAvatar, {
+          contentType: processedAvatar.type || 'image/jpeg',
           upsert: false
         });
         if (up) return Err(up);
@@ -195,6 +214,10 @@ export class ProfileController {
         } catch { /* ignore */ }
       }
       try { this.setProfile?.(next); } catch { /* ignore */ }
+      if (this.previewUrl) {
+        try { URL.revokeObjectURL(this.previewUrl); } catch { /* ignore */ }
+        this.previewUrl = null;
+      }
       this.closeModal?.();
       this.notify('Профиль сохранён.');
       return Ok(next);

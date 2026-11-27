@@ -51,7 +51,7 @@ export class MemberCardController {
         <h2 style="color:var(--gold2);margin:12px 0 5px">${name}</h2>
         <div>@${this.#esc(p.username || '')}</div>
         <hr style="border-color:var(--border);margin:14px 0">
-        <div class="serial">НОМЕР УЧАСТНИКА</div>
+        <div class="serial">РЕГИСТРАЦИОННЫЙ НОМЕР</div>
         <div style="font-size:23px;font-weight:bold;margin:5px 0">${this.#esc(number)}</div>
         <div class="feature-small">В системе с ${this.#esc(created)}</div>
       </div>
