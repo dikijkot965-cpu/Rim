@@ -1,24 +1,10 @@
 name: RIM Iteration 180 build and verification
 
+concurrency:
+  group: rim-iteration-180-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'src/**'
-      - 'assets/css/**'
-      - 'assets/js/legacy/**'
-      - 'assets/js/core/**'
-      - 'assets/js/rim-runtime-bootstrap.js'
-      - 'index.html'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'RIM_MODULE_MAP.json'
-      - 'BUILD_INFO.txt'
-      - 'scripts/**'
-      - 'tests/**'
-      - '.github/workflows/iteration-180-build.yml'
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
