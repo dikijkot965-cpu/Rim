@@ -910,7 +910,8 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     const raw = String(post?.text || '');
     const mediaItems = Array.isArray(post?.mediaItems) ? post.mediaItems : (post?.mediaUrl ? [{url:post.mediaUrl,mediaType:post.mediaType,mediaName:post.mediaName}] : []);
     const renderItem = item => {
-      const url = escapeHtml(item?.url || '');
+      const rawUrl = String(item?.url || '').trim();
+      const url = /^(https?:\\/\\/|blob:)/i.test(rawUrl) ? escapeHtml(rawUrl) : '';
       if (!url) return '';
       const name = escapeHtml(item?.mediaName || item?.alt_text || 'Вложение');
       if (item.mediaType === 'video') return `<figure class="rim-feed-post-media"><video data-rim-feed-url="${url}" controls playsinline preload="metadata"></video><figcaption>${name}</figcaption></figure>`;
@@ -939,11 +940,11 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       return;
     }
     list.innerHTML = posts.map(p => {
-      const initial = (p.author || 'Р')[0].toUpperCase();
+      const initial = escapeHtml((p.author || 'Р')[0].toUpperCase());
       const views = p.views || 0;
       const comments = Number.isFinite(Number(p.commentsCount)) ? Number(p.commentsCount) : (loadFeedComments()[p.id] || []).length;
       const bodyHtml = renderFeedBodyWithMedia(p);
-      return `<article class="rim-feed-post" data-post-id="${p.id}">
+      return `<article class="rim-feed-post" data-post-id="${escapeHtml(p.id)}">
         <div class="rim-feed-post-header">
           <div class="rim-feed-post-avatar">${initial}</div>
           <div class="rim-feed-post-meta">
@@ -1120,7 +1121,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     list.innerHTML = comments.length
       ? comments.map(c => `
         <div class="rim-feed-comment">
-          <div class="rim-feed-comment-avatar">${(c.author || '?')[0].toUpperCase()}</div>
+          <div class="rim-feed-comment-avatar">${escapeHtml((c.author || '?')[0].toUpperCase())}</div>
           <div class="rim-feed-comment-body">
             <div class="rim-feed-comment-author">${escapeHtml(c.author)}</div>
             <div class="rim-feed-comment-text">${escapeHtml(c.text)}</div>
@@ -1500,8 +1501,9 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       const comments = Number.isFinite(Number(p.commentsCount)) ? Number(p.commentsCount) : (loadFeedComments()[p.id] || []).length;
       const bodyHtml = renderFeedBodyWithMedia(p);
       const badge = p.fromChannel ? '<span class="rim-feed-badge">канал</span>' : '';
-      const avatar = p.authorAvatarUrl
-        ? `<img src="${escapeHtml(p.authorAvatarUrl)}" alt="" loading="lazy" decoding="async">`
+      const avatarUrl = String(p.authorAvatarUrl || '').trim();
+      const avatar = /^https?:\/\//i.test(avatarUrl)
+        ? `<img src="${escapeHtml(avatarUrl)}" alt="" loading="lazy" decoding="async">`
         : initial;
       const title = p.title ? `<h3 class="rim-feed-post-title">${escapeHtml(p.title)}</h3>` : '';
       const origin = p.fromChannel ? '<span class="rim-feed-origin">из канала</span>' : '';
