@@ -202,7 +202,7 @@ export class ConversationRepository {
   async getLatestMessage(conversationId) {
     if (!conversationId) return Ok(null);
     const response = await this.client.from('chat_messages')
-      .select('id,conversation_id,sender_id,body,image_path,attachment_path,attachment_name,sticker_id,created_at')
+      .select('id,conversation_id,sender_id,body,image_path,sticker_id,created_at')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: false })
       .order('id', { ascending: false })
