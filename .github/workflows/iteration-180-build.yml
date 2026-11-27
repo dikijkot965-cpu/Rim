@@ -12,6 +12,8 @@ on:
       - 'index.html'
       - 'package.json'
       - 'package-lock.json'
+      - 'RIM_MODULE_MAP.json'
+      - 'BUILD_INFO.txt'
       - 'scripts/**'
       - 'tests/**'
       - '.github/workflows/iteration-180-build.yml'
