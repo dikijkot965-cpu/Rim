@@ -22,7 +22,9 @@ export class NavigationSectionController {
     const name = String(section || 'chats');
     try { win.currentSection = name; } catch { /* ignore */ }
     const createButton = doc.getElementById?.('rimCreateHandle');
+    const createFab = doc.getElementById?.('rimCreateFab');
     if (createButton) createButton.hidden = name !== 'chats';
+    if (createFab) createFab.hidden = name !== 'chats';
 
     ['moreSection', 'toolsSection'].forEach(id => {
       const el = doc.getElementById?.(id);

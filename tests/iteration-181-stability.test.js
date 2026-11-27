@@ -107,3 +107,16 @@ test('feed rendering uses a Reddit-like vote rail and preserves comments and ret
   assert.match(css, /\.rim-feed-vote-rail/);
   assert.match(css, /\.rim-feed-post-content/);
 });
+
+test('Chats has a bottom-right floating create action and a single Zladen route in More', async () => {
+  const [html, nav] = await Promise.all([
+    read('../index.html'),
+    read('../src/application/navigation-pages-controller.js')
+  ]);
+  assert.match(html, /id="rimCreateFab"/);
+  assert.match(html, /\.rim-create-fab/);
+  assert.match(html, /\['rimCreateHandle', 'rimCreateFab'\]/);
+  const more = nav.slice(nav.indexOf('openMore()'), nav.indexOf('openTools()'));
+  assert.equal((more.match(/action: 'rimOpenZladenChat'/g) || []).length, 2);
+  assert.equal((more.match(/action: 'rimOpenZladenGroupPicker'/g) || []).length, 2);
+});

@@ -89,6 +89,8 @@ export class NavigationPagesController {
     if (!section) {
       // Fallback when DOM shell is not available (unit tests / early boot)
       const html = this.#gridHtml([
+        { action: 'rimOpenZladenChat', title: '✦ Злыдя', sub: 'Личный чат с @Zladen_bot' },
+        { action: 'rimOpenZladenGroupPicker', title: '♧ Добавить Злыдю в группу', sub: 'Подключить помощника к групповой беседе' },
         { action: 'openProfile', title: '👤 Профиль', sub: 'Личные данные и аватар' },
         { action: 'openSettings', title: '⚙ Настройки', sub: 'Язык, тема и приватность' },
         { action: 'openImperialCabinet', title: '⚜ Имперский кабинет', sub: 'Уведомления и служебные разделы' },
@@ -101,8 +103,6 @@ export class NavigationPagesController {
     }
     const body = section.querySelector('.rim-section-body') || section;
     this.#paintGrid(body, [
-      { action: 'rimOpenZladenChat', title: '✦ Злыдя', sub: 'Личный чат с @Zladen_bot' },
-      { action: 'rimOpenZladenGroupPicker', title: '♧ Добавить Злыдю в группу', sub: 'Подключить помощника к групповой беседе' },
       { action: 'rimOpenZladenChat', title: '✦ Злыдя', sub: 'Личный чат с @Zladen_bot' },
       { action: 'rimOpenZladenGroupPicker', title: '♧ Добавить Злыдю в группу', sub: 'Подключить помощника к групповой беседе' },
       { action: 'openProfile', title: '👤 Профиль', sub: 'Личные данные и аватар' },

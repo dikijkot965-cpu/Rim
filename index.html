@@ -75,17 +75,17 @@
 <button class="action-btn" id="tabFeed" onclick="showSection('feed')">Лента</button>
 <button class="action-btn" id="tabMusic" onclick="showSection('music')">Музыка</button>
 </div>
-<div id="chatsSection" style="display:flex;flex:1;min-height:0;flex-direction:column">
-<div class="sidebar-head rim-chats-toolbar">
-  <button class="rim-create-handle" id="rimCreateHandle" type="button" title="Создать" aria-label="Создать чат, группу или канал">
+<div id="chatsSection" style="display:flex;flex:1;min-height:0;flex-direction:column;position:relative">
+<div class="sidebar-head rim-chats-toolbar" aria-hidden="true">
+  <button class="rim-create-handle" id="rimCreateHandle" type="button" title="Создать" aria-label="Создать чат, группу или канал" tabindex="-1">
     <span class="rim-create-handle-icon">✎</span>
   </button>
-  <!-- chatSearch kept in DOM for compatibility with existing filterChats / search controllers -->
   <input class="search-input" id="chatSearch" oninput="filterChats()" placeholder="Поиск..." style="position:absolute;opacity:0;pointer-events:none;width:0;height:0" />
 </div>
 <div class="chat-list" id="chatList">
 <div class="loading">Загрузка переписок...</div>
 </div>
+<button class="rim-create-fab" id="rimCreateFab" type="button" aria-label="Создать чат, группу или канал" title="Создать">＋</button>
 </div>
 <div class="page-content hidden" id="feedSection">
   <div class="rim-feed-header">
@@ -831,6 +831,9 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
         setTimeout(() => { void refreshAvatar(true); }, 0);
       }
     });
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) void refreshAvatar(true);
+    });
   }
 
   if (document.readyState === 'loading') {
@@ -878,48 +881,53 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     }
   };
 
-  // Create handle (groups / channels / direct)
-  document.getElementById('rimCreateHandle')?.addEventListener('click', () => {
-    // Prefer existing flows
-    if (typeof window.newGroupChat === 'function' || typeof window.newDirectChat === 'function') {
-      // Simple action sheet
-      const existing = document.getElementById('rimCreateSheet');
-      if (existing) existing.remove();
-      const sheet = document.createElement('div');
-      sheet.id = 'rimCreateSheet';
-      sheet.className = 'rim-attach-menu'; // reuse style
-      sheet.style.bottom = 'auto';
-      sheet.style.top = '110px';
-      sheet.style.right = '12px';
-      sheet.style.left = 'auto';
-      sheet.innerHTML = `
-        <button type="button" class="rim-attach-item" data-create="direct">Новый чат</button>
-        <button type="button" class="rim-attach-item" data-create="secret-direct">Секретный чат E2E</button>
-        <button type="button" class="rim-attach-item" data-create="group">Новая группа</button>
-        <button type="button" class="rim-attach-item" data-create="channel">Новый канал</button>
-      `;
-      sheet.addEventListener('click', (ev) => {
-        const btn = ev.target.closest('[data-create]');
-        if (!btn) return;
-        const action = btn.getAttribute('data-create');
-        sheet.remove();
-        if (action === 'direct' && typeof window.newDirectChat === 'function') window.newDirectChat();
-        else if (action === 'secret-direct' && typeof window.newSecretDirectChat === 'function') window.newSecretDirectChat();
-        else if (action === 'group' && typeof window.newGroupChat === 'function') window.newGroupChat();
-        else if (action === 'channel' && typeof window.createChannel === 'function') window.createChannel();
-        else if (typeof toast === 'function') toast('Функция пока недоступна');
-      });
-      document.body.appendChild(sheet);
-      setTimeout(() => {
-        const close = (e) => {
-          if (!sheet.contains(e.target) && e.target.id !== 'rimCreateHandle') {
-            sheet.remove();
-            document.removeEventListener('click', close);
-          }
-        };
-        document.addEventListener('click', close);
-      }, 10);
-    }
+  // One creation menu is shared by the floating action button and the
+  // compatibility handle. Its position is anchored to the actual trigger.
+  const openCreateSheet = trigger => {
+    const existing = document.getElementById('rimCreateSheet');
+    if (existing) existing.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'rimCreateSheet';
+    sheet.className = 'rim-attach-menu rim-create-sheet';
+    const rect = trigger.getBoundingClientRect();
+    sheet.style.top = 'auto';
+    sheet.style.bottom = `${Math.max(16, window.innerHeight - rect.top + 10)}px`;
+    sheet.style.right = `${Math.max(12, window.innerWidth - rect.right)}px`;
+    sheet.style.left = 'auto';
+    sheet.innerHTML = `
+      <button type="button" class="rim-attach-item" data-create="direct">Новый чат</button>
+      <button type="button" class="rim-attach-item" data-create="secret-direct">Секретный чат E2E</button>
+      <button type="button" class="rim-attach-item" data-create="group">Новая группа</button>
+      <button type="button" class="rim-attach-item" data-create="channel">Новый канал</button>
+    `;
+    sheet.addEventListener('click', ev => {
+      const btn = ev.target.closest('[data-create]');
+      if (!btn) return;
+      const action = btn.getAttribute('data-create');
+      sheet.remove();
+      if (action === 'direct') window.newDirectChat?.();
+      else if (action === 'secret-direct') window.newSecretDirectChat?.();
+      else if (action === 'group') window.newGroupChat?.();
+      else if (action === 'channel') window.createChannel?.();
+      else if (typeof toast === 'function') toast('Функция пока недоступна');
+    });
+    document.body.appendChild(sheet);
+    setTimeout(() => {
+      const close = event => {
+        if (!sheet.contains(event.target) && !event.target.closest?.('#rimCreateHandle,#rimCreateFab')) {
+          sheet.remove();
+          document.removeEventListener('click', close);
+        }
+      };
+      document.addEventListener('click', close);
+    }, 0);
+  };
+  ['rimCreateHandle', 'rimCreateFab'].forEach(id => {
+    document.getElementById(id)?.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      openCreateSheet(event.currentTarget);
+    });
   });
 
 
