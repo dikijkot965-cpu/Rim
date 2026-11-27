@@ -134,6 +134,7 @@ test('conversation state repository reads cursors, exact unread counts, latest p
   assert.equal(count.value, 4);
   const latest = await repository.getLatestMessage('c1');
   assert.equal(latest.value.id, 'm9');
+  assert.equal(calls[2].columns, 'id,conversation_id,sender_id,body,image_path,sticker_id,created_at');
   const marked = await repository.markRead({ user_id: 'me', conversation_id: 'c1', last_read_message_id: 'm9', last_read_at: '2026-11-14T11:00:00Z' });
   assert.equal(marked.ok, true);
   assert.deepEqual(calls[0].filters, [['eq', 'user_id', 'me'], ['in', 'conversation_id', ['c1', 'c2']]]);
