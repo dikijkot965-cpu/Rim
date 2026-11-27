@@ -32,7 +32,9 @@ export function bindFeaturesSurface({
       // Mount modular player into music section if present
       const section = doc.getElementById('musicSection');
       if (section && music.root && !section.contains(music.root)) {
-        section.appendChild(music.root);
+        // Replace the obsolete server-rendered music form/list atomically.
+        // The modular library is the sole owner of this section.
+        section.replaceChildren(music.root);
       }
       await music.render?.();
     } catch (e) { logger?.warn?.('music.open.failed', e); }
@@ -98,30 +100,8 @@ export function bindFeaturesSurface({
   // Save-to-favorites lives in the message action sheet instead.
 
 
-  const musicButton = doc.getElementById?.('tabMusic');
-  if (musicButton) {
-    musicButton.removeAttribute('onclick');
-    const musicClickHandler = event => {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      // Stay inside the app shell: show music section, do not black out the whole page.
-      doc.getElementById('app')?.classList.remove('rim-feature-hidden');
-      if (typeof win.showSection === 'function') win.showSection('music');
-      else {
-        doc.getElementById('chatsSection')?.classList.add('hidden');
-        doc.getElementById('channelsSection')?.classList.add('hidden');
-        doc.getElementById('musicSection')?.classList.remove('hidden');
-      }
-      // Prefer rendering into the music section host when present.
-      const sectionHost = doc.getElementById('musicSection') || musicRoot;
-      if (sectionHost && music.root !== sectionHost) {
-        try { music.root = sectionHost; } catch { /* ignore */ }
-      }
-      music.render();
-    };
-    musicButton.addEventListener('click', musicClickHandler, true);
-    lifecycle?.add?.(() => musicButton.removeEventListener('click', musicClickHandler, true));
-  }
+  // NavigationSectionController owns tab switching and invokes win.loadMusic.
+  // Avoid a second capture-phase render, which caused the legacy UI to flash.
 
   win.__RIM_FEATURES_SURFACE_OWNED = true;
   lifecycle?.add?.(() => { win.__RIM_FEATURES_SURFACE_OWNED = false; });
