@@ -220,12 +220,17 @@ export function bindSettingsSurface({
     const result = await profileController.ensureProfile();
     if (!result.ok) {
       logger?.warn?.('profile.load.failed', { message: result.error?.message });
+    } else {
+      try { win.dispatchEvent?.(new win.Event('rim:profile-updated')); } catch { /* optional avatar refresh */ }
     }
     return result;
   };
   win.saveProfile = async () => {
     const result = await profileController.saveFromDom();
     if (!result.ok) notify?.(result.error?.message || 'Ошибка сохранения профиля');
+    else {
+      try { win.dispatchEvent?.(new win.Event('rim:profile-updated')); } catch { /* optional avatar refresh */ }
+    }
     return result;
   };
   win.saveProfileEnhanced = win.saveProfile;

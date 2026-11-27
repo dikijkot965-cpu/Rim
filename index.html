@@ -601,15 +601,64 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
   function qs(sel, root) { return (root || document).querySelector(sel); }
   function qsa(sel, root) { return Array.from((root || document).querySelectorAll(sel)); }
 
-  // Avatar initials from current user when available
-  function refreshAvatar() {
-    const inner = qs('#rimAvatarInner');
-    if (!inner) return;
-    try {
-      const u = window.currentUser || window.__RIM_LEGACY_CONTEXT?.getUser?.();
-      const name = (u?.display_name || u?.username || u?.email || 'Р').trim();
-      inner.textContent = (name[0] || 'Р').toUpperCase();
-    } catch (_) {}
+  // Resolve the authenticated profile on auth/profile changes, not on a poll.
+  let avatarRequestSequence = 0;
+  let avatarSignature = '';
+  function paintAvatarNode(node, url, name, sequence) {
+    if (!node) return;
+    node.replaceChildren();
+    if (url) {
+      const image = document.createElement('img');
+      image.src = url;
+      image.alt = '';
+      image.decoding = 'async';
+      image.loading = 'eager';
+      image.referrerPolicy = 'no-referrer';
+      image.style.cssText = 'display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit';
+      image.addEventListener('error', () => {
+        if (sequence !== avatarRequestSequence || !node.isConnected) return;
+        node.replaceChildren(document.createTextNode((name[0] || 'Р').toUpperCase()));
+      }, { once: true });
+      node.append(image);
+    } else node.textContent = (name[0] || 'Р').toUpperCase();
+  }
+  async function refreshAvatar(force = false) {
+    const nodes = [qs('#rimAvatarInner'), qs('#rimTgProfileAvatar')].filter(Boolean);
+    if (!nodes.length) return;
+    const context = window.__RIM_LEGACY_CONTEXT;
+    const user = window.currentUser || context?.getUser?.();
+    const userId = String(user?.id || user?.user_id || '');
+    const fallbackName = String(user?.display_name || user?.username || user?.email || 'Р').trim();
+    if (!userId) {
+      avatarSignature = '';
+      const sequence = ++avatarRequestSequence;
+      nodes.forEach(node => paintAvatarNode(node, '', fallbackName, sequence));
+      return;
+    }
+    let profile = window.currentProfile && String(window.currentProfile.id) === userId ? window.currentProfile : null;
+    const db = context?.db || window.db || window.supabaseClient;
+    if (force || !profile) {
+      try {
+        const result = await db?.from('profiles').select('id,username,display_name,avatar_url,avatar_path').eq('id', userId).maybeSingle();
+        if (!result?.error && result?.data) {
+          profile = result.data;
+          window.currentProfile = profile;
+        }
+      } catch (error) { console.warn('[RIM] profile avatar lookup failed', error?.message || error); }
+    }
+    const name = String(profile?.display_name || profile?.username || fallbackName || 'Р').trim();
+    let url = String(profile?.avatar_url || '').trim();
+    if (profile?.avatar_path && db?.storage) {
+      try {
+        const signed = await db.storage.from('avatars').createSignedUrl(profile.avatar_path, 1800);
+        if (!signed.error) url = signed.data?.signedUrl || url;
+      } catch (error) { console.warn('[RIM] profile avatar signing failed', error?.message || error); }
+    }
+    const signature = [userId, profile?.avatar_path || '', url].join(':');
+    if (!force && signature === avatarSignature && nodes.every(node => node.querySelector('img') || !url)) return;
+    avatarSignature = signature;
+    const sequence = ++avatarRequestSequence;
+    nodes.forEach(node => paintAvatarNode(node, url, name, sequence));
   }
 
   // Attach menu toggle
@@ -775,9 +824,13 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       closeAttachMenu();
     });
 
-    refreshAvatar();
-    // Re-refresh when user changes
-    setInterval(refreshAvatar, 4000);
+    void refreshAvatar(true);
+    window.addEventListener('rim:profile-updated', () => { void refreshAvatar(true); });
+    window.__RIM_LEGACY_CONTEXT?.db?.auth?.onAuthStateChange?.(event => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'SIGNED_OUT') {
+        setTimeout(() => { void refreshAvatar(true); }, 0);
+      }
+    });
   }
 
   if (document.readyState === 'loading') {
@@ -1426,25 +1479,27 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
         : initial;
       const title = p.title ? `<h3 class="rim-feed-post-title">${escapeHtml(p.title)}</h3>` : '';
       const origin = p.fromChannel ? '<span class="rim-feed-origin">из канала</span>' : '';
-      const community = p.sourceChannelTitle
-        ? `c/${escapeHtml(p.sourceChannelTitle)}`
-        : 'r/РИМ';
+      const community = p.sourceChannelTitle ? `c/${escapeHtml(p.sourceChannelTitle)}` : 'r/РИМ';
       return `<article class="rim-feed-post" data-post-id="${escapeHtml(p.id)}">
-        <div class="rim-feed-post-header">
-          <div class="rim-feed-post-avatar">${avatar}</div>
-          <div class="rim-feed-post-meta">
-            <div class="rim-feed-post-community">${community} <span>·</span> <b>${escapeHtml(p.author || 'Автор')}</b> ${badge} ${origin}</div>
-            <div class="rim-feed-post-time">${formatFeedTime(p.createdAt)}</div>
+        <aside class="rim-feed-vote-rail">
+          <button type="button" class="rim-feed-stat rim-feed-like" data-action="like" data-post-id="${escapeHtml(p.id)}" aria-label="Оценить публикацию" aria-pressed="${p.likedByMe ? 'true' : 'false'}"><span class="rim-feed-vote-arrow">▲</span><b>${Number(p.likesCount || 0)}</b></button>
+        </aside>
+        <div class="rim-feed-post-content">
+          <div class="rim-feed-post-header">
+            <div class="rim-feed-post-avatar">${avatar}</div>
+            <div class="rim-feed-post-meta">
+              <div class="rim-feed-post-community">${community} <span>·</span> <b>${escapeHtml(p.author || 'Автор')}</b> ${badge} ${origin}</div>
+              <div class="rim-feed-post-time">${formatFeedTime(p.createdAt)}</div>
+            </div>
           </div>
-        </div>
-        ${title}
-        <div class="rim-feed-post-body">${bodyHtml}</div>
-        <div class="rim-feed-post-stats">
-          <button type="button" class="rim-feed-stat rim-feed-like" data-action="like" data-post-id="${escapeHtml(p.id)}" aria-label="Оценить публикацию" aria-pressed="${p.likedByMe ? 'true' : 'false'}"><span class="rim-feed-vote-arrow">▲</span> ${Number(p.likesCount || 0)}</button>
-          <button type="button" class="rim-feed-stat" data-action="comments" data-post-id="${escapeHtml(p.id)}">▤ <span>Комментарии</span> <b>${comments}</b></button>
-          <button type="button" class="rim-feed-stat" data-action="share" data-post-id="${escapeHtml(p.id)}">↗ <span>Поделиться</span></button>
-          <button type="button" class="rim-feed-stat rim-feed-save" data-action="save" data-post-id="${escapeHtml(p.id)}" aria-pressed="${p.savedByMe ? 'true' : 'false'}">${p.savedByMe ? '🔖' : '♧'} <span>${p.savedByMe ? 'Сохранено' : 'Сохранить'}</span></button>
-          <span class="rim-feed-stat rim-feed-views">◉ ${views}</span>
+          ${title}
+          <div class="rim-feed-post-body">${bodyHtml}</div>
+          <div class="rim-feed-post-stats">
+            <button type="button" class="rim-feed-stat" data-action="comments" data-post-id="${escapeHtml(p.id)}">▤ <span>Комментарии</span> <b>${comments}</b></button>
+            <button type="button" class="rim-feed-stat" data-action="share" data-post-id="${escapeHtml(p.id)}">↗ <span>Поделиться</span></button>
+            <button type="button" class="rim-feed-stat rim-feed-save" data-action="save" data-post-id="${escapeHtml(p.id)}" aria-pressed="${p.savedByMe ? 'true' : 'false'}">${p.savedByMe ? '🔖' : '♧'} <span>${p.savedByMe ? 'Сохранено' : 'Сохранить'}</span></button>
+            <span class="rim-feed-stat rim-feed-views">◉ ${views}</span>
+          </div>
         </div>
       </article>`;
     }).join('');
@@ -2187,6 +2242,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       if (mode === 'recommended' || mode === 'for_you') result.sort((a, b) => (Number(b.isPinned) - Number(a.isPinned)) || ((b.personalizationScore||0) - (a.personalizationScore||0)) || (b.createdAt - a.createdAt));
       return result;
     } catch (e) {
+      window.__RIM_FEED_LAST_ERROR = String(e?.message || e || 'Неизвестная ошибка');
       console.warn('sbListFeedPosts', e);
       return null;
     }
@@ -2545,12 +2601,22 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
   const _renderFeedListWindow = window.renderFeedList;
   window.renderFeedList = async function() {
     const remote = await sbListFeedPosts(getFeedMode());
-    if (remote) {
-      // merge remote into local cache for offline display
+    if (remote !== null) {
+      window.__RIM_FEED_LAST_ERROR = '';
       const local = _loadFeedPostsLocal();
       const byId = new Map(local.filter(p => !p._remote).map(p => [String(p.id), p]));
       remote.forEach(p => byId.set(String(p.id), p));
       saveFeedPosts([...byId.values()]);
+    }
+    const localPosts = _loadFeedPostsLocal();
+    if (remote === null && !localPosts.length) {
+      const list = document.getElementById('rimFeedList');
+      if (list) {
+        const reason = String(window.__RIM_FEED_LAST_ERROR || 'Публикации пока не удалось загрузить.');
+        list.innerHTML = '<div class="rim-feed-empty"><b>Не удалось загрузить ленту</b><span>' + escapeHtml(reason) + '</span><button type="button" class="action-btn" data-rim-feed-retry>Повторить</button></div>';
+        list.querySelector('[data-rim-feed-retry]')?.addEventListener('click', () => { void window.renderFeedList?.(); });
+      }
+      return;
     }
     if (typeof _renderFeedListWindow === 'function') return _renderFeedListWindow();
   };

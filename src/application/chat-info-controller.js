@@ -104,6 +104,9 @@ export class ChatInfoController {
     const groupAction = conversation.type === 'group'
       ? `<button class="action-btn rim-info-btn" type="button" onclick="addGroupMember()">＋ Добавить участника</button>`
       : '';
+    const e2eAction = conversation.type === 'group' && conversation.is_private === true
+      ? `<button class="action-btn rim-info-btn rim-info-e2e" type="button" onclick="closeModal();rimEnableE2EScope('group','${escapeHtml(conversation.id)}')">${conversation.e2e_mode === 'required' ? '🔒 Проверить E2E' : conversation.e2e_mode === 'pending' ? '🔒 Завершить настройку E2E' : '🔒 Включить E2E'}</button>`
+      : '';
 
 
     this.showModal(`
@@ -118,6 +121,7 @@ export class ChatInfoController {
     <div class="rim-info-actions">
       <button class="action-btn rim-info-btn" type="button" onclick="openPinnedMessages();closeModal()">📌 Закреплённые</button>
       <button class="action-btn rim-info-btn" type="button" onclick="openPersonalWallpaper();closeModal()">🖼 Обои чата</button>
+      ${e2eAction}
       ${groupAction}
       <button class="primary-btn rim-info-btn" type="button" onclick="closeModal()">Закрыть</button>
     </div>

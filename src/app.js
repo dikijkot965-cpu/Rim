@@ -99,8 +99,7 @@ const startE2ERuntimeForProtectedConversation = async conversation => {
 const stopE2EConversationListener = events.on('conversation.opened', payload => {
   const conversation = payload?.conversation;
   const button = document.getElementById('rimE2EVerifyBtn');
-  const visible = conversation?.type === 'direct' && (conversation?.is_secret === true || conversation?.e2e_mode === 'required')
-    || conversation?.type === 'group' && conversation?.is_private === true;
+  const visible = conversation?.type === 'direct' && (conversation?.is_secret === true || conversation?.e2e_mode === 'required');
   if (button) button.hidden = !visible;
   void startE2ERuntimeForProtectedConversation(conversation);
 });
@@ -335,6 +334,38 @@ const ensureZladenChat = async () => {
   if (result.ok && result.value?.installed) {
     try { await conversationList.load(); } catch { /* the ordinary chat list can retry independently */ }
   }
+  return result;
+};
+window.rimOpenZladenChat = async () => {
+  const result = await ensureZladenChat();
+  if (!result?.ok) {
+    legacy.notify?.(result?.error?.message || 'Не удалось открыть личный чат со Злыдей.');
+    return result;
+  }
+  const conversationId = result.value?.conversation_id;
+  if (!conversationId) {
+    legacy.notify?.('Системный чат Злыди пока не создан.');
+    return result;
+  }
+  await conversationList.load();
+  await window.openConversation?.(conversationId);
+  return result;
+};
+window.rimOpenZladenGroupPicker = async () => {
+  await conversationList.load();
+  const groups = (legacy.getConversations?.() || []).filter(row =>
+    row?.type === 'group' && !['pending', 'required'].includes(String(row.e2e_mode || 'off'))
+  );
+  if (!groups.length) {
+    legacy.notify?.('Нет доступных обычных групп. Создайте группу или завершите E2E-настройку.');
+    return null;
+  }
+  const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+  const rows = groups.map(group =>
+    `<button type="button" class="rim-search-result-card" style="width:100%;color:var(--text)" onclick="closeModal();rimGroupAddZladen('${esc(group.id)}')"><span class="grow"><b>${esc(group.title || 'Группа')}</b><small class="rim-update-muted">Добавить @Zladen_bot</small></span><span>›</span></button>`
+  ).join('');
+  window.showModal?.('<h2 class="modal-title">Добавить Злыдю в группу</h2><p class="feature-small">Злыдя подключается к обычным группам. В группах с обязательным E2E бот не получает доступ к сообщениям и не устанавливается.</p>' + rows + '<button class="action-btn" type="button" style="width:100%;margin-top:10px" onclick="closeModal()">Отмена</button>');
+  return groups.length;
 };
 if (legacy.getUser?.()?.id) void ensureZladenChat();
 legacy.db.auth?.onAuthStateChange?.(event => {

@@ -209,8 +209,10 @@ export class ChannelFeedController {
   #computeFlags(channel, membership, userId) {
     const role = membership?.role || '';
     const isOwner = String(channel.owner_id) === String(userId);
-    const manager = isOwner || ['admin', 'moderator'].includes(role) || this.isImperator();
-    const canPost = isOwner || role === 'admin' || this.isImperator();
+    // Channel privileges are channel-scoped. Global RIM ownership must not
+    // silently grant administration rights over every user's channel.
+    const manager = isOwner || ['admin', 'moderator'].includes(role);
+    const canPost = isOwner || role === 'admin';
     const joined = !!membership;
     return { role, manager, canPost, joined };
   }

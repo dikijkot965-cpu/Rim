@@ -41,8 +41,16 @@ export class ConversationShellController {
     if (status) {
       status.textContent = isGroup ? 'Групповая беседа' : 'Личная переписка';
     }
-    if (avatar && !avatar.querySelector?.('img')) {
+    // Invalidate prior signed-URL work and clear the previous peer/group image
+    // before the next conversation starts its asynchronous avatar lookup.
+    this.avatarSequence += 1;
+    if (avatar) {
+      avatar.replaceChildren?.();
       avatar.textContent = isGroup ? '♧' : '♙';
+      if (avatar.dataset) {
+        delete avatar.dataset.rimAvatarSignature;
+        delete avatar.dataset.rimAvatarReady;
+      }
     }
   }
 
@@ -103,12 +111,11 @@ export class ConversationShellController {
   }
 
   async applyGroupAvatar(conversation, { isCurrent = () => true } = {}) {
-    if (this.disposed || !conversation || conversation.type !== 'group' || !conversation.avatar_path) {
-      return null;
-    }
     const sequence = ++this.avatarSequence;
     const avatar = this.getEl('chatHeadAvatar');
-    if (!avatar || !this.client?.storage) return null;
+    if (this.disposed || !conversation || conversation.type !== 'group' || !conversation.avatar_path || !avatar || !this.client?.storage) {
+      return null;
+    }
 
     try {
       const { data, error } = await this.client.storage
