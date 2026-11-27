@@ -39,5 +39,7 @@ test('feed has an obvious composer and renders channel-origin posts as community
   assert.match(html, /rim-feed-post-title/);
   assert.match(html, /source_channel_id,source_channel_post_id/);
   assert.match(html, /fromChannel:\s*!!r\.source_channel_id/);
+  assert.match(html, /sourceChannelTitle:\s*sourceChannels/);
+  assert.match(html, /from\('channels'\)\.select\('id,title,username'\)/);
   assert.match(html, /data-action="share"/);
 });
