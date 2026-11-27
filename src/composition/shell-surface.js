@@ -210,6 +210,7 @@ export function bindShellSurface({
     notify,
     reloadConversations: async () => { await win.loadConversations?.(); },
     openConversation: async id => { await win.openConversation?.(id); },
+    startSecretWith: userId => win.startSecretChatWith?.(userId),
     logger
   });
   container?.value?.('composeChat', composeChat);
@@ -222,6 +223,11 @@ export function bindShellSurface({
   win.newGroupChat = async () => {
     const result = await composeChat.newGroup();
     if (!result.ok) notify?.(result.error?.message || 'Не удалось создать группу');
+    return result;
+  };
+  win.newSecretDirectChat = async () => {
+    const result = await composeChat.newSecretDirect();
+    if (!result.ok) notify?.(result.error?.message || 'Не удалось создать секретный чат');
     return result;
   };
   lifecycle?.add?.(() => { win.__RIM_COMPOSE_CHAT_OWNED = false; });

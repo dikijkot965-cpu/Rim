@@ -66,7 +66,10 @@ export class SearchController {
     if (!out) return;
     const q = String(this.document.getElementById('rimSearchInput')?.value || '')
       .trim()
-      .replace(/^@/, '');
+      .replace(/^@/, '')
+      .replace(/[\\%,._()]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .slice(0, 64);
     if (q.length < 2) {
       out.innerHTML = '<div class="empty-state">Введите не менее двух символов.</div>';
       return;
@@ -171,7 +174,6 @@ export class SearchController {
       .from('channels')
       .select('id,title,username,description,avatar_path')
       .or(`title.ilike.%${q}%,username.ilike.%${q}%`)
-      .eq('is_public', true)
       .limit(15);
     if (error) throw error;
     return (data || []).map(channel => {
@@ -200,10 +202,10 @@ export class SearchController {
   async #searchGroups(q) {
     const { data: groups, error } = await this.client
       .from('conversations')
-      .select('id,title,username,avatar_path')
+      .select('id,title,avatar_path,is_private,e2e_mode')
       .eq('type', 'group')
-      .eq('is_public', true)
-      .or(`title.ilike.%${q}%,username.ilike.%${q}%`)
+      .eq('is_private', false)
+      .ilike('title', '%' + q + '%')
       .limit(15);
     if (error) throw error;
     return (groups || []).map(group => {
@@ -212,7 +214,7 @@ export class SearchController {
       return `<div class="rim-search-result">
         <div class="avatar">${letter}</div>
         <div class="grow"><b>${escapeHtml(group.title || 'Группа')}</b>
-        <div class="feature-small">${group.username ? '@' + escapeHtml(group.username) : 'Публичная группа'}</div></div>
+        <div class="feature-small">Открытая группа</div></div>
         <button type="button" class="action-btn" data-rim-join-group="${id}">Вступить</button></div>`;
     }).join('') + this.#bindGroupJoins();
   }

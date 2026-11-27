@@ -12,6 +12,7 @@ export class ComposeChatService {
     prompt = globalThis.prompt?.bind(globalThis),
     reloadConversations = async () => {},
     openConversation = async () => {},
+    startSecretWith = null,
     logger = null
   } = {}) {
     this.client = client;
@@ -20,6 +21,7 @@ export class ComposeChatService {
     this.prompt = prompt || (() => null);
     this.reloadConversations = reloadConversations;
     this.openConversation = openConversation;
+    this.startSecretWith = startSecretWith;
     this.logger = logger;
     this.inFlight = new Set();
   }
@@ -64,6 +66,30 @@ export class ComposeChatService {
       await this.reloadConversations();
       if (conversationId) await this.openConversation(conversationId);
       return Ok(conversationId || data);
+    });
+  }
+
+  async newSecretDirect() {
+    const user = this.getUser?.();
+    if (!user?.id) return Err(new Error('Требуется вход в РИМ.'));
+    if (typeof this.startSecretWith !== 'function') return Err(new Error('Модуль секретных чатов пока недоступен.'));
+    const raw = this.prompt('Username пользователя для секретного чата:');
+    if (raw === null) return Ok({ cancelled: true });
+    const parsed = validateUsername(raw);
+    if (!parsed.ok) {
+      if (!String(raw || '').trim()) return Ok({ cancelled: true });
+      return Err(new Error(parsed.error));
+    }
+    const username = parsed.username;
+    return this.exclusive(`secret-direct:${username}`, async () => {
+      const { data: profile, error } = await this.client.from('profiles')
+        .select('id,username').eq('username', username).maybeSingle();
+      if (error) return Err(error);
+      if (!profile) return Err(new Error('Пользователь не найден.'));
+      if (String(profile.id) === String(user.id)) return Err(new Error('Нельзя создать секретный чат с самим собой.'));
+      const result = await this.startSecretWith(profile.id);
+      if (!result?.ok) return Err(result?.error || new Error('Не удалось создать секретный чат.'));
+      return Ok(result.value || true);
     });
   }
 

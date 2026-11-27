@@ -66,7 +66,7 @@
 <div class="brand">
   <div class="brand-title">Римъ</div>
 </div>
-<button class="icon-btn rim-search-btn" id="rimSearchBtn" onclick="openGlobalSearch()" title="Поиск" aria-label="Поиск">⌕</button>
+<button class="icon-btn rim-search-btn" id="rimSearchBtn" onclick="rimSearch()" title="Поиск по РИМу" aria-label="Поиск по РИМу">⌕</button>
 </header>
 <main class="main">
 <section class="sidebar" id="sidebar">
@@ -841,6 +841,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       sheet.style.left = 'auto';
       sheet.innerHTML = `
         <button type="button" class="rim-attach-item" data-create="direct">Новый чат</button>
+        <button type="button" class="rim-attach-item" data-create="secret-direct">Секретный чат E2E</button>
         <button type="button" class="rim-attach-item" data-create="group">Новая группа</button>
         <button type="button" class="rim-attach-item" data-create="channel">Новый канал</button>
       `;
@@ -850,6 +851,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
         const action = btn.getAttribute('data-create');
         sheet.remove();
         if (action === 'direct' && typeof window.newDirectChat === 'function') window.newDirectChat();
+        else if (action === 'secret-direct' && typeof window.newSecretDirectChat === 'function') window.newSecretDirectChat();
         else if (action === 'group' && typeof window.newGroupChat === 'function') window.newGroupChat();
         else if (action === 'channel' && typeof window.createChannel === 'function') window.createChannel();
         else if (typeof toast === 'function') toast('Функция пока недоступна');
