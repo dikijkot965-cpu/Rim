@@ -62,7 +62,9 @@ export class MessageCommandService {
     try {
       if (sentMessage && typeof this.applyLocal === 'function') {
         await this.applyLocal(sentMessage, conversationId);
-        try { await this.onSent?.(sentMessage, conversationId); } catch { /* ignore */ }
+        // Activity/unread projection is secondary to delivery. Do not hold the
+        // composer open while it performs its own background data refresh.
+        try { void Promise.resolve(this.onSent?.(sentMessage, conversationId)).catch(() => {}); } catch { /* ignore */ }
         return;
       }
       await this.reload();
