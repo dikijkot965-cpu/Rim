@@ -231,13 +231,24 @@ window.rimVerifyE2E = async () => {
   const conversation = legacy.getActiveConversation?.();
   const user = legacy.getUser?.();
   if (!user?.id || !conversation?.id) return null;
-  if (conversation.type === 'direct' && conversation.is_secret !== true && conversation.e2e_mode === 'pending') {
-    if (String(conversation.created_by || '') === String(user.id)) {
-      if (!window.confirm?.('Отменить своё предложение секретного чата? После отмены этот диалог снова станет обычной личной перепиской.')) return null;
-      return window.rimCancelSecretChatRequest?.(conversation.id) || null;
+  if (conversation.type === 'direct' && conversation.is_secret === true && conversation.e2e_mode === 'required') {
+    const invitation = await legacy.db.rpc('rim_e2e_get_direct_invitation_status', { p_conversation_id: conversation.id });
+    if (invitation.error) {
+      legacy.notify?.(invitation.error.message || 'Не удалось проверить принятие приглашения E2E.');
+      return null;
     }
-    legacy.notify?.('Это предложение отправил собеседник. Примите или отклоните его в окне входящего предложения.');
-    return null;
+    if (invitation.data?.accepted !== true) {
+      if (String(conversation.created_by || '') === String(user.id)) {
+        if (window.confirm?.('Собеседник ещё не принял приглашение. Отменить предложение и вернуть этот диалог в обычный режим?')) {
+          return window.rimCancelDirectE2EInvitation?.(conversation.id) || null;
+        }
+        legacy.notify?.('Секретный чат ожидает принятия собеседником. Остальные переписки не затронуты.');
+      } else {
+        legacy.notify?.('Примите или отклоните предложение секретного чата в окне входящего приглашения.');
+        void window.rimRefreshDirectE2EInvitations?.();
+      }
+      return null;
+    }
   }
   if (conversation.type === 'group' && conversation.is_private === true) return window.rimEnableE2EScope('group', conversation.id);
   if (conversation.type === 'direct' && conversation.is_secret !== true && !['pending', 'required'].includes(conversation.e2e_mode)) {
@@ -256,6 +267,7 @@ window.rimVerifyE2E = async () => {
     if (!scope.ok) throw scope.error;
     if (!scope.value.peerUserId) throw new Error('Не найден второй участник секретного чата.');
     if (!Array.isArray(scope.value.memberUserIds) || scope.value.memberUserIds.length !== 2) throw new Error('Не удалось подтвердить полный состав участников секретного чата.');
+    await e2eSignalRuntime.startIncoming();
     const result = await e2eSignalRuntime.verifyScopeExchange({ type: 'direct', id: conversation.id }, scope.value.memberUserIds);
     legacy.notify?.('Подтверждён зашифрованный обмен со всеми участниками секретного чата.');
     return result;
