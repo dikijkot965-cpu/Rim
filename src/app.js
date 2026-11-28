@@ -120,6 +120,8 @@ const startE2ERuntimeForProtectedConversation = async conversation => {
     // as both registered devices are available. If the peer is offline, the
     // accepted request remains durable and this check runs again on next open.
     if (conversation?.type === 'direct' && conversation?.is_secret === true && conversation?.e2e_mode === 'required') {
+      const invitation = await legacy.db.rpc('rim_e2e_get_direct_invitation_status', { p_conversation_id: conversation.id });
+      if (invitation.error || invitation.data?.accepted !== true) return;
       const scope = await e2eScopeRepository.getScope({ type: 'direct', id: conversation.id, is_secret: true }, userId);
       const readiness = scope.ok ? scope.value?.readiness : null;
       if (scope.ok && scope.value?.enabled && !readiness?.ready
