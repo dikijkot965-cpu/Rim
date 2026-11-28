@@ -14,6 +14,9 @@ test('Zladen command help supports command-specific descriptions and custom alia
   assert.match(sql, /rim_zladen_command_aliases/i);
   assert.match(sql, /e2e_mode[^;]+pending[^;]+required/is);
   assert.match(sql, /is_secret is true/i);
+  const triggerOrder = readFileSync(new URL('../supabase/migrations/20261128054727_rim_iteration_183_zladen_help_after_message_guards.sql', import.meta.url), 'utf8');
+  assert.match(triggerOrder, /create trigger zz_rim_zladen_help_detail/i);
+  assert.doesNotMatch(triggerOrder, /create trigger a_rim_zladen_help_detail/i);
   assert.match(sql, /return null;/i);
   assert.match(sql, /when 'pollclose'/i);
   assert.match(sql, /when 'reportresolve'/i);
