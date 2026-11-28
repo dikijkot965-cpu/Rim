@@ -41,3 +41,11 @@ test('direct chats expose a lock action that starts a separate secret conversati
   assert.match(info, /startSecretChatWith\('\$\{escapeHtml\(peerUserId\)\}'\)/);
   assert.match(audience, /win\.__RIM_LEGACY_CONTEXT\?\.getActiveConversation\?\.\(\)/);
 });
+
+test('channel moderation metadata is readable only through a manager-scoped RLS policy', async () => {
+  const sql = await read('supabase/migrations/20261128121000_rim_iteration_184_channel_moderation_read_policy.sql');
+  assert.match(sql, /for select\s+to authenticated/i);
+  assert.match(sql, /using \(public\.app_can_manage_channel\(channel_id\)\)/i);
+  assert.match(sql, /revoke select on table public\.channel_member_moderation from public, anon/i);
+  assert.match(sql, /grant select on table public\.channel_member_moderation to authenticated/i);
+});
