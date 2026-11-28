@@ -277,13 +277,15 @@
       <div class="rim-tg-profile-info">
         <div class="rim-tg-profile-name" id="rimTgProfileName">Пользователь</div>
         <div class="rim-tg-profile-sub" id="rimTgProfileSub">Римъ</div>
+        <span class="rim-tg-profile-hint">Настройки профиля · аватар, имя и username</span>
       </div>
+      <span class="rim-tg-row-chevron" aria-hidden="true">›</span>
     </div>
 
     <div class="rim-tg-section">
       <button type="button" class="rim-tg-row" data-tg-action="account">
         <span class="rim-tg-row-icon">👤</span>
-        <span class="rim-tg-row-label">Аккаунт</span>
+        <span class="rim-tg-row-label">Настройки профиля</span>
         <span class="rim-tg-row-chevron">›</span>
       </button>
       <button type="button" class="rim-tg-row" data-tg-action="privacy">
@@ -624,7 +626,9 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     const nodes = [qs('#rimAvatarInner'), qs('#rimTgProfileAvatar')].filter(Boolean);
     if (!nodes.length) return;
     const context = window.__RIM_LEGACY_CONTEXT;
-    const user = window.currentUser || context?.getUser?.();
+    const legacyUser = context?.getUser?.();
+    const globalUser = window.currentUser;
+    const user = (globalUser?.id || globalUser?.user_id) ? globalUser : (legacyUser || globalUser);
     const userId = String(user?.id || user?.user_id || '');
     const fallbackName = String(user?.display_name || user?.username || user?.email || 'Р').trim();
     if (!userId) {
@@ -942,13 +946,16 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       document.addEventListener('click', close);
     }, 0);
   };
-  ['rimCreateHandle', 'rimCreateFab'].forEach(id => {
-    document.getElementById(id)?.addEventListener('click', event => {
-      event.preventDefault();
-      event.stopPropagation();
-      openCreateSheet(event.currentTarget);
-    });
-  });
+  // Delegate from document capture phase: the floating + button remains
+  // functional even if a responsive shell re-renders its surrounding markup.
+  document.addEventListener('click', event => {
+    const trigger = event.target?.closest?.('#rimCreateHandle,#rimCreateFab');
+    if (!trigger) return;
+    event.preventDefault();
+    event.stopPropagation();
+    openCreateSheet(trigger);
+  }, true);
+  window.rimOpenCreateMenu = () => openCreateSheet(document.getElementById('rimCreateFab') || document.getElementById('rimCreateHandle'));
 
 
   // ========== Feed (local until SQL) ==========
@@ -1592,7 +1599,9 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     if (!el) return;
     // profile
     try {
-      const u = window.currentUser || window.__RIM_LEGACY_CONTEXT?.getUser?.();
+      const legacyUser = window.__RIM_LEGACY_CONTEXT?.getUser?.();
+      const globalUser = window.currentUser;
+      const u = (globalUser?.id || globalUser?.user_id) ? globalUser : (legacyUser || globalUser);
       const name = (u?.display_name || u?.username || u?.email || 'Пользователь').toString();
       const sub = u?.username ? '@' + u.username : 'Римъ';
       const av = document.getElementById('rimTgProfileAvatar');
@@ -1605,6 +1614,9 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     el.classList.remove('hidden');
     el.setAttribute('aria-hidden', 'false');
     void refreshAvatar(true);
+    // The profile card is a first-class settings destination; its avatar is
+    // refreshed from the authoritative profile row after the panel appears.
+    void window.loadProfile?.().then?.(() => refreshAvatar(true));
   }
   function closeTgSettings() {
     const el = document.getElementById('rimTgSettings');
@@ -2108,12 +2120,14 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
 
   // ========== Supabase bridge (feed + imperial) ==========
   function rimDb() {
-    return window.db || window.supabaseClient || null;
+    return window.__RIM_LEGACY_CONTEXT?.db || window.db || window.supabaseClient || null;
   }
   function rimUserId() {
     try {
-      const u = window.currentUser || window.__RIM_LEGACY_CONTEXT?.getUser?.();
-      return u?.id || u?.user_id || null;
+      const legacyUser = window.__RIM_LEGACY_CONTEXT?.getUser?.();
+      const globalUser = window.currentUser;
+      const user = (globalUser?.id || globalUser?.user_id) ? globalUser : (legacyUser || globalUser);
+      return user?.id || user?.user_id || null;
     } catch { return null; }
   }
 
