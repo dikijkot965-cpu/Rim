@@ -155,6 +155,9 @@ begin
   end if;
 
   if p_scope_type = 'group' then
+    if not exists (select 1 from public.conversation_members where conversation_id = p_scope_id and user_id = v_user) then
+      raise exception 'conversation_access_denied' using errcode = '42501';
+    end if;
     select (c.created_by = v_user or exists (
       select 1 from public.conversation_members m
       where m.conversation_id = c.id and m.user_id = v_user and m.role in ('owner','admin')
@@ -167,6 +170,9 @@ begin
     set e2e_mode = 'off', e2e_protocol = null, e2e_epoch = coalesce(e2e_epoch,0) + 1
     where id = p_scope_id returning e2e_epoch into v_epoch;
   else
+    if not exists (select 1 from public.channel_members where channel_id = p_scope_id and user_id = v_user) then
+      raise exception 'channel_access_denied' using errcode = '42501';
+    end if;
     select (c.owner_id = v_user or exists (
       select 1 from public.channel_members m
       where m.channel_id = c.id and m.user_id = v_user and m.role in ('owner','admin','moderator')
