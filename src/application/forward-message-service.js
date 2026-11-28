@@ -97,6 +97,7 @@ export class ForwardMessageService {
             : { type: 'group', id: target.id, is_private: target.is_private };
           const scope = await this.e2eScopeRepository.getScope(scopeInput, user.id);
           if (!scope.ok) return Err(scope.error || new Error('Не удалось проверить E2E целевой переписки.'));
+          if (scope.value?.pendingSecretRequest || scope.value?.plaintextBlocked) return Err(new Error('Секретный чат ожидает принятия приглашения. Пересылка пока недоступна.'));
           if (scope.value?.enabled) return Err(new Error('Целевая переписка требует E2E. Пересылка через открытый серверный механизм запрещена.'));
         }
       }
