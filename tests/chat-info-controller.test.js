@@ -87,6 +87,21 @@ test('open renders members modal', async () => {
   assert.match(modalHtml, /Добавить участника/);
 });
 
+test('ordinary direct chat offers a separate secret E2E conversation with the peer', async () => {
+  let modalHtml = '';
+  const ctrl = new ChatInfoController({
+    client: makeClient({ members: [{ user_id: 'u1' }, { user_id: 'u2' }], profiles: [{ id: 'u2', username: 'alice' }] }),
+    getUser: () => ({ id: 'u1' }),
+    getActiveConversation: () => ({ id: 'c1', type: 'direct', is_secret: false, e2e_mode: 'off' }),
+    showModal: html => { modalHtml = html; },
+    windowRef: { document: { querySelector: () => null } }
+  });
+  const result = await ctrl.open();
+  assert.equal(result.ok, true);
+  assert.match(modalHtml, /Создать отдельный секретный чат E2E/);
+  assert.match(modalHtml, /startSecretChatWith\('u2'\)/);
+});
+
 test('open omits add-member for direct chats', async () => {
   let modalHtml = '';
   const ctrl = new ChatInfoController({
