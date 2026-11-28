@@ -84,3 +84,35 @@ test('create rolls back channel and avatar when owner membership fails', async (
   assert.ok(calls.some(call => call[0] === 'remove-avatar'));
   assert.equal(calls.some(call => ['reload', 'open', 'close'].includes(call[0])), false);
 });
+
+test('create still attempts avatar cleanup when channel rollback throws', async () => {
+  const calls = [];
+  const service = new ChannelCommandService({
+    client: {
+      storage: { from: () => ({
+        upload: async () => ({ error: null }),
+        remove: async () => { calls.push('avatar-cleanup'); return { error: null }; }
+      }) },
+      from(table) {
+        return {
+          insert(payload) {
+            return { select: () => ({ single: async () => ({ data: { id: 'ch-rollback-failed', title: payload.title }, error: null }) }) };
+          },
+          upsert: async () => ({ error: new Error('membership denied') }),
+          delete: () => ({ eq: async () => { throw new Error('delete unavailable'); } })
+        };
+      }
+    },
+    getUser: () => ({ id: 'u1' }),
+    logger: { error: (...args) => calls.push(['error', ...args]), warn: (...args) => calls.push(['warn', ...args]) }
+  });
+  const result = await service.create({
+    title: 'Закрытый канал',
+    isPublic: false,
+    avatarFile: { size: 10, type: 'image/png', name: 'avatar.png' }
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.error.message, /откат/i);
+  assert.ok(calls.includes('avatar-cleanup'));
+  assert.ok(calls.some(call => Array.isArray(call) && call[0] === 'error'));
+});
