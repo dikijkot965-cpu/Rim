@@ -62,7 +62,7 @@ export class GroupCommandService {
       return Err(new Error('Название группы должно содержать от 1 до 60 символов.'));
     }
 
-    const names = [...new Set((memberUsernames || [])
+    const names = [...new Set((Array.isArray(memberUsernames) ? memberUsernames : [])
       .map(name => String(name || '').trim().replace(/^@/, '').toLowerCase())
       .filter(Boolean))];
 
@@ -98,12 +98,19 @@ export class GroupCommandService {
         if (uploadError) return Err(uploadError);
       }
 
-      const created = await this.client.rpc('create_group_chat', {
-        group_title: groupTitle,
-        invited_users: ids
+      const created = await this.client.rpc('rim_create_group_chat', {
+        p_title: groupTitle,
+        p_invited_users: ids,
+        p_is_private: !isPublic,
+        p_avatar_path: avatarPath
       });
       if (created.error) {
-        if (avatarPath) await this.client.storage.from('avatars').remove([avatarPath]);
+        if (avatarPath) {
+          const cleanup = await this.client.storage.from('avatars').remove([avatarPath]);
+          if (cleanup?.error) this.logger?.warn?.('group.create.avatar_cleanup_failed', {
+            message: cleanup.error.message || String(cleanup.error)
+          });
+        }
         return Err(created.error);
       }
 
@@ -111,17 +118,14 @@ export class GroupCommandService {
         ? created.data
         : created.data?.id || created.data?.conversation_id;
       if (!conversationId) {
-        if (avatarPath) await this.client.storage.from('avatars').remove([avatarPath]);
+        if (avatarPath) {
+          const cleanup = await this.client.storage.from('avatars').remove([avatarPath]);
+          if (cleanup?.error) this.logger?.warn?.('group.create.avatar_cleanup_failed', {
+            message: cleanup.error.message || String(cleanup.error)
+          });
+        }
         return Err(new Error('Сервер создал группу, но не вернул её идентификатор.'));
       }
-
-      const settings = await this.client.rpc('rim_group_update_settings', {
-        p_conversation_id: conversationId,
-        p_title: groupTitle,
-        p_description: '',
-        p_is_private: !isPublic,
-        p_avatar_path: avatarPath
-      });
 
       this.closeModal?.();
       try {
@@ -130,16 +134,7 @@ export class GroupCommandService {
         this.logger?.warn?.('group.create.refresh.failed', { conversationId, message: error?.message });
       }
 
-      if (settings.error) {
-        if (avatarPath) await this.client.storage.from('avatars').remove([avatarPath]);
-        this.logger?.warn?.('group.create.settings.failed', { conversationId, message: settings.error.message });
-        return Ok({
-          id: conversationId,
-          warning: 'Группа создана, но не удалось применить настройки публичности. Она осталась закрытой.'
-        });
-      }
-
-      return Ok({ id: conversationId, ...(settings.data || {}) });
+      return Ok({ id: conversationId, is_private: !isPublic, avatar_path: avatarPath });
     });
   }
 
