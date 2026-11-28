@@ -28,7 +28,7 @@ export class SearchController {
   open() {
     if (this.disposed) return;
     this.kind = 'all';
-    this.openPage(
+    const page = this.openPage(
       'Поиск в РИМе',
       `<input id="rimSearchInput" class="field" placeholder="Имя, @username, канал или сообщество">
        <div class="rim-search-tabs">
@@ -40,6 +40,8 @@ export class SearchController {
        </div>
        <div id="rimSearchResults"><div class="empty-state">Начните вводить запрос.</div></div>`
     );
+    if (page?.dataset) page.dataset.rimPageKind = 'search';
+    this.document.getElementById('app')?.classList.add('rim-search-open');
     const input = this.document.getElementById('rimSearchInput');
     input?.addEventListener('input', () => this.schedule());
     this.document.querySelectorAll?.('[data-rim-search-kind]')?.forEach?.(button => {
@@ -226,6 +228,7 @@ export class SearchController {
     } else if (group) {
       const id = group.getAttribute('data-rim-join-group');
       if (!id) return;
+      this.window?.closePage?.();
       void this.window?.rimJoinPublicGroup?.(id);
     }
   }
