@@ -3269,3 +3269,11 @@ body[data-theme="light"] .composer.grok-style .send-btn {
 @media (min-width:900px) {
   .rim-create-fab { right:calc(max(20px, (100vw - 1280px)/2 + 20px)); }
 }
+
+
+/* Iteration 184 — restore the requested header chrome and hide it only in search. */
+.rim-topbar-brand { flex:1 1 auto!important; min-width:0!important; justify-content:center!important; }
+.rim-search-btn { margin-left:auto!important; flex:0 0 38px!important; }
+#app.rim-search-open > .topbar { display:none!important; }
+.rim-create-sheet { z-index:10020!important; }
+#rimCreateFab { pointer-events:auto!important; touch-action:manipulation; }
