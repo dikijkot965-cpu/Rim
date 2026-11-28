@@ -10,6 +10,7 @@ test('Zladen command help supports command-specific descriptions and custom alia
   assert.match(sql, /rim_zladen_custom_commands/i);
   assert.match(sql, /rim_zladen_command_aliases/i);
   assert.match(sql, /e2e_mode[^;]+pending[^;]+required/is);
+  assert.match(sql, /is_secret is true/i);
   assert.match(sql, /return null;/i);
   assert.match(sql, /when 'pollclose'/i);
   assert.match(sql, /when 'reportresolve'/i);
