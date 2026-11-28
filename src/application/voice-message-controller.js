@@ -145,6 +145,10 @@ export class VoiceMessageController {
           this.sending = false;
           return Err(scope.error || new Error('Не удалось проверить E2E-режим голосового сообщения.'));
         }
+        if (scope.value?.pendingSecretRequest || scope.value?.plaintextBlocked) {
+          this.sending = false;
+          return Err(new Error('Секретный чат ожидает принятия приглашения. Голосовое сообщение не загружено.'));
+        }
         if (scope.value?.enabled) {
           this.sending = false;
           return Err(new Error('Эта переписка требует E2E. Голосовые сообщения пока не поддерживают защищённую отправку; файл не загружен.'));
