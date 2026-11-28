@@ -1,7 +1,7 @@
-RIM 4.1.8 — Iteration 182 (account defaults, Zladen provisioning, profile editing and UI lifecycle hardening)
-Base: RIM 4.1.8 Iteration 181.
+RIM 4.1.8 — Iteration 183 (group, search, feed and channel reliability)
+Base: RIM 4.1.8 Iteration 182 plus latest main-branch group/search/E2E/feed/bootstrap fixes.
 Build: GitHub Actions; pinned Signal SDK 14.7.0 and Cloudflare output retained.
-Production SQL: no schema migration in this iteration; feed preference persistence uses the existing owner-scoped table.
-E2E: Signal protocol, key lifecycle, relay, SDK and encrypted payload contracts unchanged.
-Changes: fixed Zladen Auth provisioning password length (Supabase maximum 72 characters) and deployed Edge Function v4; wired the missing group creation entrypoint; insert the Favorites virtual row regardless of which conversation renderer is active; persist feed preferences per account in Supabase; open profile editor directly from Settings; center-crop avatar images to 512px WebP with MIME/size validation and preview; synchronously mount the music library to prevent retired UI flash; clarify member_number as a registration serial rather than a live account count.
-Verification: 127 mapped source modules; 24 legacy scripts; 735 regression tests; pinned Signal SDK and browser stores verified in GitHub Actions; Signal relay integration tests passed. Real authenticated multi-account UI acceptance remains required.
+Production SQL: no schema migration in this iteration.
+E2E: Signal protocol, key lifecycle, relay, SDK and encrypted payload contracts unchanged; existing direct-chat verification UI preserved.
+Changes: preserve the latest main-branch group RPC contract, delegated search navigation, direct-chat E2E UI, late-bound feed publisher and quiet chat bootstrap placeholders; refresh browser module cache-busting URLs; remove decorative RIM wordmark from the main app header while retaining auth branding; channel creation rolls back if owner membership fails and validates avatar MIME types; wire ChatInfoController to the info button.
+Verification: channel creation, chat info, search and header regression tests included. Full CI, generated browser bundle and package artifact required; live authenticated Android acceptance remains necessary.
