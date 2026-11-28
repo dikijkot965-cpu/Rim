@@ -88,3 +88,14 @@ This iteration improves command discoverability and stability but **does not com
 
 ### Porting rule
 Each missing feature must be implemented as a complete vertical slice: command parser/UI, domain rules, application service, server-side RPC/Edge Function, RLS, audit log, migration, tests and command-specific help. A command name or help description without that vertical slice is not considered implemented.
+
+
+### Iteration 184 — additional Iris-style commands actually implemented
+- Games: `/dice` alias for `/roll`, `/golden_dice`, `/pair_all`, `/ping`.
+- RP: `/hug`, `/pat`, `/tea`, plus existing `/highfive`, `/handshake`, `/congrats`, `/praise`, `/apologize`.
+- Help: `/help <command>` now explains these commands and existing random/choice/yes-no/percent/game-stat commands.
+- Production DB transactional tests with the bot installed in a group confirmed golden dice, help descriptions, pair-all, hug and dice alias responses.
+
+### Remaining Iris parity from the user's saved feature list
+- Duels and duel lifecycle; weather command with a real weather provider; full marriage/relationship lifecycle; full common-pairing/social graph; cross-chat networks; community catalog/geography; VIP tiers; Telegram Business anti-spam parity; clone-bot provisioning; full command compatibility and up to 50 configurable RP actions.
+- Existing economy, moderation, rank/permission, triggers, polls, reminders, clans, bookmarks, rewards and custom-command subsystems remain the foundation; each remaining feature still needs a complete server/RLS/UI/test vertical slice.
