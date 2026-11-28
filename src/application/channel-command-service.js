@@ -55,6 +55,11 @@ export class ChannelCommandService {
       channelUsername = handleResult.value;
     }
 
+    const channelDescription = String(description || '').trim();
+    if (channelDescription.length > 1000) {
+      return Err(new Error('Описание канала не должно превышать 1000 символов.'));
+    }
+
     return this.exclusive('channel-create', async () => {
       let avatarPath = null;
       if (avatarFile) {
@@ -65,84 +70,70 @@ export class ChannelCommandService {
           return Err(new Error('Формат аватара не поддерживается.'));
         }
         const ext = (avatarFile.name?.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
-        const path = `${current.id}/channels/${crypto.randomUUID()}.${ext}`;
-        const { error: up } = await this.client.storage.from('avatars').upload(path, avatarFile, {
+        avatarPath = `${current.id}/channels/${crypto.randomUUID()}.${ext}`;
+        const { error: uploadError } = await this.client.storage.from('avatars').upload(avatarPath, avatarFile, {
           contentType: avatarFile.type || 'image/jpeg',
           upsert: false
         });
-        if (up) return Err(up);
-        avatarPath = path;
+        if (uploadError) return Err(uploadError);
       }
 
-      const { data, error } = await this.client
-        .from('channels')
-        .insert({
-          title: channelTitle,
-          description: String(description || '').trim(),
-          owner_id: current.id,
-          is_public: !!isPublic,
-          username: channelUsername,
-          avatar_path: avatarPath
-        })
-        .select()
-        .single();
-      if (error) {
-        if (avatarPath) {
-          try { await this.client.storage.from('avatars').remove([avatarPath]); } catch { /* ignore */ }
+      const cleanupAvatar = async () => {
+        if (!avatarPath) return;
+        try {
+          const cleanup = await this.client.storage.from('avatars').remove([avatarPath]);
+          if (cleanup?.error) this.logger?.warn?.('channel.create.avatar_cleanup_failed', {
+            message: cleanup.error.message || String(cleanup.error)
+          });
+        } catch (error) {
+          this.logger?.warn?.('channel.create.avatar_cleanup_failed', {
+            message: error?.message || String(error)
+          });
         }
+      };
+
+      let created;
+      try {
+        created = await this.client.rpc('rim_create_channel', {
+          p_title: channelTitle,
+          p_description: channelDescription,
+          p_username: channelUsername,
+          p_is_public: !!isPublic,
+          p_avatar_path: avatarPath
+        });
+      } catch (error) {
+        await cleanupAvatar();
         return Err(error);
       }
-
-      const { error: memberError } = await this.client.from('channel_members').upsert({
-        channel_id: data.id,
-        user_id: current.id,
-        role: 'admin'
-      });
-      if (memberError) {
-        this.logger?.error?.('channel.create.owner_membership_failed', {
-          channelId: data?.id || null,
-          message: memberError.message || String(memberError)
-        });
-        let rollbackError = null;
-        if (data?.id) {
-          try {
-            const rollback = await this.client.from('channels').delete().eq('id', data.id);
-            rollbackError = rollback?.error || null;
-          } catch (error) {
-            rollbackError = error;
-          }
-        }
-        if (avatarPath) {
-          try {
-            const cleanup = await this.client.storage.from('avatars').remove([avatarPath]);
-            if (cleanup?.error) {
-              this.logger?.warn?.('channel.create.avatar_cleanup_failed', {
-                message: cleanup.error.message || String(cleanup.error)
-              });
-            }
-          } catch (error) {
-            this.logger?.warn?.('channel.create.avatar_cleanup_failed', {
-              message: error?.message || String(error)
-            });
-          }
-        }
-        if (rollbackError) {
-          this.logger?.error?.('channel.create.rollback_failed', {
-            channelId: data?.id || null,
-            message: rollbackError.message || String(rollbackError)
-          });
-          return Err(new Error('Не удалось назначить владельца канала, а сервер не подтвердил откат. Обратитесь к администратору.'));
-        }
-        return Err(new Error('Канал не создан: не удалось назначить владельца. Повторите попытку.'));
+      if (created.error) {
+        await cleanupAvatar();
+        return Err(created.error);
       }
 
-      try { this.closeModal?.(); } catch { /* ignore */ }
-      try { await this.reloadDirectory?.(); } catch { /* ignore */ }
-      try { await this.reloadChannel?.(data.id); } catch { /* ignore */ }
-      return Ok(data);
+      const channelId = typeof created.data === 'string'
+        ? created.data
+        : created.data?.id || created.data?.channel_id;
+      if (!channelId) {
+        await cleanupAvatar();
+        return Err(new Error('Сервер создал канал, но не вернул его идентификатор.'));
+      }
+
+      try { this.closeModal?.(); }
+      catch (error) { this.logger?.warn?.('channel.create.modal_close_failed', { message: error?.message }); }
+      try { await this.reloadDirectory?.(); }
+      catch (error) { this.logger?.warn?.('channel.create.directory_refresh_failed', { message: error?.message }); }
+      try { await this.reloadChannel?.(channelId); }
+      catch (error) { this.logger?.warn?.('channel.create.open_failed', { channelId, message: error?.message }); }
+
+      return Ok({
+        id: channelId,
+        title: channelTitle,
+        username: channelUsername,
+        is_public: !!isPublic,
+        avatar_path: avatarPath
+      });
     });
   }
-
 
   async exclusive(key, operation) {
     if (this.inFlight.has(key)) return Err(new Error('Операция уже выполняется.'));
