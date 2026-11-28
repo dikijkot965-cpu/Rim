@@ -5,11 +5,12 @@ create table if not exists public.rim_secret_chat_requests (
   conversation_id uuid not null unique references public.conversations(id) on delete cascade,
   requester_id uuid not null references auth.users(id) on delete cascade,
   recipient_id uuid not null references auth.users(id) on delete cascade,
-  status text not null default 'pending' check (status in ('pending','accepted','declined')),
+  status text not null default 'pending' check (status in ('pending','accepted','declined','cancelled')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   accepted_at timestamptz,
   declined_at timestamptz,
+  cancelled_at timestamptz,
   constraint rim_secret_chat_requests_distinct_users check (requester_id <> recipient_id)
 );
 
@@ -201,6 +202,80 @@ begin
 end;
 $function$;
 
+create or replace function public.rim_cancel_secret_chat_request(p_conversation_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = pg_catalog, public, auth
+as $function$
+declare
+  v_user uuid := auth.uid();
+  v_request public.rim_secret_chat_requests%rowtype;
+begin
+  if v_user is null then raise exception 'authentication_required' using errcode = '28000'; end if;
+  select * into v_request
+  from public.rim_secret_chat_requests
+  where conversation_id = p_conversation_id and status = 'pending'
+  for update;
+  if not found then raise exception 'secret_chat_request_not_pending' using errcode = 'P0002'; end if;
+  if v_request.requester_id <> v_user then raise exception 'not_secret_chat_requester' using errcode = '42501'; end if;
+
+  update public.conversations
+  set is_secret = false, e2e_mode = 'off'
+  where id = v_request.conversation_id and type = 'direct';
+
+  update public.rim_secret_chat_requests
+  set status = 'cancelled', cancelled_at = now(), updated_at = now()
+  where id = v_request.id;
+  return true;
+end;
+$function$;
+
+create or replace function public.rim_disable_e2e_scope(p_scope_type text, p_scope_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = pg_catalog, public, auth
+as $function$
+declare
+  v_user uuid := auth.uid();
+  v_manager boolean := false;
+  v_epoch bigint := 0;
+begin
+  if v_user is null then raise exception 'authentication_required' using errcode = '28000'; end if;
+  if p_scope_id is null or p_scope_type not in ('group','private_channel') then
+    raise exception 'invalid_e2e_scope' using errcode = '22023';
+  end if;
+
+  if p_scope_type = 'group' then
+    select (c.created_by = v_user or exists (
+      select 1 from public.conversation_members m
+      where m.conversation_id = c.id and m.user_id = v_user and m.role in ('owner','admin')
+    )), c.e2e_epoch
+    into v_manager, v_epoch
+    from public.conversations c
+    where c.id = p_scope_id and c.type = 'group' and c.is_private is true;
+    if not found or not v_manager then raise exception 'e2e_disable_requires_private_group_manager' using errcode = '42501'; end if;
+    update public.conversations
+    set e2e_mode = 'off', e2e_protocol = null, e2e_epoch = coalesce(e2e_epoch,0) + 1
+    where id = p_scope_id returning e2e_epoch into v_epoch;
+  else
+    select (c.owner_id = v_user or exists (
+      select 1 from public.channel_members m
+      where m.channel_id = c.id and m.user_id = v_user and m.role in ('owner','admin','moderator')
+    )), c.e2e_epoch
+    into v_manager, v_epoch
+    from public.channels c where c.id = p_scope_id and c.is_public is false;
+    if not found or not v_manager then raise exception 'e2e_disable_requires_private_channel_manager' using errcode = '42501'; end if;
+    update public.channels
+    set e2e_mode = 'off', e2e_protocol = null, e2e_epoch = coalesce(e2e_epoch,0) + 1
+    where id = p_scope_id returning e2e_epoch into v_epoch;
+  end if;
+
+  return jsonb_build_object('scope_type',p_scope_type,'scope_id',p_scope_id,'mode','off','epoch',v_epoch);
+end;
+$function$;
+
 create or replace function public.rim_decline_secret_chat_request(p_request_id uuid)
 returns boolean
 language plpgsql
@@ -240,6 +315,10 @@ revoke all on function public.rim_decline_secret_chat_request(uuid) from public,
 grant execute on function public.rim_create_secret_direct_chat(uuid) to authenticated;
 grant execute on function public.rim_accept_secret_chat_request(uuid) to authenticated;
 grant execute on function public.rim_decline_secret_chat_request(uuid) to authenticated;
+revoke all on function public.rim_cancel_secret_chat_request(uuid) from public, anon;
+revoke all on function public.rim_disable_e2e_scope(text,uuid) from public, anon;
+grant execute on function public.rim_cancel_secret_chat_request(uuid) to authenticated;
+grant execute on function public.rim_disable_e2e_scope(text,uuid) to authenticated;
 
 create or replace function public.rim_e2e_activate_scope(p_scope_type text, p_scope_id uuid)
 returns jsonb
