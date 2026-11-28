@@ -89,6 +89,19 @@ export class DirectChatService {
     });
   }
 
+  async cancelSecretRequest(conversationId) {
+    const user = this.getUser?.();
+    if (!user?.id) return Err(new Error('Требуется вход в РИМ.'));
+    if (!conversationId) return Err(new Error('Не указан секретный чат.'));
+    return this.exclusive(`secret-cancel:${conversationId}`, async () => {
+      const { data, error } = await this.client.rpc('rim_cancel_secret_chat_request', { p_conversation_id: conversationId });
+      if (error) return Err(error);
+      await this.reloadConversations();
+      if (String(this.getConversation?.()?.id || '') === String(conversationId)) await this.openConversation(conversationId);
+      return Ok(data ?? true);
+    });
+  }
+
   async declineSecretRequest(requestId) {
     const user = this.getUser?.();
     if (!user?.id) return Err(new Error('Требуется вход в РИМ.'));
