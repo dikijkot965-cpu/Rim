@@ -1147,7 +1147,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
   document.getElementById('rimFeedComposeBtn')?.addEventListener('click', openFeedCompose);
   document.getElementById('rimFeedCreatePrompt')?.addEventListener('click', openFeedCompose);
   document.querySelectorAll('[data-close-feed-compose]').forEach(el => el.addEventListener('click', closeFeedCompose));
-  document.getElementById('rimFeedPublishBtn')?.addEventListener('click', publishFeedPost);
+  document.getElementById('rimFeedPublishBtn')?.addEventListener('click', () => { void publishFeedPost(); });
   document.querySelectorAll('[data-close-feed-comments]').forEach(el => el.addEventListener('click', closeFeedComments));
   document.getElementById('rimFeedCommentSend')?.addEventListener('click', sendFeedComment);
   document.getElementById('rimFeedCommentInput')?.addEventListener('keydown', (e) => {

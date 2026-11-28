@@ -155,11 +155,11 @@ async function saveSettings(){if(window.__RIM_APPEARANCE_OWNED&&typeof window.sa
    CHAT LIST
 ===================================================== */
 
-async function loadConversations(){if(typeof window.loadConversations==='function'&&window.loadConversations!==loadConversations)return window.loadConversations();toast('Модуль списка чатов ещё загружается.');}
+async function loadConversations(){if(typeof window.loadConversations==='function'&&window.loadConversations!==loadConversations)return window.loadConversations();return null;}
 
 function conversationTitle(chat){if(typeof window.conversationTitle==='function'&&window.conversationTitle!==conversationTitle)return window.conversationTitle(chat);if(chat?.title)return chat.title;return chat?.type==="direct"?"Личная переписка":"Групповая беседа";}
 
-function renderConversationList(){if(window.__RIM_CONVERSATION_LIST_RENDER_OWNED&&typeof window.renderConversationList==='function'&&window.renderConversationList!==renderConversationList)return window.renderConversationList();toast('Список чатов ещё загружается.');}
+function renderConversationList(){if(window.__RIM_CONVERSATION_LIST_RENDER_OWNED&&typeof window.renderConversationList==='function'&&window.renderConversationList!==renderConversationList)return window.renderConversationList();return null;}
 
 function filterChats(){const q=(document.getElementById('chatSearch')?.value||'').trim().toLowerCase();document.querySelectorAll('#chatList .chat-item').forEach(el=>{el.style.display=!q||(el.innerText||'').toLowerCase().includes(q)?'':'none';});}
 

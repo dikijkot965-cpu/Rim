@@ -102,7 +102,7 @@ export function bindGroupsSurface({
     if (typeof win.showModal !== 'function') { notify?.('Не удалось открыть форму создания группы.'); return false; }
     win.showModal(`<h2 class="modal-title">Создать группу</h2>
       <label class="field-label" for="rimGroupTitle">Название группы</label>
-      <input class="field" id="rimGroupTitle" maxlength="80" placeholder="Например, Совет директоров" required>
+      <input class="field" id="rimGroupTitle" maxlength="60" placeholder="Например, Совет директоров" required>
       <label class="field-label" for="rimGroupMembers">Участники по username (через запятую, необязательно)</label>
       <input class="field" id="rimGroupMembers" placeholder="username1, username2">
       <label class="field-label" for="rimGroupAvatar">Аватар группы</label>
