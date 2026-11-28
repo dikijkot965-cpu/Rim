@@ -94,18 +94,44 @@ export function bindMessageCommandsSurface({
       if (conversation.type === 'group') return true;
       if (conversation.type !== 'direct') return new Error('Не удалось безопасно определить тип переписки для отправки из очереди.');
       if (!client?.from) return true;
-      const cacheKey = String(conversation.id);
+      const cacheKey = String(user.id) + ':' + String(conversation.id);
       const cached = canSendCache.get(cacheKey);
       if (cached && (Date.now() - cached.at) < 30000) return cached.ok;
-      const { data: members, error: membersError } = await client.from('conversation_members')
-        .select('user_id').eq('conversation_id', conversation.id);
-      if (membersError) return membersError;
-      const peerId = (members || []).map(row => row.user_id).find(id => String(id) !== String(user.id));
-      if (!peerId) return new Error('Не удалось определить собеседника.');
-      const [ownRes, revRes] = await Promise.all([
-        client.from('user_blocks').select('blocked_id').eq('blocker_id', user.id).eq('blocked_id', peerId).maybeSingle(),
-        client.from('user_blocks').select('blocker_id').eq('blocker_id', peerId).eq('blocked_id', user.id).maybeSingle()
-      ]);
+      const peerHint = conversation.other_profile?.id || conversation.peer_profile?.id || conversation.other_user?.id || null;
+      let peerId = null;
+      let ownRes;
+      let revRes;
+      if (peerHint) {
+        // The conversation projection already resolved the peer. Run the
+        // membership and two block checks concurrently instead of serial RTTs.
+        const [membersRes, own, reverse] = await Promise.all([
+          client.from('conversation_members').select('user_id').eq('conversation_id', conversation.id),
+          client.from('user_blocks').select('blocked_id').eq('blocker_id', user.id).eq('blocked_id', peerHint).maybeSingle(),
+          client.from('user_blocks').select('blocker_id').eq('blocker_id', peerHint).eq('blocked_id', user.id).maybeSingle()
+        ]);
+        if (membersRes.error) return membersRes.error;
+        peerId = (membersRes.data || []).map(row => row.user_id).find(id => String(id) !== String(user.id));
+        if (!peerId) return new Error('Не удалось определить собеседника.');
+        if (String(peerId) === String(peerHint)) {
+          ownRes = own;
+          revRes = reverse;
+        } else {
+          [ownRes, revRes] = await Promise.all([
+            client.from('user_blocks').select('blocked_id').eq('blocker_id', user.id).eq('blocked_id', peerId).maybeSingle(),
+            client.from('user_blocks').select('blocker_id').eq('blocker_id', peerId).eq('blocked_id', user.id).maybeSingle()
+          ]);
+        }
+      } else {
+        const { data: members, error: membersError } = await client.from('conversation_members')
+          .select('user_id').eq('conversation_id', conversation.id);
+        if (membersError) return membersError;
+        peerId = (members || []).map(row => row.user_id).find(id => String(id) !== String(user.id));
+        if (!peerId) return new Error('Не удалось определить собеседника.');
+        [ownRes, revRes] = await Promise.all([
+          client.from('user_blocks').select('blocked_id').eq('blocker_id', user.id).eq('blocked_id', peerId).maybeSingle(),
+          client.from('user_blocks').select('blocker_id').eq('blocker_id', peerId).eq('blocked_id', user.id).maybeSingle()
+        ]);
+      }
       if (ownRes.error) return ownRes.error;
       if (ownRes.data) {
         const err = new Error('Вы заблокировали этого пользователя. Разблокируйте его, чтобы отправлять сообщения.');
