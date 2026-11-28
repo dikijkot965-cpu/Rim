@@ -104,11 +104,15 @@ export class ChatInfoController {
     const groupAction = conversation.type === 'group'
       ? `<button class="action-btn rim-info-btn" type="button" onclick="addGroupMember()">＋ Добавить участника</button>`
       : '';
+    const currentUserId = String(this.getUser?.()?.id || '');
+    const peerUserId = (members || []).map(member => String(member.user_id || '')).find(id => id && id !== currentUserId) || '';
     const e2eAction = conversation.type === 'group' && conversation.is_private === true
       ? `<button class="action-btn rim-info-btn rim-info-e2e" type="button" onclick="closeModal();rimEnableE2EScope('group','${escapeHtml(conversation.id)}')">${conversation.e2e_mode === 'required' ? '🔒 Проверить E2E' : conversation.e2e_mode === 'pending' ? '🔒 Завершить настройку E2E' : '🔒 Включить E2E'}</button>`
       : conversation.type === 'direct' && (conversation.is_secret === true || ['pending','required'].includes(conversation.e2e_mode))
-        ? `<button class="action-btn rim-info-btn rim-info-e2e" type="button" onclick="closeModal();rimVerifyE2E()">${conversation.e2e_mode === 'required' ? '🔒 Проверить E2E' : '🔒 Завершить настройку E2E'}</button>`
-        : '';
+        ? `<button class="action-btn rim-info-btn rim-info-e2e" type="button" onclick="closeModal();rimVerifyE2E()">🔒 Проверить зашифрованный обмен</button>`
+        : conversation.type === 'direct' && peerUserId
+          ? `<button class="action-btn rim-info-btn rim-info-e2e" type="button" onclick="closeModal();startSecretChatWith('${escapeHtml(peerUserId)}')">🔒 Создать отдельный секретный чат E2E</button>`
+          : '';
 
 
     this.showModal(`
