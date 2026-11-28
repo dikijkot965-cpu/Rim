@@ -7,6 +7,7 @@
 - Public-group join remains a distinct action and delegates to the existing server-authorized join flow, which opens the group after successful membership.
 - Channel creation now fails closed if owner membership cannot be written; it attempts to roll back the channel and uploaded avatar instead of reporting a partial creation as successful.
 - Unsupported avatar MIME types are rejected before upload.
+- Removed the decorative RIM wordmark pill from the main application header; the authentication branding remains intact.
 
 ## Scope
 - No database schema changes.
