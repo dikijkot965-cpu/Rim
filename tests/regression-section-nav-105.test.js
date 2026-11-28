@@ -15,7 +15,8 @@ test('NavigationSectionController owns primary tabs', () => {
 
 test('bootstrap conversation open/load/send are stubs', () => {
   const boot = readFileSync(join(root, 'assets/js/rim-runtime-bootstrap.js'), 'utf8');
-  assert.match(boot, /Модуль списка чатов ещё загружается/);
+  assert.match(boot, /async function loadConversations\(\)[^\n]*return null/);
+  assert.doesNotMatch(boot, /Модуль списка чатов ещё загружается/);
   assert.match(boot, /Модуль открытия чата ещё загружается/);
   assert.match(boot, /__RIM_SECTION_NAV_OWNED/);
   const lines = boot.split(/\n/).length;

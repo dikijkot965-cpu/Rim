@@ -33,5 +33,6 @@ test('titles and subtitles', () => {
 
 test('bootstrap list paint is stubbed when modular owns', () => {
   const boot = readFileSync(join(root, 'assets/js/rim-runtime-bootstrap.js'), 'utf8');
-  assert.match(boot, /Список чатов ещё загружается/);
+  assert.match(boot, /function renderConversationList\(\)[^\n]*return null/);
+  assert.doesNotMatch(boot, /Список чатов ещё загружается/);
 });
