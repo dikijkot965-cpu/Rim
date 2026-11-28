@@ -2390,7 +2390,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     const path = uid + '/' + postId + '/' + uuid + '.' + extensions[mime];
     const storage = db.storage.from('feed-media');
     const upload = await storage.upload(path, file, { contentType: mime, cacheControl: '3600', upsert: false });
-    if (upload.error) { console.warn('feed media upload', upload.error.message); return null; }
+    if (upload.error) { window.__RIM_FEED_LAST_ERROR = upload.error.message || 'Ошибка загрузки файла.'; console.error('feed media upload failed', upload.error); return null; }
     const priorMedia = await db.from('rim_feed_post_media').select('id').eq('post_id', postId);
     const sortOrder = priorMedia.error ? 0 : (priorMedia.data || []).length;
     const metadata = await db.from('rim_feed_post_media').insert({
@@ -2399,7 +2399,8 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     });
     if (metadata.error) {
       await storage.remove([path]);
-      console.warn('feed media metadata', metadata.error.message);
+      window.__RIM_FEED_LAST_ERROR = metadata.error.message || 'Не удалось сохранить сведения о вложении.';
+      console.error('feed media metadata failed', metadata.error);
       return null;
     }
     const existingPost = await db.from('feed_posts').select('media_paths').eq('id', postId).eq('author_id', uid).maybeSingle();
@@ -2738,6 +2739,11 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
 
   const _publishFeedPost = publishFeedPost;
   publishFeedPost = async function() {
+    if (window.__RIM_FEED_PUBLISHING) return;
+    window.__RIM_FEED_PUBLISHING = true;
+    const publishButton = document.getElementById('rimFeedPublishBtn');
+    if (publishButton) { publishButton.disabled = true; publishButton.setAttribute('aria-busy', 'true'); }
+    try {
     const ta = document.getElementById('rimFeedComposeText');
     const modal = document.getElementById('rimFeedComposeModal');
     const text = (ta?.value || '').trim();
@@ -2763,7 +2769,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
           const { data: uploaded } = await rimDb().from('rim_feed_post_media').select('storage_path').eq('post_id', remote.id).eq('owner_id', rimUserId());
           if (uploaded?.length) await rimDb().storage.from('feed-media').remove(uploaded.map(x => x.storage_path));
           await rimDb().from('feed_posts').delete().eq('id', remote.id).eq('author_id', rimUserId());
-          if (typeof toast === 'function') toast('Не удалось загрузить одно из вложений. Публикация отменена.');
+          if (typeof toast === 'function') toast('Вложение не загружено: ' + String(window.__RIM_FEED_LAST_ERROR || 'неизвестная ошибка') + '. Публикация отменена.');
           return;
         }
         mediaItems.push(media);
@@ -2798,6 +2804,10 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       return;
     }
     const localResult=_publishFeedPost();clearFeedDraft();return localResult;
+    } finally {
+      window.__RIM_FEED_PUBLISHING = false;
+      if (publishButton) { publishButton.disabled = false; publishButton.removeAttribute('aria-busy'); }
+    }
   };
 
   const _openFeedComments = openFeedComments;
