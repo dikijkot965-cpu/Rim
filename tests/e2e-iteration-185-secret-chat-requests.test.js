@@ -29,4 +29,9 @@ test('E2E activation trigger requires a one-use private authorization capability
   assert.match(migration, /r\.recipient_id = auth\.uid\(\)/i);
   assert.match(migration, /delete from private\.rim_e2e_activation_authorizations/i);
   assert.match(migration, /e2e_activation_requires_trusted_deployment/i);
+  assert.match(migration, /create or replace function public\\.rim_disable_e2e_scope\\(p_scope_type text, p_scope_id uuid\\)/i);
+  assert.match(migration, /e2e_disable_requires_private_group_manager/i);
+  assert.match(migration, /e2e_disable_requires_private_channel_manager/i);
+  assert.match(migration, /values \\('group',p_scope_id,v_user\\)/i);
+  assert.match(migration, /values \\('private_channel',p_scope_id,v_user\\)/i);
 });
