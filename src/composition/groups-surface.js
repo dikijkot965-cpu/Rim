@@ -88,13 +88,30 @@ export function bindGroupsSurface({
       .split(',')
       .map(part => part.trim())
       .filter(Boolean);
+    let zladenAddedToInviteList = false;
+    if (doc.getElementById('rimGroupAddZladen')?.checked) {
+      try {
+        const profile = await container.get('zladenBot')?.getPublicProfile?.();
+        if (profile?.ok && profile.value?.username) {
+          names.push(profile.value.username);
+          zladenAddedToInviteList = true;
+        }
+      } catch (error) {
+        logger?.warn?.('group.create.zladen_profile_failed', { message: error?.message || String(error) });
+      }
+    }
     const result = report(await groupCommands.create({
       title: doc.getElementById('rimGroupTitle')?.value,
       memberUsernames: names,
       isPublic: !!doc.getElementById('rimGroupPublic')?.checked,
       avatarFile: doc.getElementById('rimGroupAvatar')?.files?.[0] || null
     }));
-    if (result?.ok) notify?.(result.value?.warning || 'Группа создана.');
+    if (result?.ok) {
+      notify?.(zladenAddedToInviteList ? 'Группа создана, Злыдя добавлен.' : 'Группа создана.');
+      if (doc.getElementById('rimGroupAddZladen')?.checked && !zladenAddedToInviteList) {
+        notify?.('Не удалось автоматически добавить Злыдю. Его можно добавить через информацию о группе.');
+      }
+    }
     return result;
   };
 
@@ -108,6 +125,8 @@ export function bindGroupsSurface({
       <input class="field" id="rimGroupMembers" placeholder="username1, username2">
       <label class="field-label" for="rimGroupAvatar">Аватар группы</label>
       <input class="field" id="rimGroupAvatar" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
+      <div class="rim-settings-line"><div><b>Добавить Злыдю</b><small>Бот сможет отвечать на команды и управлять игровыми функциями.</small></div>
+      <input class="rim-switch" id="rimGroupAddZladen" type="checkbox" checked></div>
       <div class="rim-settings-line"><div><b>Публичная группа</b><small>Её можно будет найти в каталоге.</small></div>
       <input class="rim-switch" id="rimGroupPublic" type="checkbox"></div>
       <div class="modal-actions"><button class="action-btn" type="button" onclick="closeModal()">Отмена</button>
