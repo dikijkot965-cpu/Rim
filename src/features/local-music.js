@@ -134,7 +134,34 @@ export class LocalMusicLibrary {
   }
   async render() {
     if (!this.root) return;
-    const all = await this.allMerged(); const q = this.query.trim().toLocaleLowerCase('ru');
+    this.renderSequence = (this.renderSequence || 0) + 1;
+    const sequence = this.renderSequence;
+    if (!this.root.querySelector?.('.rim-local-music')) {
+      this.root.innerHTML = `<section class="rim-local-music rim-music-loading" role="status" aria-live="polite"><header class="rim-local-music-head"><div><h1>Музыка</h1><p>Загружаем вашу библиотеку…</p></div></header><div class="rim-music-loading-indicator">Подготавливаем локальные файлы и облачную библиотеку</div></section>`;
+    }
+
+    // Render the local library first. A slow or unavailable cloud query must
+    // never leave the music tab as a blank screen.
+    const localTracks = await this.all();
+    if (sequence !== this.renderSequence) return;
+    this.renderTracks(localTracks, sequence);
+
+    // Cloud tracks enrich the already-visible local library asynchronously.
+    void this.remoteTracks().then(remoteTracks => {
+      if (sequence !== this.renderSequence || !Array.isArray(remoteTracks) || !remoteTracks.length) return;
+      const merged = new Map(localTracks.map(track => [String(track.id), track]));
+      for (const track of remoteTracks) {
+        if (!merged.has(String(track.id))) merged.set(String(track.id), track);
+      }
+      this.renderTracks([...merged.values()], sequence);
+    }).catch(error => {
+      this.logger?.warn?.('music.cloud.refresh.failed', { message: error?.message || String(error) });
+    });
+  }
+
+  renderTracks(all, sequence) {
+    if (!this.root || sequence !== this.renderSequence) return;
+const q = this.query.trim().toLocaleLowerCase('ru');
     const tracks = all.filter(t => (this.filter === 'all' || (this.filter === 'favorites' && t.favorite) || (this.filter === 'top' && (t.plays || 0) > 0)) && (!q || `${t.title} ${t.artist} ${t.fileName}`.toLocaleLowerCase('ru').includes(q)));
     const stats = summarizeMusic(all); const { starts: plays, completed, today: todayPlays, week: weekPlays } = stats;
     const favorites = stats.favoriteCount; const durationLabel = formatListeningTime(stats.listenedSeconds);
