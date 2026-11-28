@@ -35,4 +35,10 @@ test('pending secret direct chat is not treated as an ordinary plaintext convers
   assert.equal(result.ok, false);
   assert.match(result.error.message, /ожидает принятия приглашения/i);
   assert.equal(inserts, 0);
+  const queued = await service.canQueuePlaintextOutbox(
+    { id: 'direct-pending', type: 'direct', is_secret: false, e2e_mode: 'pending' },
+    { id: 'user-a' }
+  );
+  assert.equal(queued.ok, false);
+  assert.match(queued.error.message, /ожидает принятия приглашения/i);
 });
