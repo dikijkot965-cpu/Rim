@@ -40,7 +40,17 @@ export class E2EScopeRepository {
     // scope `required`; this also keeps pre-Relay deployments compatible.
     const mode = result.data.e2e_mode;
     if (mode === 'off' || mode === 'pending') {
-      return Ok({ scope: { ...scope, ...result.data }, enabled: false, readiness: { ready: false, reason: mode === 'pending' ? 'E2E ожидает активации; сообщения пока не заявляются как защищённые.' : null } });
+      const pendingSecretRequest = scope.type === 'direct' && result.data.is_secret !== true && mode === 'pending';
+      const reason = pendingSecretRequest
+        ? 'Секретный чат ожидает принятия приглашения. Отправка сообщений пока заблокирована.'
+        : (mode === 'pending' ? 'E2E ожидает активации; сообщения пока не заявляются как защищённые.' : null);
+      return Ok({
+        scope: { ...scope, ...result.data, pendingSecretRequest },
+        enabled: false,
+        pendingSecretRequest,
+        plaintextBlocked: pendingSecretRequest,
+        readiness: { ready: false, reason }
+      });
     }
     if (mode !== 'required') return Err(new Error('Неизвестный режим E2E переписки. Отправка остановлена для предотвращения plaintext fallback.')); 
 
