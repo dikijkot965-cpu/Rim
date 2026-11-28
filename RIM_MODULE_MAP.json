@@ -1,5 +1,5 @@
 {
-  "version": "4.1.8-iteration.182",
+  "version": "4.1.8-iteration.183",
   "layers": {
     "core": [
       "src/core/config.js",
@@ -280,5 +280,9 @@
     "zladen": "Fixed Auth provisioning password generation to respect Supabase Auth 72-character maximum; added diagnostic logging for Auth Admin creation failures.",
     "identity": "Clarified member_number as a historical registration serial, not the live account count.",
     "e2e": "Signal SDK 14.7.0, relay, key material, ciphertext storage and E2E policy are intentionally unchanged."
+  },
+  "iteration_183": {
+    "search_navigation": "Post-render delegated click handling for user, channel, message and public-group search results.",
+    "regression_test": "tests/search-result-navigation.test.js"
   }
 }
