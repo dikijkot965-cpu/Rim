@@ -78,3 +78,10 @@ test('creation RPCs run as invokers with narrowly scoped group insert policies',
   assert.match(scope, /user_id = auth\.uid\(\) and role = 'owner'/i);
   assert.match(scope, /user_id <> auth\.uid\(\) and role = 'member'/i);
 });
+
+test('group invite inserts require the creator to still hold owner membership', async () => {
+  const sql = await read('supabase/migrations/20261128125000_rim_iteration_184_creator_member_insert_guard.sql');
+  assert.match(sql, /user_id = auth\.uid\(\) and role = 'owner'/i);
+  assert.match(sql, /user_id <> auth\.uid\(\)[\s\S]{0,80}role = 'member'/i);
+  assert.match(sql, /owner_member\.role = 'owner'/i);
+});
