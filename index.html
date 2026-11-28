@@ -2750,7 +2750,20 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       }
       return;
     }
-    if (typeof _renderFeedListWindow === 'function') return _renderFeedListWindow();
+    if (typeof _renderFeedListWindow === 'function') {
+      const rendered = await _renderFeedListWindow();
+      if (remote === null && localPosts.length) {
+        const list = document.getElementById('rimFeedList');
+        if (list && !list.querySelector('[data-rim-feed-stale-warning]')) {
+          const warning = document.createElement('div');
+          warning.className = 'rim-feed-empty';
+          warning.dataset.rimFeedStaleWarning = '1';
+          warning.textContent = 'Не удалось обновить общую ленту. Ниже могут отображаться только локально сохранённые записи.';
+          list.prepend(warning);
+        }
+      }
+      return rendered;
+    }
   };
 
   const _publishFeedPost = publishFeedPost;
@@ -2769,7 +2782,14 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       if (!files.length && typeof toast === 'function') toast('Напишите текст или добавьте медиа');
       return;
     }
-    const hasRemoteSession = !!rimDb() && !!rimUserId();
+    const activeUserId = rimUserId();
+    const activeDb = rimDb();
+    if (activeUserId && !activeDb) {
+      window.__RIM_FEED_LAST_ERROR = 'Аккаунт найден, но клиент Supabase недоступен. Пост не сохранён локально, чтобы не создавать ложное впечатление публикации.';
+      if (typeof toast === 'function') toast(window.__RIM_FEED_LAST_ERROR);
+      return;
+    }
+    const hasRemoteSession = !!activeDb && !!activeUserId;
     if (hasRemoteSession) {
       const topicIds = Array.from(document.querySelectorAll('[data-feed-compose-topic]:checked')).map(el=>el.value);
       const remote = (text || files.length) ? await sbCreateFeedPost(text,topicIds) : null;
