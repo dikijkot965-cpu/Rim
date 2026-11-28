@@ -31,6 +31,7 @@ export class ShellPageController {
 
   closePage() {
     this.document.getElementById('rimFullPage')?.remove();
+    this.document.getElementById('app')?.classList.remove('rim-search-open');
   }
 
   fullPage(title, body) {
