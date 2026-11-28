@@ -8,6 +8,7 @@ declare
   v_bot_id uuid;
   v_type text;
   v_e2e_mode text;
+  v_is_secret boolean;
   v_token text;
   v_rest text;
   v_command text;
@@ -27,11 +28,12 @@ begin
     return new;
   end if;
 
-  select type, e2e_mode into v_type, v_e2e_mode
+  select type, e2e_mode, is_secret into v_type, v_e2e_mode, v_is_secret
   from public.conversations
   where id = new.conversation_id;
 
   if not found or v_type not in ('direct', 'group')
+     or v_is_secret is true
      or coalesce(v_e2e_mode, 'off') in ('pending', 'required') then
     return new;
   end if;
