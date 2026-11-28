@@ -106,13 +106,23 @@ export class ChatInfoController {
       : '';
     const currentUserId = String(this.getUser?.()?.id || '');
     const peerUserId = (members || []).map(member => String(member.user_id || '')).find(id => id && id !== currentUserId) || '';
+    const isSecretRequestPending = conversation.type === 'direct' && conversation.is_secret !== true && conversation.e2e_mode === 'pending';
+    const isSecretRequestOwner = isSecretRequestPending && String(conversation.created_by || '') === currentUserId;
     const e2eAction = conversation.type === 'group' && conversation.is_private === true
       ? `<button class="action-btn rim-info-btn rim-info-e2e" type="button" onclick="closeModal();rimEnableE2EScope('group','${escapeHtml(conversation.id)}')">${conversation.e2e_mode === 'required' ? '🔒 Проверить E2E' : conversation.e2e_mode === 'pending' ? '🔒 Завершить настройку E2E' : '🔒 Включить E2E'}</button>`
-      : conversation.type === 'direct' && (conversation.is_secret === true || ['pending','required'].includes(conversation.e2e_mode))
-        ? `<button class="action-btn rim-info-btn rim-info-e2e" type="button" onclick="closeModal();rimVerifyE2E()">🔒 Проверить зашифрованный обмен</button>`
-        : conversation.type === 'direct' && peerUserId
-          ? `<button class="action-btn rim-info-btn rim-info-e2e" type="button" onclick="closeModal();startSecretChatWith('${escapeHtml(peerUserId)}')">🔒 Создать отдельный секретный чат E2E</button>`
-          : '';
+      : isSecretRequestPending
+        ? (isSecretRequestOwner
+          ? `<button class="action-btn rim-info-btn rim-info-e2e" type="button" onclick="closeModal();rimVerifyE2E()">Отменить предложение секретного чата</button>`
+          : `<button class="action-btn rim-info-btn rim-info-e2e" type="button" disabled>Ожидается принятие предложения</button>`)
+        : conversation.type === 'direct' && conversation.is_secret === true
+          ? `<button class="action-btn rim-info-btn rim-info-e2e" type="button" onclick="closeModal();rimVerifyE2E()">🔒 Проверить зашифрованный обмен</button>`
+          : conversation.type === 'direct' && peerUserId
+            ? `<button class="action-btn rim-info-btn rim-info-e2e" type="button" onclick="closeModal();startSecretChatWith('${escapeHtml(peerUserId)}')">🔒 Создать отдельный секретный чат E2E</button>`
+            : '';
+    const e2eDisableAction = conversation.type === 'group' && conversation.is_private === true
+      && ['pending','required'].includes(conversation.e2e_mode)
+      ? `<button class="action-btn danger-btn rim-info-btn" type="button" onclick="closeModal();rimDisableE2EScope('group','${escapeHtml(conversation.id)}')">Отключить E2E только в этой группе</button>`
+      : '';
 
 
     this.showModal(`
@@ -128,6 +138,7 @@ export class ChatInfoController {
       <button class="action-btn rim-info-btn" type="button" onclick="openPinnedMessages();closeModal()">📌 Закреплённые</button>
       <button class="action-btn rim-info-btn" type="button" onclick="openPersonalWallpaper();closeModal()">🖼 Обои чата</button>
       ${e2eAction}
+      ${e2eDisableAction}
       ${groupAction}
       <button class="primary-btn rim-info-btn" type="button" onclick="closeModal()">Закрыть</button>
     </div>
