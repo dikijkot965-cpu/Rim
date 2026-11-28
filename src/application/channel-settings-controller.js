@@ -19,6 +19,13 @@ function formatWhen(value) {
 
 export function renderChannelSettingsShell(channel) {
   const id = escapeHtml(channel.id);
+  const e2eControls = channel.is_public === false
+    ? `<div class="rim-update-muted" style="margin:12px 0">E2E: ${channel.e2e_mode === 'required' ? 'обязательное шифрование' : channel.e2e_mode === 'pending' ? 'ожидает завершения настройки' : 'выключено'}</div>
+       <div class="rim-channel-toolbar">
+         <button class="action-btn" type="button" data-rim-cs-action="enable-e2e">${channel.e2e_mode === 'required' ? 'Проверить E2E' : 'Включить E2E'}</button>
+         ${['pending','required'].includes(channel.e2e_mode) ? '<button class="action-btn danger-btn" type="button" data-rim-cs-action="disable-e2e">Отключить E2E</button>' : ''}
+       </div>`
+    : '';
   return `<div class="rim-channel-settings" data-channel-settings="${id}">
     <h2 class="modal-title">Настройки канала</h2>
     <div class="rim-channel-toolbar">
@@ -42,6 +49,7 @@ export function renderChannelSettingsShell(channel) {
     <div class="rim-channel-toolbar">
       <button class="primary-btn" type="button" data-rim-cs-action="save">Сохранить</button>
     </div>
+    ${e2eControls}
     <h3>Подписчики и модерация</h3>
     <div id="rimChannelSettingsMembers" class="feature-small" role="status">Загружаем подписчиков…</div>
     <h3>Активные ограничения</h3>
@@ -150,6 +158,12 @@ export class ChannelSettingsController {
         break;
       case 'moderate':
         this.window?.rimModerateChannel?.(el.dataset.channelId, el.dataset.userId, el.dataset.modAction);
+        break;
+      case 'enable-e2e':
+        this.window?.rimEnableE2EScope?.('private_channel', this.getChannel?.()?.id);
+        break;
+      case 'disable-e2e':
+        this.window?.rimDisableE2EScope?.('private_channel', this.getChannel?.()?.id);
         break;
       case 'unrestrict':
         this.window?.rimChannelUnrestrict?.(el.dataset.channelId, el.dataset.userId, el.dataset.modAction);
