@@ -61,6 +61,7 @@ export class SettingsShellController {
 
     const html = `
       <h2 class="modal-title">Настройки</h2>
+      <button class="primary-btn" style="width:100%;margin-bottom:12px" type="button" data-rim-settings-action="profile">Мой профиль</button>
       <div class="settings-row">
         <span>Оформление</span>
         <select id="themeSelect">${themeOptions}</select>
@@ -133,6 +134,7 @@ export class SettingsShellController {
       node.addEventListener('click', event => {
         const action = node.getAttribute('data-rim-settings-action');
         if (action === 'done') this.window?.closeModal?.();
+        else if (action === 'profile') this.window?.openProfile?.();
         else if (action === 'save-privacy') this.window?.rimSavePrivacy?.();
         else if (action === 'blocks') this.window?.rimOpenBlocks?.();
         else if (action === 'notifications') this.window?.openNotificationSettings?.();
