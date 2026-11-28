@@ -21,6 +21,8 @@ export class SearchController {
     this.timer = null;
     this.sequence = 0;
     this.disposed = false;
+    this.boundResultsRoot = null;
+    this.resultsClickHandler = event => this.#onResultsClick(event);
   }
 
   open() {
@@ -64,6 +66,7 @@ export class SearchController {
     const sequence = ++this.sequence;
     const out = this.document.getElementById('rimSearchResults');
     if (!out) return;
+    this.#bindResultsRoot(out);
     const q = String(this.document.getElementById('rimSearchInput')?.value || '')
       .trim()
       .replace(/^@/, '')
@@ -131,16 +134,7 @@ export class SearchController {
         <div><b>${escapeHtml(profile.display_name || profile.username)}</b>
         <div class="feature-small">@${username}</div></div></div>`);
     }
-    const html = rows.join('');
-    queueMicrotask(() => {
-      this.document.querySelectorAll?.('[data-rim-search-user]')?.forEach?.(node => {
-        node.addEventListener('click', () => {
-          this.window?.closePage?.();
-          this.window?.findUserByName?.(node.getAttribute('data-rim-search-user'));
-        });
-      });
-    });
-    return html;
+    return rows.join('');
   }
 
   async #searchMessages(q) {
@@ -158,17 +152,9 @@ export class SearchController {
     const result = await this.client.from('chat_messages').select('id,conversation_id,body,created_at').in('conversation_id', allowedIds).ilike('body', '%' + q + '%').order('created_at', { ascending: false }).limit(25);
     if (result.error) throw result.error;
     const titles = new Map(allowed.map(row => [String(row.id), row.title || (row.type === 'direct' ? 'Личный чат' : 'Группа')]));
-    return (result.data || []).map(row => '<button type="button" class="rim-search-result" data-rim-search-conversation="' + escapeHtml(row.conversation_id) + '"><b>' + escapeHtml(titles.get(String(row.conversation_id)) || 'Переписка') + '</b><span class="feature-small">' + escapeHtml(String(row.body || 'Вложение').slice(0, 180)) + '</span></button>').join('') + this.#bindMessageResults();
+    return (result.data || []).map(row => '<button type="button" class="rim-search-result" data-rim-search-conversation="' + escapeHtml(row.conversation_id) + '"><b>' + escapeHtml(titles.get(String(row.conversation_id)) || 'Переписка') + '</b><span class="feature-small">' + escapeHtml(String(row.body || 'Вложение').slice(0, 180)) + '</span></button>').join('');
   }
 
-  #bindMessageResults() {
-    queueMicrotask(() => this.document.querySelectorAll?.('[data-rim-search-conversation]')?.forEach?.(node => {
-      if (node.dataset.bound) return;
-      node.dataset.bound = '1';
-      node.addEventListener('click', () => { this.window?.closePage?.(); this.window?.openConversation?.(node.dataset.rimSearchConversation); });
-    }));
-    return '';
-  }
   async #searchChannels(q) {
     const { data, error } = await this.client
       .from('channels')
@@ -182,22 +168,9 @@ export class SearchController {
         ${avatarMarkup('', channel.title)}
         <div><b>${escapeHtml(channel.title)}</b>
         <div class="feature-small">${channel.username ? '@' + escapeHtml(channel.username) : 'Канал'} · ${escapeHtml(channel.description || '')}</div></div></div>`;
-    }).join('') + this.#bindChannelClicks();
+    }).join('');
   }
 
-  #bindChannelClicks() {
-    queueMicrotask(() => {
-      this.document.querySelectorAll?.('[data-rim-search-channel]')?.forEach?.(node => {
-        if (node.dataset.bound) return;
-        node.dataset.bound = '1';
-        node.addEventListener('click', () => {
-          this.window?.closePage?.();
-          this.window?.openChannel?.(node.getAttribute('data-rim-search-channel'));
-        });
-      });
-    });
-    return '';
-  }
 
   async #searchGroups(q) {
     const { data: groups, error } = await this.client
@@ -211,31 +184,58 @@ export class SearchController {
     return (groups || []).map(group => {
       const id = escapeHtml(group.id);
       const letter = escapeHtml(String(group.title || 'Г').slice(0, 1));
-      return `<div class="rim-search-result">
+      return `<div class="rim-search-result" data-rim-join-group="${id}" role="button" tabindex="0">
         <div class="avatar">${letter}</div>
         <div class="grow"><b>${escapeHtml(group.title || 'Группа')}</b>
-        <div class="feature-small">Открытая группа</div></div>
-        <button type="button" class="action-btn" data-rim-join-group="${id}">Вступить</button></div>`;
-    }).join('') + this.#bindGroupJoins();
+        <div class="feature-small">Открытая группа · нажмите, чтобы вступить и открыть</div></div>
+        <span class="action-btn" aria-hidden="true">Открыть</span></div>`;
+    }).join('');
   }
 
-  #bindGroupJoins() {
-    queueMicrotask(() => {
-      this.document.querySelectorAll?.('[data-rim-join-group]')?.forEach?.(node => {
-        if (node.dataset.bound) return;
-        node.dataset.bound = '1';
-        node.addEventListener('click', event => {
-          event.preventDefault();
-          this.window?.rimJoinPublicGroup?.(node.getAttribute('data-rim-join-group'));
-        });
-      });
-    });
-    return '';
+
+  #bindResultsRoot(root) {
+    if (this.boundResultsRoot === root) return;
+    this.boundResultsRoot?.removeEventListener?.('click', this.resultsClickHandler);
+    this.boundResultsRoot = root;
+    root.addEventListener?.('click', this.resultsClickHandler);
+  }
+
+  #onResultsClick(event) {
+    const origin = event.target;
+    const user = origin?.closest?.('[data-rim-search-user]');
+    const channel = origin?.closest?.('[data-rim-search-channel]');
+    const conversation = origin?.closest?.('[data-rim-search-conversation]');
+    const group = origin?.closest?.('[data-rim-join-group]');
+    const item = user || channel || conversation || group;
+    if (!item || !this.boundResultsRoot?.contains?.(item)) return;
+    event.preventDefault?.();
+    if (user) {
+      const username = user.getAttribute('data-rim-search-user');
+      if (!username) return;
+      this.window?.closePage?.();
+      void this.window?.findUserByName?.(username);
+    } else if (channel) {
+      const id = channel.getAttribute('data-rim-search-channel');
+      if (!id) return;
+      this.window?.closePage?.();
+      void this.window?.openChannel?.(id);
+    } else if (conversation) {
+      const id = conversation.getAttribute('data-rim-search-conversation');
+      if (!id) return;
+      this.window?.closePage?.();
+      void this.window?.openConversation?.(id);
+    } else if (group) {
+      const id = group.getAttribute('data-rim-join-group');
+      if (!id) return;
+      void this.window?.rimJoinPublicGroup?.(id);
+    }
   }
 
   dispose() {
     this.disposed = true;
     if (this.timer) clearTimeout(this.timer);
+    this.boundResultsRoot?.removeEventListener?.('click', this.resultsClickHandler);
+    this.boundResultsRoot = null;
     this.sequence += 1;
   }
 }

@@ -106,7 +106,9 @@ export class ChatInfoController {
       : '';
     const e2eAction = conversation.type === 'group' && conversation.is_private === true
       ? `<button class="action-btn rim-info-btn rim-info-e2e" type="button" onclick="closeModal();rimEnableE2EScope('group','${escapeHtml(conversation.id)}')">${conversation.e2e_mode === 'required' ? '🔒 Проверить E2E' : conversation.e2e_mode === 'pending' ? '🔒 Завершить настройку E2E' : '🔒 Включить E2E'}</button>`
-      : '';
+      : conversation.type === 'direct' && (conversation.is_secret === true || ['pending','required'].includes(conversation.e2e_mode))
+        ? `<button class="action-btn rim-info-btn rim-info-e2e" type="button" onclick="closeModal();rimVerifyE2E()">${conversation.e2e_mode === 'required' ? '🔒 Проверить E2E' : '🔒 Завершить настройку E2E'}</button>`
+        : '';
 
 
     this.showModal(`
