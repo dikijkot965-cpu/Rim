@@ -42,7 +42,7 @@ const context = window.__RIM_LEGACY_CONTEXT;
 if (!context?.db) throw new Error('RIM bootstrap: legacy database client is unavailable');
 const legacy = createLegacyBridge(context);
 const container = new Container();
-const logger = new Logger({ version: '4.1.8-iteration.181' });
+const logger = new Logger({ version: '4.1.8-iteration.183' });
 const events = new EventBus();
 const health = new HealthRegistry();
 const lifecycle = new DisposableScope({ onError: error => logger.error('lifecycle.dispose.failed', error) });
@@ -421,7 +421,7 @@ const writer = featuresSurface.writer;
 const music = featuresSurface.music;
 
 window.RIM = Object.freeze({
-  version: '4.1.8-iteration.181',
+  version: '4.1.8-iteration.183',
   container,
   events,
   logger,
@@ -635,4 +635,4 @@ logger.info('app.ready', { modules: ['core', 'supabase-adapter', 'chat-identity'
 // and every global compatibility wrapper has been installed. This prevents a
 // fast Supabase session restore from running the temporary no-op chat loader.
 window.__rimMarkAppModulesReady?.();
-window.dispatchEvent(new CustomEvent('rim:ready', { detail: { version: '4.1.8-iteration.181' } }));
+window.dispatchEvent(new CustomEvent('rim:ready', { detail: { version: '4.1.8-iteration.183' } }));
