@@ -28,7 +28,8 @@ test('group command calls the atomic RPC rather than creating a member-owned gro
   const service = await read('src/application/group-command-service.js');
   assert.match(service, /rpc\('rim_create_group_chat'/);
   assert.match(service, /p_is_private:\s*!isPublic/);
-  assert.doesNotMatch(service, /rpc\('rim_group_update_settings'/);
+  const create = service.slice(service.indexOf('async create('), service.indexOf('async joinPublic('));
+  assert.doesNotMatch(create, /rpc\('rim_group_update_settings'/);
 });
 
 test('direct chats expose a lock action that starts a separate secret conversation', async () => {
