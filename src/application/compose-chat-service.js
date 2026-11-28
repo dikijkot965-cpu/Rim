@@ -98,33 +98,47 @@ export class ComposeChatService {
     if (!user?.id) return Err(new Error('Требуется вход в РИМ.'));
     const title = this.prompt('Название группы:');
     if (title === null) return Ok({ cancelled: true });
-    if (!String(title || '').trim()) return Ok({ cancelled: true });
-    const names = this.prompt('Username участников через запятую. Себя добавлять не нужно:');
+    const normalizedTitle = String(title || '').trim();
+    if (!normalizedTitle) return Ok({ cancelled: true });
+
+    const names = this.prompt('Username участников через запятую. Можно оставить пустым:');
     if (names === null) return Ok({ cancelled: true });
     const usernames = [];
     for (const part of String(names || '').split(',')) {
-      const parsed = validateUsername(part);
-      if (parsed.ok) usernames.push(parsed.username);
+      const value = String(part || '').trim();
+      if (!value) continue;
+      const parsed = validateUsername(value);
+      if (!parsed.ok) return Err(new Error(parsed.error));
+      usernames.push(parsed.username);
     }
-    if (!usernames.length) return Err(new Error('Укажите хотя бы одного участника с корректным username.'));
 
-    return this.exclusive(`group:${title}`, async () => {
-      const { data: profiles, error } = await this.client
-        .from('profiles')
-        .select('id,username')
-        .in('username', usernames);
-      if (error) return Err(error);
-      if (!profiles?.length) return Err(new Error('Участники не найдены.'));
-      const ids = profiles.map(p => p.id);
-      const { data, error: rpcError } = await this.client.rpc('create_group_chat', {
-        group_title: String(title).trim(),
-        invited_users: ids
+    return this.exclusive(`group:${normalizedTitle.toLowerCase()}`, async () => {
+      let ids = [];
+      if (usernames.length) {
+        const { data: profiles, error } = await this.client
+          .from('profiles')
+          .select('id,username')
+          .in('username', [...new Set(usernames)]);
+        if (error) return Err(error);
+        const found = new Set((profiles || []).map(profile => String(profile.username || '').toLowerCase()));
+        if (usernames.some(username => !found.has(username))) {
+          return Err(new Error('Один или несколько участников не найдены.'));
+        }
+        ids = [...new Set((profiles || []).map(profile => profile.id).filter(Boolean))];
+      }
+
+      const { data, error: rpcError } = await this.client.rpc('rim_create_group_chat', {
+        p_title: normalizedTitle,
+        p_invited_users: ids,
+        p_is_private: true,
+        p_avatar_path: null
       });
       if (rpcError) return Err(rpcError);
       const conversationId = typeof data === 'string' ? data : data?.id;
+      if (!conversationId) return Err(new Error('Сервер не вернул идентификатор группы.'));
       await this.reloadConversations();
-      if (conversationId) await this.openConversation(conversationId);
-      return Ok(conversationId || data);
+      await this.openConversation(conversationId);
+      return Ok(conversationId);
     });
   }
 }
