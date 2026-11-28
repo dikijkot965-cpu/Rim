@@ -1616,7 +1616,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     void refreshAvatar(true);
     // The profile card is a first-class settings destination; its avatar is
     // refreshed from the authoritative profile row after the panel appears.
-    void window.loadProfile?.().then?.(() => refreshAvatar(true));
+    if (typeof window.loadProfile === 'function') void window.loadProfile();
   }
   function closeTgSettings() {
     const el = document.getElementById('rimTgSettings');
