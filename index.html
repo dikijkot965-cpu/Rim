@@ -2331,12 +2331,45 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
   }
 
   async function sbCreateFeedPost(text, topicIds = [], source = null) {
-    const db=rimDb(),uid=rimUserId();if(!db||!uid)return null;
-    try{const payload={author_id:uid,body:String(text||'').slice(0,8000),topic_ids:Array.isArray(topicIds)?topicIds.slice(0,8):[],visibility:'public',comments_enabled:true,published_at:new Date().toISOString()};
-      if(source?.channelId&&source?.postId){payload.source_channel_id=String(source.channelId);payload.source_channel_post_id=String(source.postId);}
-      const {data,error}=await db.from('feed_posts').insert(payload).select('id,created_at').maybeSingle();
-      if(error||!data){console.warn('feed post create',error?.message);return null;}return {id:data.id,createdAt:Date.parse(data.created_at)||Date.now(),_remote:true};
-    }catch(error){console.warn('feed post create',error);return null;}
+    const db = rimDb();
+    const uid = rimUserId();
+    if (!db || !uid) {
+      window.__RIM_FEED_LAST_ERROR = 'Нет активного подключения или авторизованного пользователя.';
+      return null;
+    }
+    try {
+      const payload = {
+        author_id: uid,
+        body: String(text || '').slice(0, 8000),
+        topic_ids: Array.isArray(topicIds) ? topicIds.slice(0, 8) : [],
+        visibility: 'public',
+        comments_enabled: true,
+        published_at: new Date().toISOString()
+      };
+      if (source?.channelId && source?.postId) {
+        payload.source_channel_id = String(source.channelId);
+        payload.source_channel_post_id = String(source.postId);
+      }
+      const { data, error } = await db.from('feed_posts')
+        .insert(payload)
+        .select('id,created_at')
+        .maybeSingle();
+      if (error) {
+        window.__RIM_FEED_LAST_ERROR = error.message || 'Supabase отклонил публикацию.';
+        console.error('feed post create failed', { code: error.code, message: error.message, details: error.details, hint: error.hint });
+        return null;
+      }
+      if (!data?.id) {
+        window.__RIM_FEED_LAST_ERROR = 'Сервер не вернул идентификатор созданной публикации.';
+        return null;
+      }
+      window.__RIM_FEED_LAST_ERROR = '';
+      return { id: data.id, createdAt: Date.parse(data.created_at) || Date.now(), _remote: true };
+    } catch (error) {
+      window.__RIM_FEED_LAST_ERROR = error?.message || String(error);
+      console.error('feed post create threw', error);
+      return null;
+    }
   }
 
   async function sbUploadFeedMedia(postId, file) {
@@ -2719,7 +2752,8 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       const topicIds = Array.from(document.querySelectorAll('[data-feed-compose-topic]:checked')).map(el=>el.value);
       const remote = (text || files.length) ? await sbCreateFeedPost(text,topicIds) : null;
       if (!remote) {
-        if (typeof toast === 'function') toast('Не удалось создать публикацию в Supabase. Проверьте соединение и права доступа.');
+        const reason = String(window.__RIM_FEED_LAST_ERROR || 'Supabase не вернул созданную публикацию.');
+        if (typeof toast === 'function') toast('Публикация не создана: ' + reason);
         return;
       }
       const mediaItems = [];
