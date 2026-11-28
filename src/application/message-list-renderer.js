@@ -48,7 +48,7 @@ export function buildMessageArticleHtml(message, {
   const id = escapeHtml(message.id);
   const image = imageUrls[message.id] || imageUrls[String(message.id)];
 
-  return `<article class="message ${mine ? 'mine' : ''}" data-id="${id}" data-rim-msg="1"${message._rimLocalOnly ? ' data-rim-local-only="true" data-rim-e2e="true"' : ''}>
+  return `<article class="message ${mine ? 'mine' : ''}" data-id="${id}" data-rim-msg="1"${message._rimPending ? ' data-rim-pending="true"' : ''}${message._rimLocalOnly ? ' data-rim-local-only="true" data-rim-e2e="true"' : ''}>
     ${!mine ? `<div class="message-author">${author}</div>` : ''}
     ${reply ? `<div class="reply-preview">Ответ на: ${escapeHtml(reply.body || 'Вложение')}</div>` : ''}
     <div class="message-body">${body}</div>
@@ -56,7 +56,7 @@ export function buildMessageArticleHtml(message, {
     ${message.sticker_id ? `<div class="message-sticker">${escapeHtml(message.sticker_id)}</div>` : ''}
     <div class="message-meta">
       ${message.edited_at ? 'изм. · ' : ''}${escapeHtml(formatTime(message.created_at || message.clientCreatedAt))}
-      ${(() => {
+      ${message._rimPending ? ' <span class="rim-message-pending" aria-label="Отправляется">◌ Отправляется</span>' : (() => {
         if (message._rimLocalOnly || !shouldShowDeliveryTicks(message, currentUserId)) return '';
         const d = resolveDeliveryStatus(message, { peerReadAt, receiptsEnabled });
         return ` <span class="rim-send-check" data-rim-delivery="${escapeHtml(d.status)}" title="${escapeHtml(d.label)}" aria-label="${escapeHtml(d.label)}">${d.ticks}</span>`;
@@ -87,6 +87,7 @@ export class MessageListRenderer {
     this.window = windowRef;
     this.logger = logger;
     this.renderSequence = 0;
+    this.profileCache = new Map();
     this.disposed = false;
     this.boundRoot = null;
     this.clickHandler = this.#onClick.bind(this);
@@ -189,14 +190,39 @@ export class MessageListRenderer {
   async #loadProfiles(ids) {
     const unique = [...new Set((ids || []).filter(Boolean).map(String))];
     if (!unique.length) return {};
-    const { data, error } = await this.client
-      .from('profiles')
-      .select('id,username,display_name,avatar_url,name_color')
-      .in('id', unique);
-    if (error) throw error;
-    const result = {};
-    for (const profile of data || []) result[profile.id] = profile;
-    return result;
+    const missing = unique.filter(id => !this.profileCache.has(id));
+    if (missing.length) {
+      // Cache empty rows too: deleted/private profiles must not trigger a
+      // second round-trip on every message render.
+      for (const id of missing) this.profileCache.set(id, {});
+      const { data, error } = await this.client
+        .from('profiles')
+        .select('id,username,display_name,avatar_url,name_color')
+        .in('id', missing);
+      if (error) throw error;
+      for (const profile of data || []) this.profileCache.set(String(profile.id), profile);
+    }
+    return Object.fromEntries(unique.map(id => [id, this.profileCache.get(id) || {}]));
+  }
+
+  async #hydrateProfiles(messages, sequence, box) {
+    try {
+      const profiles = await withTimeout(
+        this.#loadProfiles(messages.map(message => message.sender_id)),
+        4500,
+        'profiles_timeout'
+      );
+      if (sequence !== this.renderSequence || this.disposed || !box.isConnected) return;
+      for (const message of messages) {
+        const profile = profiles[String(message.sender_id)] || {};
+        const author = box.querySelector?.(`.message[data-id="${cssEscape(message.id)}"] .message-author`);
+        if (!author) continue;
+        author.textContent = profile.display_name || profile.username || 'Пользователь';
+        if (profile.name_color && /^#[0-9a-fA-F]{6}$/.test(profile.name_color)) author.style.color = profile.name_color;
+      }
+    } catch (error) {
+      this.logger?.warn?.('messages.profiles.degraded', { message: error?.message || String(error) });
+    }
   }
 
   async #loadImageUrls(messages) {
@@ -239,28 +265,15 @@ export class MessageListRenderer {
       return;
     }
 
-    // Paint the text timeline first. Media signing must never hold the entire
-    // conversation hostage on slow/blocked Storage networks (common on mobile).
-    let profiles = {};
-    try {
-      profiles = await withTimeout(this.#loadProfiles(messages.map(message => message.sender_id)), 4500, 'profiles_timeout');
-    } catch (error) {
-      this.logger?.warn?.('messages.profiles.degraded', { message: error?.message || String(error) });
-    }
+    // Paint the timeline synchronously. Profile lookups and signed media URLs
+    // are enrichment only; neither may delay the first visible message.
     if (sequence !== this.renderSequence) return;
-
     box.innerHTML = messages.map(message => buildMessageArticleHtml(message, {
-      currentUserId: user?.id, profiles: profiles || {}, messages, imageUrls: {},
+      currentUserId: user?.id, profiles: {}, messages, imageUrls: {},
       peerReadAt: this.peerReadAt ?? null, receiptsEnabled: this.receiptsEnabled !== false
     })).join('');
-
-    for (const message of messages) {
-      const color = profiles?.[message.sender_id]?.name_color || profiles?.[String(message.sender_id)]?.name_color;
-      if (!color || !/^#[0-9a-fA-F]{6}$/.test(color)) continue;
-      const author = box.querySelector(`.message[data-id="${cssEscape(message.id)}"] .message-author`);
-      if (author) author.style.color = color;
-    }
     if (nearBottom) box.scrollTop = box.scrollHeight;
+    void this.#hydrateProfiles(messages, sequence, box);
 
     // Hydrate attachments asynchronously and with bounded concurrency/timeouts.
     // A failed media URL leaves the text and the rest of the chat usable.
