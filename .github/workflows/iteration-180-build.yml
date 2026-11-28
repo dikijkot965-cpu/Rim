@@ -102,6 +102,7 @@ jobs:
               --notes-file RELEASE_NOTES_2026-11-28_ITERATION_183.md \
               --target "$(git rev-parse HEAD)"
           fi
+          gh release edit "$TAG" --notes-file RELEASE_NOTES_2026-11-28_ITERATION_183.md
       - uses: actions/upload-artifact@v4
         with:
           name: RIM_4.1.8_ITERATION_183
