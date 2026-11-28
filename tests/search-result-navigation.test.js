@@ -23,3 +23,10 @@ test('user and channel search results are semantic keyboard-accessible buttons',
   assert.match(code, /<button type="button" class="rim-search-result" data-rim-search-user=/);
   assert.match(code, /<button type="button" class="rim-search-result" data-rim-search-channel=/);
 });
+
+test('app header no longer renders the decorative RIM wordmark pill', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const topbar = html.slice(html.indexOf('<header class="topbar">'), html.indexOf('</header>', html.indexOf('<header class="topbar">')));
+  assert.doesNotMatch(topbar, /brand-title|Римъ/);
+  assert.match(html, /<div class="auth-logo">Римъ<\/div>/);
+});
