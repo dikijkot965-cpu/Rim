@@ -1,7 +1,7 @@
 name: RIM Iteration 184 build and verification
 
 concurrency:
-  group: rim-iteration-183-${{ github.ref }}
+  group: rim-iteration-184-${{ github.ref }}
   cancel-in-progress: true
 
 on:
@@ -18,6 +18,7 @@ on:
       - 'package-lock.json'
       - 'RIM_MODULE_MAP.json'
       - 'BUILD_INFO.txt'
+      - 'RELEASE_NOTES_2026-11-28_ITERATION_184.md'
       - 'scripts/**'
       - 'supabase/**'
       - 'tests/**'
