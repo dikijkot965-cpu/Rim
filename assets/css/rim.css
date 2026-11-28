@@ -3277,3 +3277,8 @@ body[data-theme="light"] .composer.grok-style .send-btn {
 #app.rim-search-open > .topbar { display:none!important; }
 .rim-create-sheet { z-index:10020!important; }
 #rimCreateFab { pointer-events:auto!important; touch-action:manipulation; }
+
+
+/* Iteration 184 — music must paint a useful state before cloud hydration finishes. */
+.rim-music-loading { min-height:240px; padding:24px; gap:16px; }
+.rim-music-loading-indicator { border:1px solid var(--border); border-radius:14px; padding:18px; color:var(--muted); background:var(--panel2); }
