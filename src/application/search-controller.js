@@ -104,7 +104,6 @@ export class SearchController {
       if (sequence !== this.sequence) return;
       const html = chunks.join('');
       out.innerHTML = html || '<div class="empty-state">Ничего не найдено.</div>';
-      this.#bindMessageResults();
     } catch (error) {
       if (sequence !== this.sequence) return;
       this.logger?.warn?.('search.failed', { message: error?.message });
