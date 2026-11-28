@@ -98,19 +98,34 @@ export class GroupCommandService {
         if (uploadError) return Err(uploadError);
       }
 
-      const created = await this.client.rpc('rim_create_group_chat', {
-        p_title: groupTitle,
-        p_invited_users: ids,
-        p_is_private: !isPublic,
-        p_avatar_path: avatarPath
-      });
-      if (created.error) {
-        if (avatarPath) {
+      const cleanupAvatar = async () => {
+        if (!avatarPath) return;
+        try {
           const cleanup = await this.client.storage.from('avatars').remove([avatarPath]);
           if (cleanup?.error) this.logger?.warn?.('group.create.avatar_cleanup_failed', {
             message: cleanup.error.message || String(cleanup.error)
           });
+        } catch (error) {
+          this.logger?.warn?.('group.create.avatar_cleanup_failed', {
+            message: error?.message || String(error)
+          });
         }
+      };
+
+      let created;
+      try {
+        created = await this.client.rpc('rim_create_group_chat', {
+          p_title: groupTitle,
+          p_invited_users: ids,
+          p_is_private: !isPublic,
+          p_avatar_path: avatarPath
+        });
+      } catch (error) {
+        await cleanupAvatar();
+        return Err(error);
+      }
+      if (created.error) {
+        await cleanupAvatar();
         return Err(created.error);
       }
 
@@ -118,16 +133,12 @@ export class GroupCommandService {
         ? created.data
         : created.data?.id || created.data?.conversation_id;
       if (!conversationId) {
-        if (avatarPath) {
-          const cleanup = await this.client.storage.from('avatars').remove([avatarPath]);
-          if (cleanup?.error) this.logger?.warn?.('group.create.avatar_cleanup_failed', {
-            message: cleanup.error.message || String(cleanup.error)
-          });
-        }
+        await cleanupAvatar();
         return Err(new Error('Сервер создал группу, но не вернул её идентификатор.'));
       }
 
-      this.closeModal?.();
+      try { this.closeModal?.(); }
+      catch (error) { this.logger?.warn?.('group.create.modal_close_failed', { message: error?.message }); }
       try {
         await this.afterCreate(conversationId);
       } catch (error) {
