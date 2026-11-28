@@ -51,12 +51,10 @@ export class ViewportController {
       win.visualViewport.addEventListener('scroll', this._onUpdate);
     }
     win.addEventListener('resize', this._onUpdate);
-    win.addEventListener('orientationchange', () => {
-      win.setTimeout?.(this._onUpdate, 200);
-    });
-    const input = doc.getElementById?.('messageInput');
-    input?.addEventListener?.('focus', () => win.setTimeout?.(this._onUpdate, 100));
-    input?.addEventListener?.('blur', () => win.setTimeout?.(this._onUpdate, 100));
+    win.addEventListener('orientationchange', this._onOrientationChange);
+    this._input = doc.getElementById?.('messageInput') || null;
+    this._input?.addEventListener?.('focus', this._onInputFocus);
+    this._input?.addEventListener?.('blur', this._onInputBlur);
     this.update();
   }
 
