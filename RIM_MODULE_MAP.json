@@ -283,6 +283,7 @@
   },
   "iteration_183": {
     "search_navigation": "Post-render delegated click handling for user, channel, message and public-group search results.",
-    "regression_test": "tests/search-result-navigation.test.js"
+    "regression_test": "tests/search-result-navigation.test.js",
+    "channel_creation": "Fail closed on owner-membership failure; best-effort rollback of channel and uploaded avatar; validate avatar MIME type."
   }
 }
