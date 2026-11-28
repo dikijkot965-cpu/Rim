@@ -899,14 +899,36 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     `;
     sheet.addEventListener('click', ev => {
       const btn = ev.target.closest('[data-create]');
-      if (!btn) return;
+      if (!btn || !sheet.contains(btn)) return;
+      ev.preventDefault();
+      ev.stopPropagation();
       const action = btn.getAttribute('data-create');
+      const routes = {
+        direct: window.newDirectChat,
+        'secret-direct': window.newSecretDirectChat,
+        group: window.rimOpenGroupCreate || window.newGroupChat,
+        channel: window.createChannel
+      };
+      const route = routes[action];
+      if (typeof route !== 'function') {
+        if (typeof toast === 'function') toast('Не удалось открыть создание: модуль ещё не готов. Обновите страницу и повторите.');
+        console.error('RIM create route unavailable', { action, moduleState: window.__RIM_APP_MODULES_READY_STATE });
+        sheet.remove();
+        return;
+      }
       sheet.remove();
-      if (action === 'direct') window.newDirectChat?.();
-      else if (action === 'secret-direct') window.newSecretDirectChat?.();
-      else if (action === 'group') window.newGroupChat?.();
-      else if (action === 'channel') window.createChannel?.();
-      else if (typeof toast === 'function') toast('Функция пока недоступна');
+      try {
+        const result = route();
+        if (result && typeof result.then === 'function') {
+          void result.catch(error => {
+            console.error('RIM create action failed', { action, error });
+            if (typeof toast === 'function') toast(error?.message || 'Не удалось выполнить создание.');
+          });
+        }
+      } catch (error) {
+        console.error('RIM create action failed', { action, error });
+        if (typeof toast === 'function') toast(error?.message || 'Не удалось открыть форму создания.');
+      }
     });
     document.body.appendChild(sheet);
     setTimeout(() => {
