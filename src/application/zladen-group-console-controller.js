@@ -1,13 +1,48 @@
 import { escapeHtml } from '../core/html.js';
 
 const QUICK_COMMANDS = [
-  ['Обзор','/menu'],['Статистика','/stats'],['Правила','/rules'],['Администраторы','/admins'],
+  ['Справка','/help'],['Обзор','/menu'],['Статистика','/stats'],['Правила','/rules'],['Администраторы','/admins'],
   ['Предупреждения','/warnings'],['Команды','/commands'],['Триггеры','/trigger list'],['Правила: изменить','/setrules'],['Приветствие: изменить','/setwelcome'],
   ['Фильтры: состояние','/filter status'],['Запретить ссылки','/filter links on'],['Разрешить ссылки','/filter links off'],['Список фильтров','/filter words'],
   ['Баланс','/balance'],['Ежедневная награда','/daily'],['Викторина','/quiz'],
   ['Магазин','/shop'],['Инвентарь','/inventory'],['Рынок','/market'],['Топ экономики','/economy_top'],
   ['Кланы','/clan'],['Напоминания','/remind'],['Опрос','/poll'],['Голосование','/vote'],['Результаты опроса','/pollresults'],['Жалобы','/reports'],['Ранг','/rank'],['Передать жетоны','/pay'],['Начислить жетоны','/grant'],['Репутация','/rep'],['Топ','/top'],['Награды','/awards']
 ];
+
+const COMMAND_DESCRIPTIONS = {
+  '/menu': 'Показывает меню с командами, доступными в этой группе.',
+  '/stats': 'Сводная статистика активности участников.',
+  '/rules': 'Показывает правила группы.',
+  '/admins': 'Список владельца и администраторов.',
+  '/warnings': 'Просмотр предупреждений участников.',
+  '/commands': 'Список доступных команд.',
+  '/trigger list': 'Список автоматических триггеров.',
+  '/setrules': 'Изменить правила группы (администратор).',
+  '/setwelcome': 'Настроить приветствие новых участников.',
+  '/filter status': 'Текущее состояние фильтров.',
+  '/filter links on': 'Запретить ссылки в группе.',
+  '/filter links off': 'Разрешить ссылки в группе.',
+  '/filter words': 'Показать фильтры запрещённых слов.',
+  '/balance': 'Ваш баланс внутренних жетонов.',
+  '/daily': 'Получить ежедневную награду.',
+  '/quiz': 'Запустить викторину.',
+  '/shop': 'Каталог предметов за внутренние жетоны.',
+  '/inventory': 'Ваши предметы и покупки.',
+  '/market': 'Объявления внутреннего рынка.',
+  '/economy_top': 'Рейтинг по балансу жетонов.',
+  '/clan': 'Информация и управление кланом.',
+  '/remind': 'Создать напоминание для чата.',
+  '/poll': 'Создать опрос.',
+  '/vote': 'Проголосовать в опросе.',
+  '/pollresults': 'Показать результаты опроса.',
+  '/reports': 'Очередь жалоб для модераторов.',
+  '/rank': 'Назначить ранг участнику (администратор).',
+  '/pay': 'Перевести жетоны участнику.',
+  '/grant': 'Начислить жетоны участнику (администратор).',
+  '/rep': 'Посмотреть репутацию участника.',
+  '/top': 'Рейтинг участников по репутации.',
+  '/awards': 'Список полученных наград.'
+};
 
 const field = (value, max, label) => {
   const text = String(value ?? '').trim();
@@ -76,7 +111,7 @@ export class ZladenGroupConsoleController {
 
   #html(group, botJoined) {
     const disabled = botJoined ? '' : ' disabled';
-    const buttons = QUICK_COMMANDS.map(([label, command]) => '<button type="button" data-zc="preset" data-command="' + escapeHtml(command) + '"><b>' + escapeHtml(label) + '</b><code>' + escapeHtml(command) + '</code></button>').join('');
+    const buttons = QUICK_COMMANDS.map(([label, command]) => '<button type="button" data-zc="preset" data-command="' + escapeHtml(command) + '"><b>' + escapeHtml(label) + '</b><code>' + escapeHtml(command) + '</code><span class="rim-zc-muted">' + escapeHtml(COMMAND_DESCRIPTIONS[command] || 'Отправляет соответствующую команду Злыде.') + '</span></button>').join('');
     return '<section class="rim-zladen-console" data-rim-zladen-console>' +
       '<style>.rim-zladen-console{max-height:82vh;overflow:auto;color:var(--text)}.rim-zc-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.rim-zc-card{padding:12px;margin:10px 0;border:1px solid var(--border);border-radius:12px;background:var(--panel)}.rim-zc-grid button{display:grid;text-align:left;gap:4px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--panel2);color:inherit}.rim-zc-grid code,.rim-zc-muted{font-size:12px;color:var(--muted)}.rim-zc-form{display:grid;gap:8px}.rim-zc-form input,.rim-zc-form select,.rim-zc-form textarea{width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:inherit}.rim-zc-form textarea{min-height:70px}.rim-zc-form button{padding:10px;border:0;border-radius:10px;background:var(--gold);color:#17130d;font-weight:700}@media(max-width:420px){.rim-zc-grid{grid-template-columns:1fr}}</style>' +
       '<header><div class="rim-zc-muted">RIM · СИСТЕМНЫЙ ПОМОЩНИК</div><h2>Центр управления Злыдей</h2><p>' + escapeHtml(group.title || 'Группа') + '</p><button type="button" data-zc="close">Закрыть</button></header>' +
