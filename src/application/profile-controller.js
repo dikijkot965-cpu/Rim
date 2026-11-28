@@ -180,7 +180,7 @@ export class ProfileController {
     if (bio.length > 500) return Err(new Error('Описание «О себе» не должно превышать 500 символов.'));
     if (birthDate) {
       const parsed = new Date(birthDate + 'T00:00:00.000Z');
-      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(birthDate) || Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== birthDate || birthDate < '1900-01-01' || birthDate > new Date().toISOString().slice(0, 10)) return Err(new Error('Укажите корректную дату рождения не позднее сегодняшнего дня.'));
+      if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(birthDate) || Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== birthDate || birthDate < '1900-01-01' || birthDate > new Date().toISOString().slice(0, 10)) return Err(new Error('Укажите корректную дату рождения не позднее сегодняшнего дня.'));
     }
     if (!/^[a-z0-9_]{3,24}$/i.test(username)) {
       return Err(new Error('Username должен содержать 3–24 символа: латиница, цифры, _.'));
