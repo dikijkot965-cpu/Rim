@@ -30,6 +30,7 @@ export class ChannelCommandService {
     this.setChannel = setChannel;
     this.confirm = confirm || (() => true);
     this.prompt = prompt || (() => null);
+    this.closeModal = closeModal;
     this.logger = logger;
     this.inFlight = new Set();
   }
