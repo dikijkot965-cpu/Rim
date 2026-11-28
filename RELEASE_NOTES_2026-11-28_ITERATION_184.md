@@ -36,6 +36,12 @@
 - For an ordinary direct chat, the action creates a separate secret E2E conversation with the other participant. It does not silently convert old plaintext history into encrypted history.
 - Existing secret direct chats continue to expose verification/completion; private groups retain their group E2E control.
 
+### Zladen games, RP and help
+- Added `/dice` as an alias for `/roll`, plus `/golden_dice`, `/pair_all` and `/ping`.
+- Added group RP actions `/hug`, `/pat` and `/tea` alongside high-five, handshake, congratulations, praise and apology.
+- Extended `/help <command>` descriptions to cover games, RP actions and market operations.
+- Executed transactional group-message tests with Zladen installed: golden dice, help descriptions, random pairing, hug and dice alias all produced the expected bot replies; test rows were rolled back.
+
 ### Channel moderation metadata
 - Production logs contained a `42501 permission denied` when channel moderation metadata was read.
 - Added a SELECT grant to authenticated users plus an RLS policy scoped to `app_can_manage_channel(channel_id)`.
@@ -48,6 +54,7 @@
 - `20261128124000_rim_iteration_184_invoker_create_rpc_rls`
 - `20261128124500_rim_iteration_184_creator_scoped_member_insert`
 - `20261128125000_rim_iteration_184_creator_member_insert_guard`
+- `20261128130000_rim_iteration_184_zladen_social_game_commands`
 
 ## Database-level acceptance checks
 Executed under the `authenticated` role inside transactions and rolled back:
