@@ -149,14 +149,14 @@ export class GroupCommandService {
     if (!conversationId) return Err(new Error('Не указана группа.'));
 
     return this.exclusive(`group-join-public:${conversationId}`, async () => {
-      const { error } = await this.client.from('conversation_members').insert({
-        conversation_id: conversationId,
-        user_id: user.value.id
+      const { data, error } = await this.client.rpc('rim_group_join_public', {
+        p_conversation_id: conversationId
       });
-      if (error && !String(error.message || '').toLowerCase().includes('duplicate')) return Err(error);
+      if (error) return Err(error);
+      const joinedId = data || conversationId;
       await this.reloadConversations();
-      await this.openConversation(conversationId);
-      return Ok(true);
+      await this.openConversation(joinedId);
+      return Ok(joinedId);
     });
   }
 

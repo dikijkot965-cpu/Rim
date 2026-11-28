@@ -42,3 +42,20 @@ test('create resolves members and calls RPC', async () => {
   assert.ok(calls.includes('close'));
   assert.ok(calls.includes('after'));
 });
+
+test('joinPublic uses the server-side public group membership RPC', async () => {
+  const calls = [];
+  const service = new GroupCommandService({
+    client: { rpc: async (name, args) => { calls.push([name, args]); return { data: 'g-public', error: null }; } },
+    getUser: () => ({ id: 'u1' }),
+    reloadConversations: async () => calls.push('reload'),
+    openConversation: async id => calls.push(['open', id])
+  });
+  const result = await service.joinPublic('g-public');
+  assert.equal(result.ok, true);
+  assert.deepEqual(calls, [
+    ['rim_group_join_public', { p_conversation_id: 'g-public' }],
+    'reload',
+    ['open', 'g-public']
+  ]);
+});
