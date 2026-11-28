@@ -1,4 +1,4 @@
-name: RIM Iteration 183 build and verification
+name: RIM Iteration 184 build and verification
 
 concurrency:
   group: rim-iteration-183-${{ github.ref }}
@@ -73,13 +73,13 @@ jobs:
           if git diff --cached --quiet; then
             echo "Generated browser assets are already current."
           else
-            git commit -m "Build RIM Iteration 183 browser assets"
+            git commit -m "Build RIM Iteration 184 browser assets"
             git push origin HEAD:main
           fi
       - name: Package complete source project
         run: |
-          ARCHIVE="$RUNNER_TEMP/RIM_4.1.8_ITERATION_183.zip"
-          CHECKSUM="$RUNNER_TEMP/RIM_4.1.8_ITERATION_183.zip.sha256"
+          ARCHIVE="$RUNNER_TEMP/RIM_4.1.8_ITERATION_184.zip"
+          CHECKSUM="$RUNNER_TEMP/RIM_4.1.8_ITERATION_184.zip.sha256"
           rm -f "$ARCHIVE" "$CHECKSUM"
           zip -qr "$ARCHIVE" . -x './.git/*' './**/.git/*' './node_modules/*' './**/node_modules/*' './*.zip' './*.zip.sha256' './**/*.zip' './**/*.zip.sha256' './.env' './.env.*' './**/.env' './**/.env.*'
           sha256sum "$ARCHIVE" | awk -v name="$(basename "$ARCHIVE")" '{print $1 "  " name}' > "$CHECKSUM"
@@ -89,25 +89,25 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="v4.1.8-iteration.183"
-          ARCHIVE="$RUNNER_TEMP/RIM_4.1.8_ITERATION_183.zip"
-          CHECKSUM="$RUNNER_TEMP/RIM_4.1.8_ITERATION_183.zip.sha256"
+          TAG="v4.1.8-iteration.184"
+          ARCHIVE="$RUNNER_TEMP/RIM_4.1.8_ITERATION_184.zip"
+          CHECKSUM="$RUNNER_TEMP/RIM_4.1.8_ITERATION_184.zip.sha256"
           test -s "$ARCHIVE"
           test -s "$CHECKSUM"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$ARCHIVE" "$CHECKSUM" --clobber
           else
             gh release create "$TAG" "$ARCHIVE" "$CHECKSUM" \
-              --title "RIM 4.1.8 — Iteration 183" \
-              --notes-file RELEASE_NOTES_2026-11-28_ITERATION_183.md \
+              --title "RIM 4.1.8 — Iteration 184" \
+              --notes-file RELEASE_NOTES_2026-11-28_ITERATION_184.md \
               --target "$(git rev-parse HEAD)"
           fi
-          gh release edit "$TAG" --notes-file RELEASE_NOTES_2026-11-28_ITERATION_183.md
+          gh release edit "$TAG" --notes-file RELEASE_NOTES_2026-11-28_ITERATION_184.md
       - uses: actions/upload-artifact@v4
         with:
-          name: RIM_4.1.8_ITERATION_183
+          name: RIM_4.1.8_ITERATION_184
           path: |
-            ${{ runner.temp }}/RIM_4.1.8_ITERATION_183.zip
-            ${{ runner.temp }}/RIM_4.1.8_ITERATION_183.zip.sha256
+            ${{ runner.temp }}/RIM_4.1.8_ITERATION_184.zip
+            ${{ runner.temp }}/RIM_4.1.8_ITERATION_184.zip.sha256
           if-no-files-found: error
           retention-days: 14
