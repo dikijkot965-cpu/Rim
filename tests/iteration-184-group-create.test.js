@@ -60,3 +60,10 @@ test('channel creation is atomic and public channels enter the catalog', async (
   assert.match(service, /rpc\('rim_create_channel'/);
   assert.doesNotMatch(service.slice(service.indexOf('async create('), service.indexOf('async exclusive(')), /from\('channels'\)/);
 });
+
+test('new groups offer Zladen as a default member so group commands can run', async () => {
+  const groups = await read('src/composition/groups-surface.js');
+  assert.match(groups, /id="rimGroupAddZladen" type="checkbox" checked/);
+  assert.match(groups, /container\.get\('zladenBot'\).*getPublicProfile/);
+  assert.match(groups, /names\.push\(profile\.value\.username\)/);
+});
