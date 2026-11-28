@@ -1,30 +1,44 @@
-RIM 4.1.8 — Iteration 183
-Build focus: public group discovery/join, search navigation, feed publishing, profile settings, E2E controls and Zladen command help.
+RIM 4.1.8 — Iteration 184
+Focus: repair create flows, feed diagnostics, correct header/search behavior, non-blocking music, direct-chat E2E entrypoint and production RLS.
 
-Production Supabase migrations applied to project:
-- 20261128053459_rim_iteration_183_zladen_help_details
-- 20261128053725_rim_iteration_183_public_group_discovery_join
-- 20261128053821_rim_iteration_183_private_profile_details
-- 20261128054228_rim_iteration_183_zladen_help_secret_scope_guard
-- 20261128054727_rim_iteration_183_zladen_help_after_message_guards
+Production Supabase migrations:
+- 20261128063856_rim_iteration_184_atomic_group_creation
+- 20261128121000_rim_iteration_184_channel_moderation_read_policy
 
-Application changes:
-- Group creation now calls the existing production create_group_chat RPC, then applies visibility and avatar settings through rim_group_update_settings. The unsupported group-username field was removed instead of pretending it was persisted.
-- Public groups are discoverable to authenticated users through a narrowly scoped SELECT policy. Joining uses rim_group_join_public, which checks group visibility, E2E state and permanent group bans; private conversation messages and member lists remain protected.
-- Search result navigation is delegated from the stable results root so users, channels, messages and public groups remain clickable after asynchronous rendering.
-- Feed publish click now resolves the current Supabase publisher at click time rather than retaining the obsolete local-only function reference.
-- Chat bootstrap placeholders no longer emit misleading “module is loading” notices when the modular chat list already owns rendering.
-- Settings now includes a “Мой профиль” entry. Birth date is stored separately in profile_private_details with owner-only RLS; it is not exposed through the public profiles table.
-- Eligible secret direct chats expose the E2E verification action in chat information. Group E2E controls remain restricted to private groups.
-- Zladen now answers /help <command> with command-specific descriptions, including group custom commands and aliases. The handler skips E2E-required, pending and secret conversations. The group console also explains its quick-command presets.
-- Music render failures now show an actionable error panel and retry control instead of leaving a blank section.
-- Browser asset cache key is 4.1.8.183-release. Existing Signal SDK 14.7.0, idb 8.0.3 and esbuild 0.27.0 remain pinned.
+Confirmed production database checks (all inside transactions and rolled back):
+- Authenticated feed_posts INSERT succeeded.
+- Authenticated private channels INSERT succeeded.
+- Authenticated rim_create_group_chat returned a group with created_by=auth.uid(), is_private=false and creator role owner.
+- Authenticated channel_members admin INSERT succeeded for the channel owner.
+- channel_member_moderation SELECT: authenticated=true, anon=false.
+- Zladen help trigger remains after message security/moderation guards.
 
-Verification:
-- GitHub verification workflow passed on commit bc60adcef81f9caf970c78ffeb8c4950db7bf018.
-- Final Iteration 183 package build, generated bundle publication and ZIP artifact are pending on the final commit.
-- Live acceptance on two authenticated Android accounts is not simulated by unit tests. E2E group exchange, actual audio playback, Telegram OAuth, and the complete UI flow still require device-level verification.
+Code changes:
+- One authoritative group creation route; removed competing prompt-based global override.
+- Atomic group creation RPC with invite validation, owner role and privacy in one transaction.
+- Plus menu reports missing handlers instead of silently no-op.
+- Feed submit guard, disabled submit button during in-flight requests and precise Supabase/media errors.
+- Restored Римъ brand; search stays right; header hides only in search mode.
+- Search public-group click closes search before navigation.
+- Local music library renders before remote cloud hydration.
+- Direct chats expose a separate secret-chat E2E action; ordinary history is not retroactively encrypted.
+- Chat info resolves active conversation from the canonical context.
+- Channel moderation metadata has manager-scoped SELECT RLS.
 
-Known scope limits:
-- This iteration does not claim full Iris feature parity. It improves Zladen command discoverability while preserving the existing moderation, triggers, economy, games, polls, reminders, clans, aliases and custom-command modules.
-- Profile birth date is private to the account owner by default; public birthday visibility is intentionally not implemented.
+Iris parity:
+- Not complete. Existing Zladen modules include moderation, triggers, economy, games, polls, reminders, clans, aliases, custom commands, reputation, notes and bookmarks.
+- Cross-chat networks, community catalog/geography, full social graph/relationships, VIP/Business parity and full clone-bot compatibility remain open work.
+
+SDK baseline unchanged:
+- @open-e2ee/signal-protocol-sdk 14.7.0
+- idb 8.0.3
+- esbuild 0.27.0
+
+Device acceptance still required:
+- Android create group/channel via plus
+- text and media feed post
+- search to profile/channel/group
+- music playback
+- chat info button
+- direct secret chat and private-group E2E on two accounts
+- Telegram OAuth
