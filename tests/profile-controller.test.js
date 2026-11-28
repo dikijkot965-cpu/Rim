@@ -38,6 +38,7 @@ test('saveFromDom updates profile row', async () => {
     client: {
       from(table) {
         return {
+          upsert(payload, options) { calls.push(['upsert', table, payload, options]); return Promise.resolve({ error: null }); },
           update(payload) {
             calls.push(['update', table, payload]);
             return {
@@ -68,5 +69,6 @@ test('saveFromDom updates profile row', async () => {
   const result = await controller.saveFromDom();
   assert.equal(result.ok, true);
   assert.ok(calls.some(c => c[0] === 'update' && c[1] === 'profiles'));
+  assert.ok(calls.some(c => c[0] === 'upsert' && c[1] === 'profile_private_details'));
   assert.ok(calls.includes('close'));
 });
