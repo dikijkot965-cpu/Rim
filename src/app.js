@@ -120,8 +120,14 @@ const startE2ERuntimeForProtectedConversation = async conversation => {
 const stopE2EConversationListener = events.on('conversation.opened', payload => {
   const conversation = payload?.conversation;
   const button = document.getElementById('rimE2EVerifyBtn');
-  const visible = conversation?.type === 'direct' && (conversation?.is_secret === true || conversation?.e2e_mode === 'required');
-  if (button) button.hidden = !visible;
+  const visible = conversation?.type === 'direct';
+  if (button) {
+    button.hidden = !visible;
+    button.title = conversation?.is_secret === true || ['pending', 'required'].includes(conversation?.e2e_mode)
+      ? 'Проверить или завершить настройку E2E'
+      : 'Создать отдельный секретный чат E2E';
+    button.setAttribute('aria-label', button.title);
+  }
   void startE2ERuntimeForProtectedConversation(conversation);
 });
 window.rimEnableE2EScope = async (scopeType, scopeId) => {
@@ -168,7 +174,17 @@ window.rimVerifyE2E = async () => {
   const user = legacy.getUser?.();
   if (!user?.id || !conversation?.id) return null;
   if (conversation.type === 'group' && conversation.is_private === true) return window.rimEnableE2EScope('group', conversation.id);
-  if (conversation.type !== 'direct' || !(conversation.is_secret === true || conversation.e2e_mode === 'required')) { legacy.notify?.('Проверка доступна в секретном чате или приватной группе.'); return null; }
+  if (conversation.type === 'direct' && conversation.is_secret !== true && !['pending', 'required'].includes(conversation.e2e_mode)) {
+    const members = await legacy.db.from('conversation_members')
+      .select('user_id')
+      .eq('conversation_id', conversation.id);
+    if (members.error) { legacy.notify?.('Не удалось определить собеседника: ' + members.error.message); return null; }
+    const peerId = (members.data || []).map(row => String(row.user_id || '')).find(id => id && id !== String(user.id));
+    if (!peerId) { legacy.notify?.('Не удалось определить второго участника переписки.'); return null; }
+    if (typeof window.startSecretChatWith !== 'function') { legacy.notify?.('Модуль секретных чатов ещё не готов.'); return null; }
+    return window.startSecretChatWith(peerId);
+  }
+  if (conversation.type !== 'direct' || !(conversation.is_secret === true || ['pending', 'required'].includes(conversation.e2e_mode))) { legacy.notify?.('Проверка доступна в секретном чате или приватной группе.'); return null; }
   try {
     const scope = await container.get('e2eScopeRepository').getScope({ type: 'direct', id: conversation.id, is_secret: true }, user.id);
     if (!scope.ok) throw scope.error;
