@@ -109,6 +109,7 @@ export class MessageCommandService {
     if (!this.e2eScopeRepository) return Err(new Error('Защищённая проверка режима переписки недоступна; открытый текст не сохранён в очереди.'));
     const scope = await this.inspectE2EScope(conversation, user);
     if (!scope.ok) return Err(scope.error);
+    if (scope.value?.pendingSecretRequest || scope.value?.plaintextBlocked) return Err(new Error('Секретный чат ожидает принятия приглашения. Сообщения пока не отправляются.'));
     if (scope.value?.enabled) return Err(new Error('Эта переписка требует E2E. Открытый текст не сохранён в офлайн-очереди.'));
     return Ok(true);
   }
@@ -117,6 +118,7 @@ export class MessageCommandService {
     if (!['direct', 'group'].includes(conversation?.type)) return Ok(true);
     const scopeResult = await this.inspectE2EScope(conversation, user);
     if (!scopeResult.ok) return Err(scopeResult.error);
+    if (scopeResult.value?.pendingSecretRequest || scopeResult.value?.plaintextBlocked) return Err(new Error('Секретный чат ожидает принятия приглашения. Вложение не отправлено.'));
     if (scopeResult.value?.enabled) return Err(new Error(scopeResult.value.readiness?.reason || 'Эта переписка требует E2E. Вложение не отправлено открытым способом.'));
     return Ok(true);
   }
@@ -188,6 +190,9 @@ export class MessageCommandService {
       if (['direct', 'group'].includes(currentConversation?.type) && this.e2eScopeRepository) {
         const scopeResult = await this.inspectE2EScope(currentConversation, user);
         if (!scopeResult.ok) return Err(scopeResult.error || new Error('Не удалось проверить режим E2E этой переписки.'));
+        if (scopeResult.value?.pendingSecretRequest || scopeResult.value?.plaintextBlocked) {
+          return Err(new Error('Секретный чат ожидает принятия приглашения. Сообщения пока не отправляются.'));
+        }
         if (scopeResult.value?.enabled) {
           let protectedScope = scopeResult.value;
           let readiness = protectedScope.readiness;
