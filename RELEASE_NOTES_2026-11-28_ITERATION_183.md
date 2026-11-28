@@ -1,30 +1,48 @@
 # RIM 4.1.8 — Iteration 183
 
-## Preserved main-branch fixes
-- Production group creation now uses the corrected `create_group_chat` RPC contract and opens the new group.
-- Search result clicks use delegated navigation for people, channels, messages and public groups.
-- Direct-chat E2E verification action is retained.
-- Feed publish click resolves the current asynchronous Supabase publisher at click time.
-- Chat bootstrap placeholders no longer display false "module still loading" notifications before modular entrypoints are ready.
+## Changes
 
-## Channel creation consistency
-- Fail closed if owner membership cannot be created after the channel row is inserted.
-- Best-effort rollback removes the channel row and uploaded avatar; rollback failures are logged and surfaced explicitly.
-- Reject unsupported avatar MIME types before upload.
+### Groups and channels
+- Replaced the nonexistent `create_public_group_chat` client call with the production `create_group_chat` RPC.
+- Applies group visibility and avatar through `rim_group_update_settings`.
+- Removed the unsupported group username field instead of accepting data that the database could not persist.
+- Added authenticated discovery of public group metadata only.
+- Added `rim_group_join_public(uuid)`: idempotent membership, public-only, rejects E2E-pending/required groups and users banned from the group.
+- Existing channel creation retains owner-membership rollback and MIME/size validation.
 
-## UI and deployment
-- Wire the existing ChatInfoController to the chat header information button, with explicit failure notification.
-- Bump browser script cache keys to the 183 release marker so clients do not retain the old 181/182 bundles.
-- Remove the decorative RIM wordmark from the main application header; authentication branding remains.
-- Build workflow produces a complete source ZIP and SHA-256 checksum as a GitHub Actions artifact.
+### Feed and search
+- Fixed late binding of the feed publisher. The publish button now invokes the Supabase-backed implementation rather than the old local-only handler captured at startup.
+- Search result click handling is delegated from the results container. Users, channels, conversations and public groups can be opened from search.
+- The “Римъ” decorative wordmark is removed from the main application chrome; auth branding remains.
 
-## Database migration
-- Includes the main-branch migration `20261128053459_rim_iteration_183_zladen_help_details.sql`, which adds command-specific `/help <command>` explanations and supports custom command/alias descriptions.
-- Apply this migration to the connected Supabase project before expecting the new command-help responses. This branch adds no further schema changes.
+### Profile and settings
+- Added a “Мой профиль” entry to Settings.
+- Profile editor supports display name, username, bio, name color and avatar as before.
+- Added birth date to a separate `profile_private_details` table with RLS restricted to `auth.uid()`. Birth date is not stored in the publicly readable `profiles` table.
+- Rejects malformed, pre-1900 and future dates.
 
-## Compatibility and security
-- No changes to Signal Protocol, key material, ciphertext storage, relay, or E2E policy.
+### Chat and E2E
+- Removed false chat-module loading notifications from modular bootstrap placeholders.
+- Added E2E verification action for eligible secret direct chats.
+- Existing group E2E activation remains available for private groups.
+- E2E-required, pending and secret chats are excluded from the new Zladen help trigger.
 
-## Verification boundary
-- Full CI, browser bundle build, architecture checks, syntax checks, HTML audit, regression suite and Signal relay tests must pass.
-- Live multi-account Android acceptance remains required for channel creation, group creation, feed publishing, E2E activation and music playback.
+### Zladen
+- Added command-specific `/help <command>` replies.
+- Help resolves built-in commands, group custom commands and aliases.
+- Expanded the group console quick-command presets with short explanations.
+- Existing moderation, games, economy, triggers, reminders, polls, clans, notes, bookmarks, reports and alias/custom-command systems remain in place.
+
+### Music
+- A music render failure now displays a visible error message and retry control instead of silently leaving a blank screen. This improves failure visibility; it does not replace real-device audio playback acceptance.
+
+## Supabase migrations applied
+- `20261128053459_rim_iteration_183_zladen_help_details`
+- `20261128053725_rim_iteration_183_public_group_discovery_join`
+- `20261128053821_rim_iteration_183_private_profile_details`
+- `20261128054228_rim_iteration_183_zladen_help_secret_scope_guard`
+
+## Verification
+- GitHub verification passed on `bc60adcef81f9caf970c78ffeb8c4950db7bf018`.
+- Final build/package workflow runs on the final release commit.
+- Unit tests and build checks do not prove live two-device E2E exchange, Telegram OAuth, actual audio playback, or complete Android UI acceptance.
