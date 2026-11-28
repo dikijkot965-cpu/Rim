@@ -62,7 +62,7 @@ test('feed comments use author_id and body rather than nonexistent aliases', () 
 
 test('authenticated feed writes do not silently fall back to local-only storage', () => {
   assert.match(index, /hasRemoteSession\s*=\s*!!rimDb\(\)\s*&&\s*!!rimUserId\(\)/);
-  assert.match(index, /Не удалось создать публикацию в Supabase/);
+  assert.match(index, /Публикация не создана:/);
   assert.match(index, /Не удалось сохранить комментарий в Supabase/);
 });
 
