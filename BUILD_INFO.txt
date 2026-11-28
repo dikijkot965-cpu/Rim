@@ -6,6 +6,7 @@ Production Supabase migrations applied to project:
 - 20261128053725_rim_iteration_183_public_group_discovery_join
 - 20261128053821_rim_iteration_183_private_profile_details
 - 20261128054228_rim_iteration_183_zladen_help_secret_scope_guard
+- 20261128054727_rim_iteration_183_zladen_help_after_message_guards
 
 Application changes:
 - Group creation now calls the existing production create_group_chat RPC, then applies visibility and avatar settings through rim_group_update_settings. The unsupported group-username field was removed instead of pretending it was persisted.
