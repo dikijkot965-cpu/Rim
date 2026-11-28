@@ -74,46 +74,6 @@ export class DirectChatService {
     });
   }
 
-  async acceptSecretRequest(requestId) {
-    const user = this.getUser?.();
-    if (!user?.id) return Err(new Error('Требуется вход в РИМ.'));
-    if (!requestId) return Err(new Error('Не указан запрос на секретный чат.'));
-    return this.exclusive(`secret-accept:${requestId}`, async () => {
-      const { data, error } = await this.client.rpc('rim_accept_secret_chat_request', { p_request_id: requestId });
-      if (error) return Err(error);
-      const conversationId = typeof data === 'string' ? data : data?.conversation_id || data?.id;
-      if (!conversationId) return Err(new Error('Сервер не вернул ID принятого секретного чата.'));
-      await this.reloadConversations();
-      await this.openConversation(conversationId);
-      return Ok(conversationId);
-    });
-  }
-
-  async cancelSecretRequest(conversationId) {
-    const user = this.getUser?.();
-    if (!user?.id) return Err(new Error('Требуется вход в РИМ.'));
-    if (!conversationId) return Err(new Error('Не указан секретный чат.'));
-    return this.exclusive(`secret-cancel:${conversationId}`, async () => {
-      const { data, error } = await this.client.rpc('rim_cancel_secret_chat_request', { p_conversation_id: conversationId });
-      if (error) return Err(error);
-      await this.reloadConversations();
-      if (String(this.getConversation?.()?.id || '') === String(conversationId)) await this.openConversation(conversationId);
-      return Ok(data ?? true);
-    });
-  }
-
-  async declineSecretRequest(requestId) {
-    const user = this.getUser?.();
-    if (!user?.id) return Err(new Error('Требуется вход в РИМ.'));
-    if (!requestId) return Err(new Error('Не указан запрос на секретный чат.'));
-    return this.exclusive(`secret-decline:${requestId}`, async () => {
-      const { data, error } = await this.client.rpc('rim_decline_secret_chat_request', { p_request_id: requestId });
-      if (error) return Err(error);
-      await this.reloadConversations();
-      return Ok(data ?? true);
-    });
-  }
-
   async startWith(userId) {
     const user = this.getUser?.();
     if (!user?.id) return Err(new Error('Требуется вход в РИМ.'));
