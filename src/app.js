@@ -141,12 +141,14 @@ const stopE2EConversationListener = events.on('conversation.opened', payload => 
   const conversation = payload?.conversation;
   const button = document.getElementById('rimE2EVerifyBtn');
   const visible = conversation?.type === 'direct';
-  const awaitingPeer = visible && conversation?.is_secret !== true && conversation?.e2e_mode === 'pending';
+  const pendingRequest = visible && conversation?.is_secret !== true && conversation?.e2e_mode === 'pending';
+  const isRequester = pendingRequest && String(conversation?.created_by || '') === String(legacy.getUser?.()?.id || '');
+  const awaitingPeer = pendingRequest && !isRequester;
   if (button) {
     button.hidden = !visible;
     button.disabled = awaitingPeer;
-    button.title = awaitingPeer
-      ? 'Предложение отправлено — ожидается принятие собеседником'
+    button.title = pendingRequest
+      ? (isRequester ? 'Отменить предложение секретного чата' : 'Ожидается принятие предложения собеседником')
       : (conversation?.is_secret === true || conversation?.e2e_mode === 'required'
         ? 'Проверить защищённый обмен E2E'
         : 'Создать отдельный секретный чат E2E');
@@ -193,12 +195,45 @@ window.rimEnableE2EScope = async (scopeType, scopeId) => {
     return null;
   }
 };
+window.rimDisableE2EScope = async (scopeType, scopeId) => {
+  const user = legacy.getUser?.();
+  const type = String(scopeType || '');
+  const id = String(scopeId || '');
+  if (!user?.id || !id || !['group','private_channel'].includes(type)) {
+    legacy.notify?.('Отключить E2E можно только в приватной группе или закрытом канале.');
+    return null;
+  }
+  if (!window.confirm?.('Отключить E2E только в этой переписке? Новые сообщения будут отправляться обычным способом. Ранее полученная E2E-история останется локальной на устройствах участников и не будет преобразована в обычную историю.')) return null;
+  try {
+    const { data, error } = await legacy.db.rpc('rim_disable_e2e_scope', { p_scope_type: type, p_scope_id: id });
+    if (error) throw error;
+    if (type === 'group') {
+      const active = legacy.getActiveConversation?.();
+      if (String(active?.id || '') === id) Object.assign(active, { e2e_mode: 'off', e2e_protocol: null, is_secret: false });
+      await conversationList.load();
+      await window.renderMessages?.();
+    } else if (String(window.currentChannel?.id || '') === id) {
+      Object.assign(window.currentChannel, { e2e_mode: 'off', e2e_protocol: null });
+    }
+    legacy.notify?.('E2E отключено только в выбранной переписке. Остальные чаты не изменены.');
+    return data;
+  } catch (error) {
+    legacy.notify?.(error?.message || 'Не удалось отключить E2E.');
+    logger.warn('e2e.scope.disable.failed', { scopeType: type, scopeId: id, message: error?.message || String(error) });
+    return null;
+  }
+};
+
 window.rimVerifyE2E = async () => {
   const conversation = legacy.getActiveConversation?.();
   const user = legacy.getUser?.();
   if (!user?.id || !conversation?.id) return null;
   if (conversation.type === 'direct' && conversation.is_secret !== true && conversation.e2e_mode === 'pending') {
-    legacy.notify?.('Предложение секретного чата отправлено. Ожидается принятие собеседником; обычные чаты не затронуты.');
+    if (String(conversation.created_by || '') === String(user.id)) {
+      if (!window.confirm?.('Отменить своё предложение секретного чата? После отмены этот диалог снова станет обычной личной перепиской.')) return null;
+      return window.rimCancelSecretChatRequest?.(conversation.id) || null;
+    }
+    legacy.notify?.('Это предложение отправил собеседник. Примите или отклоните его в окне входящего предложения.');
     return null;
   }
   if (conversation.type === 'group' && conversation.is_private === true) return window.rimEnableE2EScope('group', conversation.id);
