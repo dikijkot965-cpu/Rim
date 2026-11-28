@@ -289,6 +289,7 @@
     "channel_creation": "Fail closed on owner-membership failure; best-effort rollback of channel and uploaded avatar; validate avatar MIME type.",
     "chat_info": "Bind ChatInfoController to global openChatInfo and notify on errors.",
     "client_cache": "Bump browser module query strings to 4.1.8.183-release.",
-    "header": "Remove decorative main-app wordmark; retain auth branding."
+    "header": "Remove decorative main-app wordmark; retain auth branding.",
+    "zladen_help": "Preserve the main-branch command-specific /help <command> SQL trigger and console preset descriptions; requires migration 20261128053459_rim_iteration_183_zladen_help_details.sql."
   }
 }
