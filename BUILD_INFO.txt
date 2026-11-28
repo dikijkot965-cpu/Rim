@@ -5,6 +5,8 @@ Production Supabase migrations:
 - 20261128063856_rim_iteration_184_atomic_group_creation
 - 20261128121000_rim_iteration_184_channel_moderation_read_policy
 - 20261128122000_rim_iteration_184_atomic_channel_creation
+- 20261128124000_rim_iteration_184_invoker_create_rpc_rls
+- 20261128124500_rim_iteration_184_creator_scoped_member_insert
 
 Confirmed production database checks (all inside transactions and rolled back):
 - Authenticated feed_posts INSERT succeeded.
@@ -20,6 +22,7 @@ Code changes:
 - Atomic group creation RPC with invite validation, owner role and privacy in one transaction.
 - New-group dialog offers Zladen as a default participant; username is verified against profiles before adding.
 - Atomic channel creation RPC creates channel and owner membership together; public channels become catalog-visible, private channels do not.
+- Both new creation RPCs run as SECURITY INVOKER. Narrow RLS policies authorize group creation/initial membership; the obsolete SECURITY DEFINER create_group_chat RPC is no longer callable by authenticated clients.
 - Plus menu reports missing handlers instead of silently no-op.
 - Feed submit guard, disabled submit button during in-flight requests and precise Supabase/media errors.
 - Restored Римъ brand; search stays right; header hides only in search mode.
