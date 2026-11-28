@@ -18,8 +18,11 @@
 - Remove the decorative RIM wordmark from the main application header; authentication branding remains.
 - Build workflow produces a complete source ZIP and SHA-256 checksum as a GitHub Actions artifact.
 
+## Database migration
+- Includes the main-branch migration `20261128053459_rim_iteration_183_zladen_help_details.sql`, which adds command-specific `/help <command>` explanations and supports custom command/alias descriptions.
+- Apply this migration to the connected Supabase project before expecting the new command-help responses. This branch adds no further schema changes.
+
 ## Compatibility and security
-- No production SQL migration.
 - No changes to Signal Protocol, key material, ciphertext storage, relay, or E2E policy.
 
 ## Verification boundary
