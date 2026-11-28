@@ -105,14 +105,24 @@ export class ChannelCommandService {
         });
         let rollbackError = null;
         if (data?.id) {
-          const rollback = await this.client.from('channels').delete().eq('id', data.id);
-          rollbackError = rollback?.error || null;
+          try {
+            const rollback = await this.client.from('channels').delete().eq('id', data.id);
+            rollbackError = rollback?.error || null;
+          } catch (error) {
+            rollbackError = error;
+          }
         }
         if (avatarPath) {
-          const cleanup = await this.client.storage.from('avatars').remove([avatarPath]);
-          if (cleanup?.error) {
+          try {
+            const cleanup = await this.client.storage.from('avatars').remove([avatarPath]);
+            if (cleanup?.error) {
+              this.logger?.warn?.('channel.create.avatar_cleanup_failed', {
+                message: cleanup.error.message || String(cleanup.error)
+              });
+            }
+          } catch (error) {
             this.logger?.warn?.('channel.create.avatar_cleanup_failed', {
-              message: cleanup.error.message || String(cleanup.error)
+              message: error?.message || String(error)
             });
           }
         }
