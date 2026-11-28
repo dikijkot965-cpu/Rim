@@ -192,14 +192,14 @@ export class MessageListRenderer {
     if (!unique.length) return {};
     const missing = unique.filter(id => !this.profileCache.has(id));
     if (missing.length) {
-      // Cache empty rows too: deleted/private profiles must not trigger a
-      // second round-trip on every message render.
-      for (const id of missing) this.profileCache.set(id, {});
       const { data, error } = await this.client
         .from('profiles')
         .select('id,username,display_name,avatar_url,name_color')
         .in('id', missing);
       if (error) throw error;
+      // Cache empty rows too: deleted/private profiles must not trigger a
+      // second round-trip on every message render. Failed requests are not cached.
+      for (const id of missing) this.profileCache.set(id, {});
       for (const profile of data || []) this.profileCache.set(String(profile.id), profile);
     }
     return Object.fromEntries(unique.map(id => [id, this.profileCache.get(id) || {}]));
@@ -212,7 +212,7 @@ export class MessageListRenderer {
         4500,
         'profiles_timeout'
       );
-      if (sequence !== this.renderSequence || this.disposed || !box.isConnected) return;
+      if (sequence !== this.renderSequence || this.disposed || box.isConnected === false) return;
       for (const message of messages) {
         const profile = profiles[String(message.sender_id)] || {};
         const author = box.querySelector?.(`.message[data-id="${cssEscape(message.id)}"] .message-author`);
