@@ -340,6 +340,209 @@ const composeChat = shellSurface.composeChat;
 const imperialCabinet = shellSurface.imperialCabinet;
 const searchController = shellSurface.searchController;
 
+// Durable inbox for direct E2E invitations. The conversation and invitation
+// acceptance are stored server-side, so a recipient sees the proposal even
+// if they sign in much later or on another device.
+const deferredDirectE2EInvitations = new Set();
+let directE2EInvitationModalOpen = false;
+let directE2EInvitationChannel = null;
+let directE2EInvitationUserId = '';
+let directE2EAuthSubscription = null;
+const escapeDirectInvitation = value => String(value ?? '').replace(/[&<>"']/g, ch => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+})[ch]);
+
+const showNextDirectE2EInvitation = async () => {
+  const user = legacy.getUser?.();
+  if (!user?.id || directE2EInvitationModalOpen || typeof window.showModal !== 'function') return null;
+  const { data: conversations, error } = await legacy.db.from('conversations')
+    .select('id,created_by,created_at')
+    .eq('type', 'direct')
+    .eq('is_secret', true)
+    .eq('e2e_mode', 'required')
+    .order('created_at', { ascending: false })
+    .limit(30);
+  if (error) {
+    logger.warn('e2e.direct_invitation.inbox_failed', { message: error.message });
+    return null;
+  }
+
+  let pending = null;
+  for (const conversation of conversations || []) {
+    const id = String(conversation.id || '');
+    if (!id || !conversation.created_by || String(conversation.created_by) === String(user.id)
+      || deferredDirectE2EInvitations.has(id)) continue;
+    const status = await legacy.db.rpc('rim_e2e_get_direct_invitation_status', { p_conversation_id: id });
+    if (status.error) {
+      logger.warn('e2e.direct_invitation.status_failed', { conversationId: id, message: status.error.message });
+      continue;
+    }
+    if (status.data?.accepted !== true) {
+      pending = conversation;
+      break;
+    }
+  }
+  if (!pending) return null;
+
+  let profile = null;
+  try {
+    const result = await legacy.db.from('profiles')
+      .select('id,username,display_name,avatar_url,avatar_path')
+      .eq('id', pending.created_by)
+      .maybeSingle();
+    if (!result.error) profile = result.data;
+    if (profile?.avatar_path && legacy.db.storage) {
+      const signed = await legacy.db.storage.from('avatars').createSignedUrl(profile.avatar_path, 1800);
+      if (!signed.error && signed.data?.signedUrl) profile.avatar_url = signed.data.signedUrl;
+    }
+  } catch (error) {
+    logger.warn('e2e.direct_invitation.profile_failed', { message: error?.message || String(error) });
+  }
+
+  const name = profile?.display_name || profile?.username || 'Пользователь';
+  const avatar = profile?.avatar_url
+    ? '<img src="' + escapeDirectInvitation(profile.avatar_url) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'
+    : escapeDirectInvitation(String(name).slice(0, 1).toUpperCase() || 'Р');
+  directE2EInvitationModalOpen = true;
+  window.showModal(`<h2 class="modal-title">🔒 Предложение секретного чата</h2>
+    <div class="profile-block" style="margin:12px 0 16px">
+      <div class="avatar profile-avatar">${avatar}</div>
+      <div><strong>${escapeDirectInvitation(name)}</strong><div class="muted">${profile?.username ? '@' + escapeDirectInvitation(profile.username) : 'Новый секретный диалог'}</div></div>
+    </div>
+    <p>Пользователь предлагает отдельную личную переписку с E2E-шифрованием. Это не включает шифрование в остальных чатах. После принятия RIM запустит обмен ключами; до завершения проверки отправка будет заблокирована.</p>
+    <div class="modal-actions">
+      <button class="action-btn" type="button" onclick="rimDeferDirectE2EInvitation('${escapeDirectInvitation(pending.id)}')">Позже</button>
+      <button class="action-btn danger-btn" type="button" onclick="rimDeclineDirectE2EInvitation('${escapeDirectInvitation(pending.id)}')">Отклонить</button>
+      <button class="primary-btn" type="button" onclick="rimAcceptDirectE2EInvitation('${escapeDirectInvitation(pending.id)}')">Принять</button>
+    </div>`);
+  return pending.id;
+};
+
+window.rimRefreshDirectE2EInvitations = () => showNextDirectE2EInvitation();
+window.rimDeferDirectE2EInvitation = conversationId => {
+  if (conversationId) deferredDirectE2EInvitations.add(String(conversationId));
+  directE2EInvitationModalOpen = false;
+  window.closeModal?.();
+};
+window.rimAcceptDirectE2EInvitation = async conversationId => {
+  directE2EInvitationModalOpen = false;
+  window.closeModal?.();
+  try {
+    await e2eSignalRuntime.startIncoming();
+    const { data, error } = await legacy.db.rpc('rim_e2e_accept_direct_invitation', {
+      p_conversation_id: conversationId
+    });
+    if (error) throw error;
+    await conversationList.load();
+    await window.openConversation?.(conversationId);
+    const verified = await window.rimVerifyE2E?.();
+    if (verified) legacy.notify?.('Приглашение принято. Защищённый обмен E2E подтверждён.');
+    else legacy.notify?.('Приглашение принято. RIM продолжает защищённый обмен; отправка останется заблокированной до завершения проверки.');
+    setTimeout(() => { void showNextDirectE2EInvitation(); }, 350);
+    return data;
+  } catch (error) {
+    legacy.notify?.(error?.message || 'Не удалось принять приглашение E2E.');
+    logger.warn('e2e.direct_invitation.accept_failed', { conversationId, message: error?.message || String(error) });
+    return null;
+  }
+};
+window.rimDeclineDirectE2EInvitation = async conversationId => {
+  directE2EInvitationModalOpen = false;
+  window.closeModal?.();
+  try {
+    const { data, error } = await legacy.db.rpc('rim_e2e_decline_direct_invitation', {
+      p_conversation_id: conversationId
+    });
+    if (error) throw error;
+    await conversationList.load();
+    if (String(legacy.getActiveConversation?.()?.id || '') === String(conversationId)) {
+      await window.openConversation?.(conversationId);
+    }
+    legacy.notify?.('Предложение отклонено. Этот диалог снова обычный; остальные чаты не изменены.');
+    setTimeout(() => { void showNextDirectE2EInvitation(); }, 350);
+    return data;
+  } catch (error) {
+    legacy.notify?.(error?.message || 'Не удалось отклонить приглашение E2E.');
+    return null;
+  }
+};
+window.rimCancelDirectE2EInvitation = async conversationId => {
+  try {
+    const { data, error } = await legacy.db.rpc('rim_e2e_cancel_direct_invitation', {
+      p_conversation_id: conversationId
+    });
+    if (error) throw error;
+    await conversationList.load();
+    if (String(legacy.getActiveConversation?.()?.id || '') === String(conversationId)) {
+      await window.openConversation?.(conversationId);
+    }
+    legacy.notify?.('Предложение отменено. Этот диалог снова обычный; остальные чаты не изменены.');
+    return data;
+  } catch (error) {
+    legacy.notify?.(error?.message || 'Не удалось отменить приглашение E2E.');
+    return null;
+  }
+};
+
+const bindDirectE2EInvitationInbox = userId => {
+  const nextId = String(userId || '');
+  if (nextId === directE2EInvitationUserId) return;
+  if (directE2EInvitationChannel) {
+    try { legacy.db.removeChannel?.(directE2EInvitationChannel); } catch { /* ignore */ }
+    directE2EInvitationChannel = null;
+  }
+  directE2EInvitationUserId = nextId;
+  deferredDirectE2EInvitations.clear();
+  if (!nextId || typeof legacy.db.channel !== 'function') return;
+  directE2EInvitationChannel = legacy.db.channel('rim-direct-e2e-inbox:' + nextId)
+    .on('postgres_changes', {
+      event: 'INSERT', schema: 'public', table: 'conversation_members',
+      filter: 'user_id=eq.' + nextId
+    }, () => { setTimeout(() => { void showNextDirectE2EInvitation(); }, 250); })
+    .on('postgres_changes', {
+      event: 'INSERT', schema: 'public', table: 'rim_e2e_direct_invitation_acceptances'
+    }, payload => {
+      const conversationId = String(payload?.new?.conversation_id || '');
+      if (!conversationId || String(legacy.getUser?.()?.id || '') === '') return;
+      const active = legacy.getActiveConversation?.();
+      if (String(active?.id || '') !== conversationId
+        || String(active?.created_by || '') !== String(legacy.getUser?.()?.id || '')) return;
+      void (async () => {
+        await conversationList.load();
+        await window.openConversation?.(conversationId);
+        const verified = await window.rimVerifyE2E?.();
+        if (!verified) legacy.notify?.('Собеседник принял приглашение. Защищённый обмен завершится после подключения его устройства.');
+      })();
+    })
+    .subscribe();
+};
+
+if (legacy.db?.auth?.onAuthStateChange) {
+  const authResult = legacy.db.auth.onAuthStateChange((event, session) => {
+    const userId = session?.user?.id || legacy.getUser?.()?.id || '';
+    if (event === 'SIGNED_OUT') bindDirectE2EInvitationInbox('');
+    else if (userId) {
+      bindDirectE2EInvitationInbox(userId);
+      setTimeout(() => { void showNextDirectE2EInvitation(); }, 900);
+    }
+  });
+  directE2EAuthSubscription = authResult?.data?.subscription || null;
+}
+setTimeout(() => {
+  const userId = legacy.getUser?.()?.id;
+  if (userId) {
+    bindDirectE2EInvitationInbox(userId);
+    void showNextDirectE2EInvitation();
+  }
+}, 1800);
+lifecycle.add(() => {
+  try { directE2EAuthSubscription?.unsubscribe?.(); } catch { /* ignore */ }
+  try { if (directE2EInvitationChannel) legacy.db.removeChannel?.(directE2EInvitationChannel); } catch { /* ignore */ }
+  for (const key of ['rimRefreshDirectE2EInvitations','rimDeferDirectE2EInvitation','rimAcceptDirectE2EInvitation','rimDeclineDirectE2EInvitation','rimCancelDirectE2EInvitation']) {
+    try { delete window[key]; } catch { /* ignore */ }
+  }
+});
+
 // Composition: chat info + pinned messages ownership.
 bindChatAudience({
   client: legacy.db,
