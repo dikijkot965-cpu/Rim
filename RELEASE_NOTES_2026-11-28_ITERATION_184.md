@@ -9,6 +9,7 @@
 - Removed the competing prompt-based `newGroupChat` assignment from `ShellSurface`. `GroupsSurface` is the single owner of the group-create route.
 - The plus menu now checks that a route exists and reports missing module handlers instead of silently doing nothing.
 - Channel creation reports an unavailable modal runtime instead of silently returning.
+- Added `rim_create_channel`, which creates the channel and owner-admin membership in one transaction. Public channels become catalog-visible; private channels do not.
 
 ### Feed publishing
 - The publisher has an in-flight guard and disables the publish button while a post is being sent.
@@ -41,6 +42,7 @@
 ## Database migrations applied to production Supabase
 - `20261128063856_rim_iteration_184_atomic_group_creation`
 - `20261128121000_rim_iteration_184_channel_moderation_read_policy`
+- `20261128122000_rim_iteration_184_atomic_channel_creation`
 
 ## Database-level acceptance checks
 Executed under the `authenticated` role inside transactions and rolled back:
