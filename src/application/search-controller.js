@@ -101,7 +101,7 @@ export class SearchController {
       if (sequence !== this.sequence) return;
       const html = chunks.join('');
       out.innerHTML = html || '<div class="empty-state">Ничего не найдено.</div>';
-      this.#bindMessageResults();
+      this.#bindResultActions(out);
     } catch (error) {
       if (sequence !== this.sequence) return;
       this.logger?.warn?.('search.failed', { message: error?.message });
@@ -126,20 +126,12 @@ export class SearchController {
         } catch { /* ignore */ }
       }
       const username = escapeHtml(profile.username || '');
-      rows.push(`<div class="rim-search-result" data-rim-search-user="${username}">
+      rows.push(`<button type="button" class="rim-search-result" data-rim-search-user="${username}">
         ${avatarMarkup(url, profile.display_name || profile.username)}
         <div><b>${escapeHtml(profile.display_name || profile.username)}</b>
-        <div class="feature-small">@${username}</div></div></div>`);
+        <div class="feature-small">@${username}</div></div></button>`);
     }
     const html = rows.join('');
-    queueMicrotask(() => {
-      this.document.querySelectorAll?.('[data-rim-search-user]')?.forEach?.(node => {
-        node.addEventListener('click', () => {
-          this.window?.closePage?.();
-          this.window?.findUserByName?.(node.getAttribute('data-rim-search-user'));
-        });
-      });
-    });
     return html;
   }
 
@@ -158,17 +150,9 @@ export class SearchController {
     const result = await this.client.from('chat_messages').select('id,conversation_id,body,created_at').in('conversation_id', allowedIds).ilike('body', '%' + q + '%').order('created_at', { ascending: false }).limit(25);
     if (result.error) throw result.error;
     const titles = new Map(allowed.map(row => [String(row.id), row.title || (row.type === 'direct' ? 'Личный чат' : 'Группа')]));
-    return (result.data || []).map(row => '<button type="button" class="rim-search-result" data-rim-search-conversation="' + escapeHtml(row.conversation_id) + '"><b>' + escapeHtml(titles.get(String(row.conversation_id)) || 'Переписка') + '</b><span class="feature-small">' + escapeHtml(String(row.body || 'Вложение').slice(0, 180)) + '</span></button>').join('') + this.#bindMessageResults();
+    return (result.data || []).map(row => '<button type="button" class="rim-search-result" data-rim-search-conversation="' + escapeHtml(row.conversation_id) + '"><b>' + escapeHtml(titles.get(String(row.conversation_id)) || 'Переписка') + '</b><span class="feature-small">' + escapeHtml(String(row.body || 'Вложение').slice(0, 180)) + '</span></button>').join('')
   }
 
-  #bindMessageResults() {
-    queueMicrotask(() => this.document.querySelectorAll?.('[data-rim-search-conversation]')?.forEach?.(node => {
-      if (node.dataset.bound) return;
-      node.dataset.bound = '1';
-      node.addEventListener('click', () => { this.window?.closePage?.(); this.window?.openConversation?.(node.dataset.rimSearchConversation); });
-    }));
-    return '';
-  }
   async #searchChannels(q) {
     const { data, error } = await this.client
       .from('channels')
@@ -178,26 +162,13 @@ export class SearchController {
     if (error) throw error;
     return (data || []).map(channel => {
       const id = escapeHtml(channel.id);
-      return `<div class="rim-search-result" data-rim-search-channel="${id}">
+      return `<button type="button" class="rim-search-result" data-rim-search-channel="${id}">
         ${avatarMarkup('', channel.title)}
         <div><b>${escapeHtml(channel.title)}</b>
-        <div class="feature-small">${channel.username ? '@' + escapeHtml(channel.username) : 'Канал'} · ${escapeHtml(channel.description || '')}</div></div></div>`;
-    }).join('') + this.#bindChannelClicks();
+        <div class="feature-small">${channel.username ? '@' + escapeHtml(channel.username) : 'Канал'} · ${escapeHtml(channel.description || '')}</div></div></button>`;
+    }).join('');
   }
 
-  #bindChannelClicks() {
-    queueMicrotask(() => {
-      this.document.querySelectorAll?.('[data-rim-search-channel]')?.forEach?.(node => {
-        if (node.dataset.bound) return;
-        node.dataset.bound = '1';
-        node.addEventListener('click', () => {
-          this.window?.closePage?.();
-          this.window?.openChannel?.(node.getAttribute('data-rim-search-channel'));
-        });
-      });
-    });
-    return '';
-  }
 
   async #searchGroups(q) {
     const { data: groups, error } = await this.client
@@ -216,21 +187,34 @@ export class SearchController {
         <div class="grow"><b>${escapeHtml(group.title || 'Группа')}</b>
         <div class="feature-small">Открытая группа</div></div>
         <button type="button" class="action-btn" data-rim-join-group="${id}">Вступить</button></div>`;
-    }).join('') + this.#bindGroupJoins();
+    }).join('');
   }
 
-  #bindGroupJoins() {
-    queueMicrotask(() => {
-      this.document.querySelectorAll?.('[data-rim-join-group]')?.forEach?.(node => {
-        if (node.dataset.bound) return;
-        node.dataset.bound = '1';
-        node.addEventListener('click', event => {
-          event.preventDefault();
-          this.window?.rimJoinPublicGroup?.(node.getAttribute('data-rim-join-group'));
-        });
-      });
+
+  #bindResultActions(root) {
+    if (!root || root.dataset.rimSearchActionsBound === '1') return;
+    root.dataset.rimSearchActionsBound = '1';
+    root.addEventListener('click', event => {
+      const target = event.target?.closest?.(
+        '[data-rim-search-user], [data-rim-search-channel], [data-rim-search-conversation], [data-rim-join-group]'
+      );
+      if (!target || !root.contains(target)) return;
+
+      if (target.hasAttribute('data-rim-join-group')) {
+        event.preventDefault?.();
+        void this.window?.rimJoinPublicGroup?.(target.getAttribute('data-rim-join-group'));
+        return;
+      }
+
+      this.window?.closePage?.();
+      if (target.hasAttribute('data-rim-search-user')) {
+        void this.window?.findUserByName?.(target.getAttribute('data-rim-search-user'));
+      } else if (target.hasAttribute('data-rim-search-channel')) {
+        void this.window?.openChannel?.(target.getAttribute('data-rim-search-channel'));
+      } else if (target.hasAttribute('data-rim-search-conversation')) {
+        void this.window?.openConversation?.(target.getAttribute('data-rim-search-conversation'));
+      }
     });
-    return '';
   }
 
   dispose() {
