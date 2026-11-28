@@ -8,6 +8,7 @@ Production Supabase migrations:
 - 20261128124000_rim_iteration_184_invoker_create_rpc_rls
 - 20261128124500_rim_iteration_184_creator_scoped_member_insert
 - 20261128125000_rim_iteration_184_creator_member_insert_guard
+- 20261128130000_rim_iteration_184_zladen_social_game_commands
 
 Confirmed production database checks (all inside transactions and rolled back):
 - Authenticated feed_posts INSERT succeeded.
@@ -22,6 +23,7 @@ Code changes:
 - One authoritative group creation route; removed competing prompt-based global override.
 - Atomic group creation RPC with invite validation, owner role and privacy in one transaction.
 - New-group dialog offers Zladen as a default participant; username is verified against profiles before adding.
+- Zladen games/RP expanded: /dice alias, /golden_dice, /pair_all, /ping, /hug, /pat and /tea; command-specific /help descriptions added for game and RP commands.
 - Atomic channel creation RPC creates channel and owner membership together; public channels become catalog-visible, private channels do not.
 - Both new creation RPCs run as SECURITY INVOKER. Narrow RLS policies authorize group creation/initial membership; group invites require the creator to still hold owner membership. The obsolete SECURITY DEFINER create_group_chat RPC is no longer callable by authenticated clients.
 - Plus menu reports missing handlers instead of silently no-op.
