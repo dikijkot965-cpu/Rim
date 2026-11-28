@@ -11,6 +11,7 @@
 - New-group dialog offers Zladen as a default participant. His username is checked against the profiles table before inclusion, so a missing bot profile does not block group creation.
 - Channel creation reports an unavailable modal runtime instead of silently returning.
 - Added `rim_create_channel`, which creates the channel and owner-admin membership in one transaction. Public channels become catalog-visible; private channels do not.
+- Both new RPCs use SECURITY INVOKER with narrowly scoped RLS. The old prompt-based ComposeChatService group path now calls the same atomic RPC; the old SECURITY DEFINER `create_group_chat` RPC is revoked from authenticated clients.
 
 ### Feed publishing
 - The publisher has an in-flight guard and disables the publish button while a post is being sent.
@@ -44,6 +45,8 @@
 - `20261128063856_rim_iteration_184_atomic_group_creation`
 - `20261128121000_rim_iteration_184_channel_moderation_read_policy`
 - `20261128122000_rim_iteration_184_atomic_channel_creation`
+- `20261128124000_rim_iteration_184_invoker_create_rpc_rls`
+- `20261128124500_rim_iteration_184_creator_scoped_member_insert`
 
 ## Database-level acceptance checks
 Executed under the `authenticated` role inside transactions and rolled back:
