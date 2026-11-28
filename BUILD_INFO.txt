@@ -3,5 +3,5 @@ Base: RIM 4.1.8 Iteration 182.
 Build: GitHub Actions; pinned Signal SDK 14.7.0 and Cloudflare output retained.
 Production SQL: no schema migration in this iteration.
 E2E: Signal protocol, key lifecycle, relay, SDK and encrypted payload contracts unchanged.
-Changes: replaced racy per-result microtask binding with post-render delegated navigation for people, channels, messages and public groups; user/channel result rows are keyboard-accessible buttons.
+Changes: replaced racy per-result microtask binding with post-render delegated navigation for people, channels, messages and public groups; user/channel result rows are keyboard-accessible buttons; channel creation now rolls back if owner membership fails and validates avatar MIME types.
 Verification: added search navigation regression tests. Full CI and manual authenticated Android acceptance required before production rollout.
