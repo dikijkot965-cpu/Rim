@@ -30,14 +30,22 @@ test('compose newDirect cancels on empty prompt', async () => {
   assert.equal(result.value.cancelled, true);
 });
 
-test('compose newGroup requires participants', async () => {
+test('compose newGroup allows an empty group and uses the atomic RPC', async () => {
+  const calls = [];
   const service = new ComposeChatService({
-    client: {},
+    client: { rpc: async (name, args) => { calls.push({ name, args }); return { data: 'g1', error: null }; } },
     getUser: () => ({ id: 'u1' }),
-    prompt: (q) => (String(q).includes('Название') ? 'Штаб' : '')
+    prompt: (q) => (String(q).includes('Название') ? 'Штаб' : ''),
+    reloadConversations: async () => calls.push('reload'),
+    openConversation: async id => calls.push(['open', id])
   });
   const result = await service.newGroup();
-  assert.equal(result.ok, false);
+  assert.equal(result.ok, true);
+  assert.deepEqual(calls[0], {
+    name: 'rim_create_group_chat',
+    args: { p_title: 'Штаб', p_invited_users: [], p_is_private: true, p_avatar_path: null }
+  });
+  assert.ok(calls.includes('reload'));
 });
 
 test('imperial cabinet shows tiles', () => {
