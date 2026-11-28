@@ -31,7 +31,7 @@ export function bindChatAudience({
   const chatInfo = new ChatInfoController({
     client,
     getUser,
-    getActiveConversation: () => win.activeConversation || null,
+    getActiveConversation: () => win.activeConversation || win.__RIM_LEGACY_CONTEXT?.getActiveConversation?.() || null,
     getProfiles: typeof win.getProfiles === 'function' ? (ids) => win.getProfiles(ids) : null,
     conversationTitle: typeof win.conversationTitle === 'function' ? (c) => win.conversationTitle(c) : null,
     notify,
