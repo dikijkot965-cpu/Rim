@@ -1,5 +1,5 @@
 import { Err, Ok } from '../core/result.js';
-import { normalizeUsername, validateUsername } from '../domain/username.js';
+import { validateUsername } from '../domain/username.js';
 
 /**
  * Compose entrypoints for new direct / group chats.
