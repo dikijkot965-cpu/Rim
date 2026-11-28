@@ -18,6 +18,7 @@ Confirmed production database checks (all inside transactions and rolled back):
 Code changes:
 - One authoritative group creation route; removed competing prompt-based global override.
 - Atomic group creation RPC with invite validation, owner role and privacy in one transaction.
+- New-group dialog offers Zladen as a default participant; username is verified against profiles before adding.
 - Atomic channel creation RPC creates channel and owner membership together; public channels become catalog-visible, private channels do not.
 - Plus menu reports missing handlers instead of silently no-op.
 - Feed submit guard, disabled submit button during in-flight requests and precise Supabase/media errors.
