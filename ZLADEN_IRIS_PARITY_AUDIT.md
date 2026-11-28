@@ -53,3 +53,38 @@
 - Home feed text and selected topics autosave per account. File bytes are not persisted in local drafts.
 - Zladen gained configurable link filtering and administrator-defined word/phrase filters: `/filter links on|off`, `/filter word add|del`, `/filter words`, `/filter status`. Server-side enforcement skips E2E pending/required scopes.
 - Remaining Iris parity gaps include social relationships, cross-chat networks, community directory/geography, VIP/Business and a richer automatic moderation suite.
+
+
+## Iteration 184 — parity status update
+
+This iteration improves command discoverability and stability but **does not complete Iris parity**.
+
+### Retained / currently available in Zladen
+- Group moderation: bans, mutes, warnings, roles and command permissions.
+- Anti-spam and content/link/word filters.
+- Economy: wallets, ledger, daily claims, inventory and market listings.
+- Games, quiz sessions, game events and group statistics.
+- Polls and poll votes.
+- Triggers, reminders, command aliases and custom commands.
+- Clans, clan membership and invites.
+- Reputation, awards, notes, bookmarks and reports.
+- Group console presets and command-specific `/help <command>`.
+
+### Iteration 184 changes relevant to Zladen
+- Kept the help trigger after chat topic validation, encrypted-message guards, direct-message block checks, group controls and content filters.
+- Prevented the help trigger from taking over pending/required/secret E2E conversations.
+- Kept help descriptions for built-in commands, group custom commands and aliases.
+- No new claim is made that every Iris command exists or has equivalent semantics.
+
+### Still missing for genuine parity
+1. Cross-chat networks: connected group sets, shared settings, delegated admin actions and network-level audit.
+2. Community catalog: categories, discovery, member opt-in city metadata and geographic search.
+3. Full social graph: mutual friend/team relationships, relationship state transitions and user-controlled privacy.
+4. Full virtual relationship system: marriages, partner ratings and lifecycle commands.
+5. VIP tiers and all associated command limits/permissions.
+6. Telegram Business integration.
+7. Full clone-bot provisioning, isolated credentials, owner controls, per-clone storage and sandboxing.
+8. Complete Iris command compatibility and data migration.
+
+### Porting rule
+Each missing feature must be implemented as a complete vertical slice: command parser/UI, domain rules, application service, server-side RPC/Edge Function, RLS, audit log, migration, tests and command-specific help. A command name or help description without that vertical slice is not considered implemented.
