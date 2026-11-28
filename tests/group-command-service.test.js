@@ -74,3 +74,25 @@ test('joinPublic uses the server-side public group membership RPC', async () => 
     ['open', 'g-public']
   ]);
 });
+
+test('create removes an uploaded avatar when the atomic RPC rejects the group', async () => {
+  const calls = [];
+  const service = new GroupCommandService({
+    client: {
+      storage: { from() { return {
+        upload: async path => { calls.push(['upload', path]); return { error: null }; },
+        remove: async paths => { calls.push(['remove', paths]); return { error: null }; }
+      }; } },
+      rpc: async () => ({ data: null, error: new Error('RPC denied') })
+    },
+    getUser: () => ({ id: 'u1' })
+  });
+  const result = await service.create({
+    title: 'Аватарная группа',
+    avatarFile: { size: 128, type: 'image/png', name: 'avatar.png' }
+  });
+  assert.equal(result.ok, false);
+  assert.equal(calls[0][0], 'upload');
+  assert.equal(calls[1][0], 'remove');
+  assert.equal(calls[1][1][0], calls[0][1]);
+});
