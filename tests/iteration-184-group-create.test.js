@@ -49,3 +49,14 @@ test('channel moderation metadata is readable only through a manager-scoped RLS 
   assert.match(sql, /revoke select on table public\.channel_member_moderation from public, anon/i);
   assert.match(sql, /grant select on table public\.channel_member_moderation to authenticated/i);
 });
+
+test('channel creation is atomic and public channels enter the catalog', async () => {
+  const sql = await read('supabase/migrations/20261128122000_rim_iteration_184_atomic_channel_creation.sql');
+  const service = await read('src/application/channel-command-service.js');
+  assert.match(sql, /insert into public\.channels/i);
+  assert.match(sql, /catalog_visible[\s\S]{0,180}coalesce\(p_is_public, true\)/i);
+  assert.match(sql, /insert into public\.channel_members[\s\S]{0,180}'admin'/i);
+  assert.match(sql, /grant execute on function public\.rim_create_channel\(text, text, text, boolean, text\) to authenticated/i);
+  assert.match(service, /rpc\('rim_create_channel'/);
+  assert.doesNotMatch(service.slice(service.indexOf('async create('), service.indexOf('async exclusive(')), /from\('channels'\)/);
+});
