@@ -152,44 +152,70 @@ export function bindMessageCommandsSurface({
 
 
     win.sendMessage = async () => {
+    if (win.__RIM_MESSAGE_SEND_PENDING) return null;
     const input = doc.getElementById('messageInput');
     const submittedText = (input?.value || '').trim();
     if (!submittedText) return;
-    const conversationId = getConversation?.()?.id;
-    // Optimistic UI: clear composer immediately so send feels instant.
+    const conversation = getConversation?.();
+    const conversationId = conversation?.id;
+    const user = getUser?.();
+    const pendingId = 'rim-pending-' + (globalThis.crypto?.randomUUID?.() || (Date.now() + '-' + Math.random().toString(36).slice(2)));
+    const optimistic = conversationId && user?.id ? {
+      id: pendingId,
+      conversation_id: conversationId,
+      sender_id: user.id,
+      body: submittedText,
+      created_at: new Date().toISOString(),
+      _rimPending: true
+    } : null;
+    win.__RIM_MESSAGE_SEND_PENDING = true;
+    const sendButton = doc.getElementById('sendBtn') || doc.getElementById('sendMessageBtn');
+    if (sendButton) sendButton.disabled = true;
+    if (optimistic) {
+      setMessages?.([...(getMessages?.() || []), optimistic]);
+      // Paint the pending bubble before waiting for Supabase.
+      void win.renderMessages?.();
+    }
     if (input) {
       input.value = '';
       input.style.height = '42px';
       try { input.focus({ preventScroll: true }); } catch { try { input.focus(); } catch {} }
     }
     doc.getElementById('stickerPanel')?.classList.add('hidden');
-    const result = report(await messageCommands.sendText(submittedText));
-    if (!result?.ok) {
-      const err = result?.error;
-      if (isNetworkLikeError(err) || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
-        const queuePolicy = await messageCommands.canQueuePlaintextOutbox(getConversation?.(), getUser?.());
-        if (queuePolicy.ok) {
-          const queued = outbox.enqueueText({
-            userId: getUser?.()?.id,
-            conversationId,
-            conversationType: getConversation?.()?.type || '',
-            conversationIsPrivate: getConversation?.()?.is_private ?? null,
-            body: submittedText
-          });
-          if (queued.ok) {
-            notify?.('Нет сети. Сообщение сохранено в очереди и уйдёт при восстановлении связи.');
-            try { await win.renderMessages?.(); } catch { /* optional */ }
-            return queued;
+    try {
+      const result = report(await messageCommands.sendText(submittedText));
+      if (optimistic) {
+        setMessages?.((getMessages?.() || []).filter(row => String(row.id) !== pendingId));
+        void win.renderMessages?.();
+      }
+      if (!result?.ok) {
+        const err = result?.error;
+        if (isNetworkLikeError(err) || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
+          const queuePolicy = await messageCommands.canQueuePlaintextOutbox(getConversation?.(), getUser?.());
+          if (queuePolicy.ok) {
+            const queued = outbox.enqueueText({
+              userId: user?.id,
+              conversationId,
+              conversationType: conversation?.type || '',
+              conversationIsPrivate: conversation?.is_private ?? null,
+              body: submittedText
+            });
+            if (queued.ok) {
+              notify?.('Нет сети. Сообщение сохранено в очереди и уйдёт при восстановлении связи.');
+              try { await win.renderMessages?.(); } catch { /* optional */ }
+              return queued;
+            }
+          } else {
+            notify?.(queuePolicy.error?.message || 'Открытый текст не сохранён в офлайн-очереди.');
           }
-        } else {
-          notify?.(queuePolicy.error?.message || 'Открытый текст не сохранён в офлайн-очереди.');
         }
+        if (input && !input.value) input.value = submittedText;
       }
-      if (input && !input.value) {
-        input.value = submittedText;
-      }
+      return result;
+    } finally {
+      win.__RIM_MESSAGE_SEND_PENDING = false;
+      if (sendButton) sendButton.disabled = false;
     }
-    return result;
   };
 
   win.sendSticker = async sticker => {
