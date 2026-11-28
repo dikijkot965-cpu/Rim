@@ -5,6 +5,8 @@
 - User, channel, message and public-group actions now bind against the rendered result tree; asynchronous search completion no longer races event-handler registration.
 - User and channel result rows are semantic buttons, supporting keyboard activation.
 - Public-group join remains a distinct action and delegates to the existing server-authorized join flow, which opens the group after successful membership.
+- Channel creation now fails closed if owner membership cannot be written; it attempts to roll back the channel and uploaded avatar instead of reporting a partial creation as successful.
+- Unsupported avatar MIME types are rejected before upload.
 
 ## Scope
 - No database schema changes.
