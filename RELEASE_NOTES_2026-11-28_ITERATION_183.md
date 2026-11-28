@@ -29,7 +29,7 @@
 
 ### Zladen
 - Added command-specific `/help <command>` replies.
-- Help resolves built-in commands, group custom commands and aliases.
+- Help resolves built-in commands, group custom commands and aliases. The help trigger runs after encryption, block and moderation guards.
 - Expanded the group console quick-command presets with short explanations.
 - Existing moderation, games, economy, triggers, reminders, polls, clans, notes, bookmarks, reports and alias/custom-command systems remain in place.
 
@@ -41,6 +41,7 @@
 - `20261128053725_rim_iteration_183_public_group_discovery_join`
 - `20261128053821_rim_iteration_183_private_profile_details`
 - `20261128054228_rim_iteration_183_zladen_help_secret_scope_guard`
+- `20261128054727_rim_iteration_183_zladen_help_after_message_guards`
 
 ## Verification
 - GitHub verification passed on `bc60adcef81f9caf970c78ffeb8c4950db7bf018`.
