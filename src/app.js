@@ -114,18 +114,42 @@ container.value('e2eSignalRuntime', e2eSignalRuntime).value('e2eMessageStore', e
 const startE2ERuntimeForProtectedConversation = async conversation => {
   const userId = String(legacy.getUser?.()?.id || '');
   if (!userId || !(conversation?.is_secret === true || conversation?.e2e_mode === 'required' || conversation?.e2e_mode === 'pending')) return;
-  try { await e2eSignalRuntime.startIncoming(); }
-  catch (error) { void e2eDiagnostics.record('runtime_start_failed', { status: 'error', code: error?.code || 'E2E_RUNTIME_START', conversationId: conversation.id, metadata: { errorName: error?.name || 'Error' } }); logger.warn('e2e.runtime.protected_scope_start.failed', { message: error?.message || String(error) }); }
+  try {
+    await e2eSignalRuntime.startIncoming();
+    // A newly accepted secret chat should begin the Signal exchange as soon
+    // as both registered devices are available. If the peer is offline, the
+    // accepted request remains durable and this check runs again on next open.
+    if (conversation?.type === 'direct' && conversation?.is_secret === true && conversation?.e2e_mode === 'required') {
+      const scope = await e2eScopeRepository.getScope({ type: 'direct', id: conversation.id, is_secret: true }, userId);
+      const readiness = scope.ok ? scope.value?.readiness : null;
+      if (scope.ok && scope.value?.enabled && !readiness?.ready
+        && Array.isArray(readiness?.missingUserIds) && readiness.missingUserIds.length === 0
+        && Array.isArray(scope.value.memberUserIds) && scope.value.memberUserIds.length === 2) {
+        try {
+          await e2eSignalRuntime.verifyScopeExchange({ type: 'direct', id: conversation.id }, scope.value.memberUserIds);
+        } catch (error) {
+          logger.warn('e2e.runtime.auto_exchange.pending', { conversationId: conversation.id, message: error?.message || String(error) });
+        }
+      }
+    }
+  } catch (error) {
+    void e2eDiagnostics.record('runtime_start_failed', { status: 'error', code: error?.code || 'E2E_RUNTIME_START', conversationId: conversation.id, metadata: { errorName: error?.name || 'Error' } });
+    logger.warn('e2e.runtime.protected_scope_start.failed', { message: error?.message || String(error) });
+  }
 };
 const stopE2EConversationListener = events.on('conversation.opened', payload => {
   const conversation = payload?.conversation;
   const button = document.getElementById('rimE2EVerifyBtn');
   const visible = conversation?.type === 'direct';
+  const awaitingPeer = visible && conversation?.is_secret !== true && conversation?.e2e_mode === 'pending';
   if (button) {
     button.hidden = !visible;
-    button.title = conversation?.is_secret === true || ['pending', 'required'].includes(conversation?.e2e_mode)
-      ? 'Проверить или завершить настройку E2E'
-      : 'Создать отдельный секретный чат E2E';
+    button.disabled = awaitingPeer;
+    button.title = awaitingPeer
+      ? 'Предложение отправлено — ожидается принятие собеседником'
+      : (conversation?.is_secret === true || conversation?.e2e_mode === 'required'
+        ? 'Проверить защищённый обмен E2E'
+        : 'Создать отдельный секретный чат E2E');
     button.setAttribute('aria-label', button.title);
   }
   void startE2ERuntimeForProtectedConversation(conversation);
@@ -173,6 +197,10 @@ window.rimVerifyE2E = async () => {
   const conversation = legacy.getActiveConversation?.();
   const user = legacy.getUser?.();
   if (!user?.id || !conversation?.id) return null;
+  if (conversation.type === 'direct' && conversation.is_secret !== true && conversation.e2e_mode === 'pending') {
+    legacy.notify?.('Предложение секретного чата отправлено. Ожидается принятие собеседником; обычные чаты не затронуты.');
+    return null;
+  }
   if (conversation.type === 'group' && conversation.is_private === true) return window.rimEnableE2EScope('group', conversation.id);
   if (conversation.type === 'direct' && conversation.is_secret !== true && !['pending', 'required'].includes(conversation.e2e_mode)) {
     const members = await legacy.db.from('conversation_members')
@@ -356,6 +384,7 @@ const sessionSurface = bindConversationSessionSurface({
   windowRef: window
 });
 const conversationList = sessionSurface.conversationList;
+lifecycle.add(() => conversationList.dispose?.());
 const conversationState = sessionSurface.conversationState;
 const conversationShell = sessionSurface.conversationShell;
 
@@ -437,7 +466,7 @@ const writer = featuresSurface.writer;
 const music = featuresSurface.music;
 
 window.RIM = Object.freeze({
-  version: '4.1.8-iteration.183',
+  version: '4.1.8-iteration.185',
   container,
   events,
   logger,
