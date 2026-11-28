@@ -220,11 +220,7 @@ export function bindShellSurface({
     if (!result.ok) notify?.(result.error?.message || 'Не удалось создать чат');
     return result;
   };
-  win.newGroupChat = async () => {
-    const result = await composeChat.newGroup();
-    if (!result.ok) notify?.(result.error?.message || 'Не удалось создать группу');
-    return result;
-  };
+  // Group creation is owned exclusively by GroupsSurface; do not shadow its modal route here.
   win.newSecretDirectChat = async () => {
     const result = await composeChat.newSecretDirect();
     if (!result.ok) notify?.(result.error?.message || 'Не удалось создать секретный чат');
