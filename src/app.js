@@ -215,6 +215,7 @@ window.rimDisableE2EScope = async (scopeType, scopeId) => {
     } else if (String(window.currentChannel?.id || '') === id) {
       Object.assign(window.currentChannel, { e2e_mode: 'off', e2e_protocol: null });
     }
+    window.closeModal?.();
     legacy.notify?.('E2E отключено только в выбранной переписке. Остальные чаты не изменены.');
     return data;
   } catch (error) {
