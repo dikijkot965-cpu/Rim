@@ -3,5 +3,5 @@ Base: RIM 4.1.8 Iteration 182 plus latest main-branch group/search/E2E fixes.
 Build: GitHub Actions; pinned Signal SDK 14.7.0 and Cloudflare output retained.
 Production SQL: no schema migration in this iteration.
 E2E: Signal protocol, key lifecycle, relay, SDK and encrypted payload contracts unchanged; existing direct-chat verification UI preserved.
-Changes: preserve the latest main-branch group RPC contract, delegated search navigation and direct-chat E2E verification; refresh browser module cache-busting URLs; remove decorative RIM wordmark from the main app header while retaining auth branding; channel creation rolls back if owner membership fails and validates avatar MIME types.
+Changes: preserve the latest main-branch group RPC contract, delegated search navigation and direct-chat E2E verification; refresh browser module cache-busting URLs; remove decorative RIM wordmark from the main app header while retaining auth branding; channel creation rolls back if owner membership fails and validates avatar MIME types; the existing chat info controller is now wired to the header info button.
 Verification: channel creation rollback and search navigation regression tests included. Full CI, generated browser bundle and package artifact required; live authenticated Android acceptance remains necessary.
