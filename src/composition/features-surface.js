@@ -41,7 +41,26 @@ export function bindFeaturesSurface({
         section.replaceChildren(music.root);
       }
       await music.render?.();
-    } catch (e) { logger?.warn?.('music.open.failed', e); }
+      return true;
+    } catch (error) {
+      logger?.warn?.('music.open.failed', { message: error?.message || String(error) });
+      const panel = doc.createElement('section');
+      panel.className = 'rim-music-open-error';
+      panel.setAttribute('role', 'alert');
+      panel.style.cssText = 'min-height:220px;display:grid;align-content:center;justify-items:center;gap:10px;padding:24px;text-align:center';
+      const title = doc.createElement('h2');
+      title.textContent = 'Музыка временно недоступна';
+      const detail = doc.createElement('p');
+      detail.textContent = String(error?.message || error || 'Неизвестная ошибка').slice(0, 240);
+      const retry = doc.createElement('button');
+      retry.type = 'button';
+      retry.className = 'action-btn';
+      retry.textContent = 'Повторить загрузку';
+      retry.addEventListener('click', () => { void win.loadMusic?.(); });
+      panel.append(title, detail, retry);
+      music.root?.replaceChildren?.(panel);
+      return false;
+    }
   };
   win.rimOpenMusic = win.loadMusic;
   win.uploadMusic = async () => {
