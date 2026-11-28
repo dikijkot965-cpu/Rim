@@ -82,7 +82,7 @@ jobs:
           CHECKSUM="$RUNNER_TEMP/RIM_4.1.8_ITERATION_183.zip.sha256"
           rm -f "$ARCHIVE" "$CHECKSUM"
           zip -qr "$ARCHIVE" . -x './.git/*' './**/.git/*' './node_modules/*' './**/node_modules/*' './*.zip' './*.zip.sha256' './**/*.zip' './**/*.zip.sha256' './.env' './.env.*' './**/.env' './**/.env.*'
-          sha256sum "$ARCHIVE" > "$CHECKSUM"
+          sha256sum "$ARCHIVE" | awk -v name="$(basename "$ARCHIVE")" '{print $1 "  " name}' > "$CHECKSUM"
           unzip -t "$ARCHIVE" | tail -n 2
       - name: Publish downloadable GitHub release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
