@@ -57,6 +57,10 @@ export function renderGroupSettingsModal(projection, currentUserId) {
   const inviteStatus = inviteCode
     ? `Код приглашения: ${inviteCode}`
     : 'Ссылка приглашения пока не создана.';
+  const e2eControls = isPrivate && ['pending','required'].includes(group.e2e_mode)
+    ? `<div class="rim-update-muted" style="margin-top:12px">E2E: ${group.e2e_mode === 'required' ? 'обязательное шифрование' : 'ожидает завершения настройки'}</div>
+       <button class="action-btn danger-btn" type="button" style="width:100%;margin-top:6px" data-rim-group-action="disable-e2e" data-group-id="${id}">Отключить E2E только в этой группе</button>`
+    : `<button class="action-btn" type="button" style="width:100%;margin-top:8px" data-rim-group-action="enable-e2e" data-group-id="${id}">🔒 Включить E2E для этой группы</button>`;
 
   const transferButton = isCreator
     ? `<button class="action-btn" type="button" style="width:100%;margin-top:10px" data-rim-group-action="transfer-owner" data-group-id="${id}">Передать владение</button>`
@@ -81,6 +85,8 @@ export function renderGroupSettingsModal(projection, currentUserId) {
       ${inviteBlock}
     </div>
     <div class="rim-update-muted">${inviteStatus}</div>
+    <h3>Шифрование</h3>
+    ${e2eControls}
     <h3>Добавить участника</h3>
     <div class="rim-search-panel">
       <input id="rimGroupAddUsername" class="field" placeholder="@username">
@@ -164,6 +170,12 @@ export class GroupSettingsController {
         break;
       case 'zladen-console':
         this.window?.rimOpenZladenConsole?.(groupId);
+        break;
+      case 'enable-e2e':
+        this.window?.rimEnableE2EScope?.('group', groupId);
+        break;
+      case 'disable-e2e':
+        this.window?.rimDisableE2EScope?.('group', groupId);
         break;
       case 'set-role':
         this.window?.rimGroupSetRole?.(groupId, userId);
