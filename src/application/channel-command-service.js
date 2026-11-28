@@ -61,6 +61,9 @@ export class ChannelCommandService {
         if (avatarFile.size > 3 * 1024 * 1024) {
           return Err(new Error('Аватар не должен превышать 3 МБ.'));
         }
+        if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(avatarFile.type)) {
+          return Err(new Error('Формат аватара не поддерживается.'));
+        }
         const ext = (avatarFile.name?.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
         const path = `${current.id}/channels/${crypto.randomUUID()}.${ext}`;
         const { error: up } = await this.client.storage.from('avatars').upload(path, avatarFile, {
@@ -96,7 +99,41 @@ export class ChannelCommandService {
         role: 'admin'
       });
       if (memberError) {
-        this.logger?.warn?.('channel.create.member.failed', { message: memberError.message });
+        this.logger?.error?.('channel.create.owner_membership_failed', {
+          channelId: data?.id || null,
+          message: memberError.message || String(memberError)
+        });
+        let rollbackError = null;
+        if (data?.id) {
+          try {
+            const rollback = await this.client.from('channels').delete().eq('id', data.id);
+            rollbackError = rollback?.error || null;
+          } catch (error) {
+            rollbackError = error;
+          }
+        }
+        if (avatarPath) {
+          try {
+            const cleanup = await this.client.storage.from('avatars').remove([avatarPath]);
+            if (cleanup?.error) {
+              this.logger?.warn?.('channel.create.avatar_cleanup_failed', {
+                message: cleanup.error.message || String(cleanup.error)
+              });
+            }
+          } catch (error) {
+            this.logger?.warn?.('channel.create.avatar_cleanup_failed', {
+              message: error?.message || String(error)
+            });
+          }
+        }
+        if (rollbackError) {
+          this.logger?.error?.('channel.create.rollback_failed', {
+            channelId: data?.id || null,
+            message: rollbackError.message || String(rollbackError)
+          });
+          return Err(new Error('Не удалось назначить владельца канала, а сервер не подтвердил откат. Обратитесь к администратору.'));
+        }
+        return Err(new Error('Канал не создан: не удалось назначить владельца. Повторите попытку.'));
       }
 
       try { this.closeModal?.(); } catch { /* ignore */ }

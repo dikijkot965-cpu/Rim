@@ -1,5 +1,5 @@
 {
-  "version": "4.1.8-iteration.182",
+  "version": "4.1.8-iteration.183",
   "layers": {
     "core": [
       "src/core/config.js",
@@ -280,5 +280,16 @@
     "zladen": "Fixed Auth provisioning password generation to respect Supabase Auth 72-character maximum; added diagnostic logging for Auth Admin creation failures.",
     "identity": "Clarified member_number as a historical registration serial, not the live account count.",
     "e2e": "Signal SDK 14.7.0, relay, key material, ciphertext storage and E2E policy are intentionally unchanged."
+  },
+  "iteration_183": {
+    "group_creation": "Preserve main-branch create_group_chat RPC contract and automatic opening of newly created groups.",
+    "search_navigation": "Preserve main-branch delegated click handling for people, channels, messages and public groups.",
+    "feed_publisher": "Preserve late-bound asynchronous feed publisher click handler.",
+    "chat_bootstrap": "Preserve silent no-op bootstrap placeholders until modular chat entrypoints are ready.",
+    "channel_creation": "Fail closed on owner-membership failure; best-effort rollback of channel and uploaded avatar; validate avatar MIME type.",
+    "chat_info": "Bind ChatInfoController to global openChatInfo and notify on errors.",
+    "client_cache": "Bump browser module query strings to 4.1.8.183-release.",
+    "header": "Remove decorative main-app wordmark; retain auth branding.",
+    "zladen_help": "Preserve the main-branch command-specific /help <command> SQL trigger and console preset descriptions; requires migration 20261128053459_rim_iteration_183_zladen_help_details.sql."
   }
 }
