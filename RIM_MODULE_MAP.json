@@ -286,6 +286,7 @@
     "search_navigation": "Preserve main-branch delegated click handling for people, channels, messages and public groups.",
     "channel_creation": "Fail closed on owner-membership failure; best-effort rollback of channel and uploaded avatar; validate avatar MIME type.",
     "client_cache": "Bump browser module query strings to 4.1.8.183-release.",
-    "header": "Remove decorative main-app wordmark; retain auth branding."
+    "header": "Remove decorative main-app wordmark; retain auth branding.",
+    "chat_info": "Bind ChatInfoController to the global openChatInfo action and show errors through the legacy notifier."
   }
 }
