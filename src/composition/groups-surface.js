@@ -60,6 +60,7 @@ export function bindGroupsSurface({
     win.__RIM_GROUP_SETTINGS_OWNED = false;
     win.rimOpenZladenConsole = undefined;
     win.newGroupChat = undefined;
+    win.rimOpenGroupCreate = undefined;
     win.rimCreateGroup = undefined;
     groupSettings.dispose();
     zladenConsole.dispose();
@@ -98,8 +99,8 @@ export function bindGroupsSurface({
   };
 
   // Public entrypoint used by the floating + menu.
-  win.newGroupChat = () => {
-    if (typeof win.showModal !== 'function') { notify?.('Не удалось открыть форму создания группы.'); return false; }
+  const openGroupCreate = () => {
+    if (typeof win.showModal !== 'function') { notify?.('Не удалось открыть форму создания группы: модуль окон не загружен.'); return false; }
     win.showModal(`<h2 class="modal-title">Создать группу</h2>
       <label class="field-label" for="rimGroupTitle">Название группы</label>
       <input class="field" id="rimGroupTitle" maxlength="60" placeholder="Например, Совет директоров" required>
@@ -113,6 +114,8 @@ export function bindGroupsSurface({
       <button class="primary-btn" type="button" onclick="rimCreateGroup()">Создать группу</button></div>`);
     return true;
   };
+  win.rimOpenGroupCreate = openGroupCreate;
+  win.newGroupChat = openGroupCreate;
 
   win.rimJoinPublicGroup = async id => {
     const result = report(await groupCommands.joinPublic(id));
