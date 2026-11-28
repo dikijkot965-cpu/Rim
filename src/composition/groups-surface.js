@@ -93,8 +93,18 @@ export function bindGroupsSurface({
       try {
         const profile = await container.get('zladenBot')?.getPublicProfile?.();
         if (profile?.ok && profile.value?.username) {
-          names.push(profile.value.username);
-          zladenAddedToInviteList = true;
+          const botProfile = await client.from('profiles')
+            .select('id')
+            .eq('username', profile.value.username)
+            .maybeSingle();
+          if (!botProfile.error && botProfile.data?.id) {
+            names.push(profile.value.username);
+            zladenAddedToInviteList = true;
+          } else {
+            logger?.warn?.('group.create.zladen_profile_not_in_profiles', {
+              message: botProfile.error?.message || 'Злыдя не найден в публичных профилях.'
+            });
+          }
         }
       } catch (error) {
         logger?.warn?.('group.create.zladen_profile_failed', { message: error?.message || String(error) });
