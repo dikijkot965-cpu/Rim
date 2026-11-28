@@ -50,7 +50,6 @@ export class GroupCommandService {
 
   async create({
     title,
-    username = null,
     memberUsernames = [],
     isPublic = false,
     avatarFile = null
@@ -59,18 +58,13 @@ export class GroupCommandService {
     if (!user.ok) return user;
 
     const groupTitle = String(title ?? '').trim();
-    if (!groupTitle) return Err(new Error('Укажи название группы.'));
-
-    let groupUsername = username == null || username === ''
-      ? null
-      : String(username).trim().replace(/^@/, '').toLowerCase();
-    if (groupUsername && !/^[a-z0-9_]{3,24}$/.test(groupUsername)) {
-      return Err(new Error('Username: 3–24 символа, латиница, цифры и _.'));
+    if (!groupTitle || groupTitle.length > 60) {
+      return Err(new Error('Название группы должно содержать от 1 до 60 символов.'));
     }
 
-    const names = (memberUsernames || [])
-      .map(name => String(name || '').trim().replace(/^@/, ''))
-      .filter(Boolean);
+    const names = [...new Set((memberUsernames || [])
+      .map(name => String(name || '').trim().replace(/^@/, '').toLowerCase())
+      .filter(Boolean))];
 
     return this.exclusive('group-create', async () => {
       let ids = [];
@@ -80,10 +74,11 @@ export class GroupCommandService {
           .select('id,username')
           .in('username', names);
         if (error) return Err(error);
-        if ((data || []).length !== names.length) {
+        const found = new Set((data || []).map(row => String(row.username || '').toLowerCase()));
+        if (names.some(name => !found.has(name))) {
           return Err(new Error('Проверь usernames участников: некоторые не найдены.'));
         }
-        ids = data.map(row => row.id);
+        ids = [...new Set((data || []).map(row => row.id).filter(Boolean))];
       }
 
       let avatarPath = null;
@@ -95,32 +90,56 @@ export class GroupCommandService {
           return Err(new Error('Формат аватара не поддерживается.'));
         }
         const ext = (avatarFile.name?.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
-        const path = `${user.value.id}/groups/${crypto.randomUUID()}.${ext}`;
-        const { error: up } = await this.client.storage.from('avatars').upload(path, avatarFile, {
+        avatarPath = `${user.value.id}/groups/${crypto.randomUUID()}.${ext}`;
+        const { error: uploadError } = await this.client.storage.from('avatars').upload(avatarPath, avatarFile, {
           contentType: avatarFile.type,
           upsert: false
         });
-        if (up) return Err(up);
-        avatarPath = path;
+        if (uploadError) return Err(uploadError);
       }
 
-      const { data, error } = await this.client.rpc('create_public_group_chat', {
+      const created = await this.client.rpc('create_group_chat', {
         group_title: groupTitle,
-        invited_users: ids,
-        group_public: !!isPublic,
-        group_username: groupUsername,
-        group_avatar_path: avatarPath
+        invited_users: ids
       });
-      if (error) {
-        if (avatarPath) {
-          try { await this.client.storage.from('avatars').remove([avatarPath]); } catch { /* ignore */ }
-        }
-        return Err(error);
+      if (created.error) {
+        if (avatarPath) await this.client.storage.from('avatars').remove([avatarPath]);
+        return Err(created.error);
       }
+
+      const conversationId = typeof created.data === 'string'
+        ? created.data
+        : created.data?.id || created.data?.conversation_id;
+      if (!conversationId) {
+        if (avatarPath) await this.client.storage.from('avatars').remove([avatarPath]);
+        return Err(new Error('Сервер создал группу, но не вернул её идентификатор.'));
+      }
+
+      const settings = await this.client.rpc('rim_group_update_settings', {
+        p_conversation_id: conversationId,
+        p_title: groupTitle,
+        p_description: '',
+        p_is_private: !isPublic,
+        p_avatar_path: avatarPath
+      });
 
       this.closeModal?.();
-      await this.afterCreate(data);
-      return Ok(data);
+      try {
+        await this.afterCreate(conversationId);
+      } catch (error) {
+        this.logger?.warn?.('group.create.refresh.failed', { conversationId, message: error?.message });
+      }
+
+      if (settings.error) {
+        if (avatarPath) await this.client.storage.from('avatars').remove([avatarPath]);
+        this.logger?.warn?.('group.create.settings.failed', { conversationId, message: settings.error.message });
+        return Ok({
+          id: conversationId,
+          warning: 'Группа создана, но не удалось применить настройки публичности. Она осталась закрытой.'
+        });
+      }
+
+      return Ok({ id: conversationId, ...(settings.data || {}) });
     });
   }
 

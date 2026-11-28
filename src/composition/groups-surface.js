@@ -71,7 +71,7 @@ export function bindGroupsSurface({
     getConversations,
     notify,
     closeModal: () => win.closeModal?.(),
-    afterCreate: async () => { await win.loadConversations?.(); },
+    afterCreate: async id => { await win.loadConversations?.(); if (id) await win.openConversation?.(id); },
     reopenSettings: async id => { await win.rimOpenGroupSettings?.(id); },
     openConversation: async id => { await win.openConversation?.(id); },
     reloadConversations: async () => { await win.loadConversations?.(); },
@@ -89,12 +89,11 @@ export function bindGroupsSurface({
       .filter(Boolean);
     const result = report(await groupCommands.create({
       title: doc.getElementById('rimGroupTitle')?.value,
-      username: doc.getElementById('rimGroupUsername')?.value,
       memberUsernames: names,
       isPublic: !!doc.getElementById('rimGroupPublic')?.checked,
       avatarFile: doc.getElementById('rimGroupAvatar')?.files?.[0] || null
     }));
-    if (result?.ok) notify?.('Группа создана.');
+    if (result?.ok) notify?.(result.value?.warning || 'Группа создана.');
     return result;
   };
 
@@ -104,8 +103,6 @@ export function bindGroupsSurface({
     win.showModal(`<h2 class="modal-title">Создать группу</h2>
       <label class="field-label" for="rimGroupTitle">Название группы</label>
       <input class="field" id="rimGroupTitle" maxlength="80" placeholder="Например, Совет директоров" required>
-      <label class="field-label" for="rimGroupUsername">Username группы (необязательно)</label>
-      <input class="field" id="rimGroupUsername" maxlength="24" placeholder="group_name">
       <label class="field-label" for="rimGroupMembers">Участники по username (через запятую, необязательно)</label>
       <input class="field" id="rimGroupMembers" placeholder="username1, username2">
       <label class="field-label" for="rimGroupAvatar">Аватар группы</label>
