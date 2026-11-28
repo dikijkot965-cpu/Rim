@@ -41,6 +41,7 @@ export class ProfileController {
     this.document = documentRef;
     this.window = windowRef;
     this.logger = logger;
+    this.privateDetails = null;
     this.inFlight = new Set();
   }
 
@@ -78,6 +79,9 @@ export class ProfileController {
       .eq('id', user.id)
       .maybeSingle();
     if (error) return Err(error);
+    const privateResult = await this.client.from('profile_private_details').select('birth_date').eq('user_id', user.id).maybeSingle();
+    if (privateResult.error) { this.logger?.warn?.('profile.private_details.load_failed', { message: privateResult.error.message }); this.privateDetails = null; }
+    else this.privateDetails = privateResult.data || null;
     if (!data) return Ok(null);
     const profile = { ...(this.getProfile?.() || {}), ...(data || {}) };
     if (profile.avatar_path) {
@@ -124,6 +128,8 @@ export class ProfileController {
       <input class="field" id="editUsername" value="${escapeHtml(p.username || '')}">
       <label class="field-label">О себе</label>
       <textarea class="field" id="editBio" rows="3">${escapeHtml(p.bio || '')}</textarea>
+      <label class="field-label">Дата рождения <span class="feature-small">(видна только вам)</span></label>
+      <input class="field" id="editBirthDate" type="date" min="1900-01-01" max="${new Date().toISOString().slice(0, 10)}" value="${escapeHtml(this.privateDetails?.birth_date || '')}">
       <label class="field-label">Цвет имени</label>
       <input class="field" id="editNameColor" type="color" value="${escapeHtml(p.name_color || '#c9a45d')}">
       <label class="field-label">Аватар</label>
@@ -166,11 +172,16 @@ export class ProfileController {
     const displayName = String(this.document.getElementById('editDisplayName')?.value || '').trim();
     const username = String(this.document.getElementById('editUsername')?.value || '').trim().toLowerCase();
     const bio = String(this.document.getElementById('editBio')?.value || '').trim();
+    const birthDate = String(this.document.getElementById('editBirthDate')?.value || '').trim();
     const nameColor = this.document.getElementById('editNameColor')?.value || null;
     const file = this.document.getElementById('avatarFile')?.files?.[0] || null;
 
     if (!displayName || displayName.length > 48) return Err(new Error('Имя должно содержать от 1 до 48 символов.'));
     if (bio.length > 500) return Err(new Error('Описание «О себе» не должно превышать 500 символов.'));
+    if (birthDate) {
+      const parsed = new Date(birthDate + 'T00:00:00.000Z');
+      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(birthDate) || Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== birthDate || birthDate < '1900-01-01' || birthDate > new Date().toISOString().slice(0, 10)) return Err(new Error('Укажите корректную дату рождения не позднее сегодняшнего дня.'));
+    }
     if (!/^[a-z0-9_]{3,24}$/i.test(username)) {
       return Err(new Error('Username должен содержать 3–24 символа: латиница, цифры, _.'));
     }
@@ -202,6 +213,10 @@ export class ProfileController {
         .select()
         .single();
       if (error) return Err(error);
+
+      const { error: privateError } = await this.client.from('profile_private_details').upsert({ user_id: user.id, birth_date: birthDate || null, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+      if (privateError) { this.logger?.warn?.('profile.private_details.save_failed', { message: privateError.message }); return Err(new Error('Основные данные сохранены, но дата рождения не сохранена: ' + privateError.message)); }
+      this.privateDetails = { birth_date: birthDate || null };
 
       const next = { ...(this.getProfile?.() || {}), ...data };
       if (next.avatar_path) {
