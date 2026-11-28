@@ -35,6 +35,7 @@ import { GroupRepository } from './infrastructure/supabase/group-repository.js';
 import { ChannelFeedRepository } from './infrastructure/supabase/channel-feed-repository.js';
 import { ChannelSettingsRepository } from './infrastructure/supabase/channel-settings-repository.js';
 import { createLegacyBridge } from './compatibility/legacy-bridge.js';
+import { ChatInfoController } from './application/chat-info-controller.js';
 
 // Compatibility baseline retained for static regression contracts: 4.1.8-iteration.163; package release is 4.1.8-iteration.183.
 const context = window.__RIM_LEGACY_CONTEXT;
@@ -46,6 +47,26 @@ const events = new EventBus();
 const health = new HealthRegistry();
 const lifecycle = new DisposableScope({ onError: error => logger.error('lifecycle.dispose.failed', error) });
 container.value('db', legacy.db).value('logger', logger).value('events', events).value('health', health);
+const chatInfoController = new ChatInfoController({
+  client: legacy.db,
+  getUser: legacy.getUser,
+  getActiveConversation: legacy.getActiveConversation,
+  notify: legacy.notify,
+  showModal: html => window.showModal?.(html),
+  windowRef: window,
+  logger
+});
+container.value('chatInfo', chatInfoController);
+window.__RIM_CHAT_INFO_OWNED = true;
+window.openChatInfo = async () => {
+  const result = await chatInfoController.open();
+  if (!result.ok) legacy.notify?.(result.error?.message || 'Не удалось открыть сведения о чате.');
+  return result;
+};
+lifecycle.add(() => {
+  window.__RIM_CHAT_INFO_OWNED = false;
+  chatInfoController.dispose?.();
+});
 container.factory('conversationRepository', c => new ConversationRepository(c.get('db')));
 container.factory('messageRepository', c => new MessageRepository(c.get('db'), { pageSize: 50 }));
 // Protocol readiness is scope-specific; only a completed protected exchange for this exact scope can pass.
