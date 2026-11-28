@@ -150,8 +150,11 @@ export function bindChannelsSurface({
       <label class="field-label">Аватар канала</label><input class="field" id="rimChannelAvatar" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
       <div class="rim-settings-line"><div><b>Публичный канал</b><small>Его можно будет найти в поиске.</small></div>
       <input class="rim-switch" id="rimChannelPublic" type="checkbox" checked></div>
-      <div class="modal-actions"><button class="action-btn" onclick="closeModal()">Отмена</button>
-      <button class="primary-btn" onclick="rimCreateChannel()">Создать</button></div>`);
+      <div class="modal-actions"><button class="action-btn" type="button" onclick="closeModal()">Отмена</button>
+      <button class="primary-btn" type="button" onclick="rimCreateChannel()">Создать</button></div>`);
+    } else {
+      notify?.('Не удалось открыть создание канала: модуль окон не загружен. Обновите страницу и повторите.');
+      logger?.error?.('channel.create.modal_unavailable', {});
     }
   };
 
