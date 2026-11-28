@@ -71,6 +71,7 @@ export class ConversationListController {
       // Favorites is a first-party virtual row, not a database conversation.
       // Insert it after whichever renderer owns the current list (modular or legacy).
       this.ensureFavoritesRow();
+      this.observeFavoritesRow();
       await this.refresh();
       return result.value;
     } catch (error) {
@@ -137,7 +138,9 @@ export class ConversationListController {
     if (!user || !conversations.length) return;
 
     const direct = conversations.filter(chat => chat?.type === 'direct');
-    const unresolved = direct.filter(chat => !chat.other_profile && !chat.peer_profile);
+    const peerFor = chat => [chat?.other_profile, chat?.peer_profile, chat?.other_user]
+      .find(peer => peer && (peer.id || peer.username || peer.display_name));
+    const unresolved = direct.filter(chat => !peerFor(chat));
     if (unresolved.length) {
       const result = await this.repository.getDirectPeers(unresolved.map(chat => chat.id), user.id, { includePresence: false });
       if (token !== this.renderToken) return;
@@ -162,7 +165,7 @@ export class ConversationListController {
       const chat = conversationsById.get(String(id));
       if (!chat) continue;
 
-      const peer = chat.type === 'direct' ? (chat.other_profile || chat.peer_profile || null) : null;
+      const peer = chat.type === 'direct' ? peerFor(chat) : null;
       const title = chat.type === 'direct'
         ? (peer?.display_name?.trim() || peer?.username?.trim() || chat.title?.trim() || 'Личные сообщения')
         : (chat.title?.trim() || 'Групповая беседа');
@@ -194,7 +197,8 @@ export class ConversationListController {
   
   conversationTitle(chat) {
     if (!chat) return 'Переписка';
-    const peer = chat.other_profile || chat.peer_profile || null;
+    const peer = [chat.other_profile, chat.peer_profile, chat.other_user]
+      .find(value => value && (value.id || value.username || value.display_name)) || null;
     return displayConversationTitle(chat, peer);
   }
 
@@ -274,7 +278,7 @@ export class ConversationListController {
     const list = this.document?.getElementById?.('chatList');
     if (!list) return;
     const existing = list.querySelectorAll?.('#rimFavoritesRow, #rimFavoritesRowStable') || [];
-    for (const node of existing) node.remove?.();
+    if (existing.length) return existing[0];
 
     const row = this.document.createElement('div');
     row.id = 'rimFavoritesRow';
@@ -315,5 +319,29 @@ export class ConversationListController {
     if (!inserted) list.appendChild(row);
   }
 
-}
+  observeFavoritesRow() {
+    const list = this.document?.getElementById?.('chatList');
+    if (!list) return;
+    if (this.favoritesObserver && this.favoritesObservedList === list) return;
+    this.favoritesObserver?.disconnect?.();
+    const Observer = this.window?.MutationObserver || globalThis.MutationObserver;
+    if (typeof Observer !== 'function') return;
+    this.favoritesObservedList = list;
+    this.favoritesObserver = new Observer(() => {
+      if (this.favoritesObserverQueued) return;
+      this.favoritesObserverQueued = true;
+      queueMicrotask(() => {
+        this.favoritesObserverQueued = false;
+        if (!list.querySelector?.('#rimFavoritesRow, #rimFavoritesRowStable')) this.ensureFavoritesRow();
+      });
+    });
+    this.favoritesObserver.observe(list, { childList: true });
+  }
 
+  dispose() {
+    this.favoritesObserver?.disconnect?.();
+    this.favoritesObserver = null;
+    this.favoritesObservedList = null;
+    this.favoritesObserverQueued = false;
+  }
+}
