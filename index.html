@@ -2373,9 +2373,10 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
   }
 
   async function sbUploadFeedMedia(postId, file) {
+    window.__RIM_FEED_LAST_ERROR = '';
     const db = rimDb();
     const uid = rimUserId();
-    if (!db || !uid || !postId || !file) return null;
+    if (!db || !uid || !postId || !file) { window.__RIM_FEED_LAST_ERROR = 'Не удалось определить аккаунт, публикацию или файл.'; return null; }
     const mime = String(file.type || '').toLowerCase();
     const type = mime.startsWith('image/') ? 'image' : mime.startsWith('video/') ? 'video' : mime.startsWith('audio/') ? 'audio' : (mime === 'application/pdf' || mime === 'text/plain') ? 'document' : '';
     const extensions = {
@@ -2384,8 +2385,8 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       'audio/mpeg':'mp3','audio/mp4':'m4a','audio/ogg':'ogg','audio/wav':'wav','audio/webm':'webm',
       'application/pdf':'pdf','text/plain':'txt'
     };
-    if (!type || !extensions[mime]) { if (typeof toast === 'function') toast('Этот формат файла не поддерживается лентой.'); return null; }
-    if (file.size <= 0 || file.size > 25 * 1024 * 1024) { if (typeof toast === 'function') toast('Размер файла должен быть от 1 байта до 25 МБ.'); return null; }
+    if (!type || !extensions[mime]) { window.__RIM_FEED_LAST_ERROR = 'Этот формат файла не поддерживается лентой.'; if (typeof toast === 'function') toast(window.__RIM_FEED_LAST_ERROR); return null; }
+    if (file.size <= 0 || file.size > 25 * 1024 * 1024) { window.__RIM_FEED_LAST_ERROR = 'Размер файла должен быть от 1 байта до 25 МБ.'; if (typeof toast === 'function') toast(window.__RIM_FEED_LAST_ERROR); return null; }
     const uuid = globalThis.crypto?.randomUUID?.() || (Date.now() + '-' + Math.random().toString(36).slice(2));
     const path = uid + '/' + postId + '/' + uuid + '.' + extensions[mime];
     const storage = db.storage.from('feed-media');
@@ -2404,7 +2405,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
       return null;
     }
     const existingPost = await db.from('feed_posts').select('media_paths').eq('id', postId).eq('author_id', uid).maybeSingle();
-    if (existingPost.error || !existingPost.data) { await db.from('rim_feed_post_media').delete().eq('post_id', postId).eq('storage_path', path); await storage.remove([path]); return null; }
+    if (existingPost.error || !existingPost.data) { window.__RIM_FEED_LAST_ERROR = existingPost.error?.message || 'Не удалось получить созданную публикацию.'; await db.from('rim_feed_post_media').delete().eq('post_id', postId).eq('storage_path', path); await storage.remove([path]); return null; }
     const nextPaths = [...new Set([...(existingPost.data.media_paths || []), path])];
     const update = await db.from('feed_posts').update({ media_paths: nextPaths }).eq('id', postId).eq('author_id', uid);
     if (update.error) {
@@ -2415,6 +2416,7 @@ try { window.__rimMirrorLegacyState?.(); } catch (_) {}
     }
     const signed = await storage.createSignedUrl(path, 1800);
     if (signed.error || !signed.data?.signedUrl) {
+      window.__RIM_FEED_LAST_ERROR = signed.error?.message || 'Не удалось подготовить ссылку на вложение.';
       await db.from('rim_feed_post_media').delete().eq('post_id', postId).eq('storage_path', path);
       await storage.remove([path]);
       return null;
