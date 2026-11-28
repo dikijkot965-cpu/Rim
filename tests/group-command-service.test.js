@@ -11,7 +11,7 @@ test('create validates title against the production RPC limit', async () => {
   assert.equal((await service.create({ title: 'G'.repeat(61) })).ok, false);
 });
 
-test('create resolves members and calls RPC', async () => {
+test('create resolves members and atomically persists creator, visibility and avatar', async () => {
   const calls = [];
   const service = new GroupCommandService({
     client: {
@@ -21,8 +21,8 @@ test('create resolves members and calls RPC', async () => {
           in() { return Promise.resolve({ data: [{ id: 'u2', username: 'bob' }], error: null }); }
         };
       },
-      rpc: async (name, args) => { calls.push({ name, args }); return name === 'create_group_chat' ? { data: 'g1', error: null } : { data: { id: 'g1', is_private: false }, error: null }; },
-      storage: { from() { return { upload: async () => ({ error: null }), remove: async () => ({}) }; } }
+      rpc: async (name, args) => { calls.push({ name, args }); return { data: 'g1', error: null }; },
+      storage: { from() { return { upload: async () => ({ error: null }), remove: async () => ({ error: null }) }; } }
     },
     getUser: () => ({ id: 'u1' }),
     closeModal: () => calls.push('close'),
@@ -34,13 +34,28 @@ test('create resolves members and calls RPC', async () => {
     isPublic: true
   });
   assert.equal(result.ok, true);
-  assert.equal(calls[0].name, 'create_group_chat');
-  assert.deepEqual(calls[0].args, { group_title: 'Штаб', invited_users: ['u2'] });
-  assert.equal(calls[1].name, 'rim_group_update_settings');
-  assert.equal(calls[1].args.p_is_private, false);
-  assert.equal(calls[1].args.p_conversation_id, 'g1');
+  assert.deepEqual(calls[0], {
+    name: 'rim_create_group_chat',
+    args: { p_title: 'Штаб', p_invited_users: ['u2'], p_is_private: false, p_avatar_path: null }
+  });
+  assert.equal(calls.some(call => call?.name === 'rim_group_update_settings'), false);
   assert.ok(calls.includes('close'));
   assert.ok(calls.includes('after'));
+  assert.deepEqual(result.value, { id: 'g1', is_private: false, avatar_path: null });
+});
+
+test('create allows a group with no invited members', async () => {
+  let payload;
+  const service = new GroupCommandService({
+    client: { rpc: async (name, args) => { payload = { name, args }; return { data: 'g-empty', error: null }; } },
+    getUser: () => ({ id: 'u1' })
+  });
+  const result = await service.create({ title: 'Моя группа', isPublic: false });
+  assert.equal(result.ok, true);
+  assert.deepEqual(payload, {
+    name: 'rim_create_group_chat',
+    args: { p_title: 'Моя группа', p_invited_users: [], p_is_private: true, p_avatar_path: null }
+  });
 });
 
 test('joinPublic uses the server-side public group membership RPC', async () => {
