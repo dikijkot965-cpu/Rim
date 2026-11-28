@@ -181,6 +181,13 @@ export function bindSocialSurface({
     return result;
   };
 
+  win.rimCancelSecretChatRequest = async conversationId => {
+    const result = await directChat.cancelSecretRequest(conversationId);
+    if (!result.ok) notify?.(result.error?.message || 'Не удалось отменить предложение E2E.');
+    else notify?.('Предложение отменено. Эта переписка снова работает как обычный личный чат.');
+    return result;
+  };
+
   const bindSecretInbox = userId => {
     const nextId = String(userId || '');
     if (nextId === secretInboxUserId) return;
@@ -241,7 +248,7 @@ export function bindSocialSurface({
     try { if (secretInboxChannel) client.removeChannel?.(secretInboxChannel); } catch { /* ignore */ }
     secretInboxChannel = null;
     secretInboxUserId = '';
-    for (const key of ['rimShowSecretChatRequests','rimDeferSecretChatRequest','rimAcceptSecretChatRequest','rimDeclineSecretChatRequest']) {
+    for (const key of ['rimShowSecretChatRequests','rimDeferSecretChatRequest','rimAcceptSecretChatRequest','rimDeclineSecretChatRequest','rimCancelSecretChatRequest']) {
       try { delete win[key]; } catch { /* ignore */ }
     }
   });
