@@ -11,6 +11,7 @@
 
 ## UI and deployment
 - Bump browser script cache keys to the 183 release marker so clients do not retain the old 181/182 bundles.
+- Wire the existing ChatInfoController to the chat header information button, with explicit failure notification.
 - Remove the decorative RIM wordmark from the main application header; authentication branding remains.
 - Build workflow produces a complete source ZIP and SHA-256 checksum as a GitHub Actions artifact.
 
