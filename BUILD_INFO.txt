@@ -1,7 +1,29 @@
-RIM 4.1.8 — Iteration 183 (group, search, feed and channel reliability)
-Base: RIM 4.1.8 Iteration 182 plus latest main-branch group/search/E2E/feed/bootstrap fixes.
-Build: GitHub Actions; pinned Signal SDK 14.7.0 and Cloudflare output retained.
-Production SQL: includes main-branch migration 20261128053459_rim_iteration_183_zladen_help_details.sql; apply it to Supabase to enable command-specific /help descriptions. No additional schema changes in this branch.
-E2E: Signal protocol, key lifecycle, relay, SDK and encrypted payload contracts unchanged; existing direct-chat verification UI preserved.
-Changes: preserve the latest main-branch group RPC contract, delegated search navigation, direct-chat E2E UI, late-bound feed publisher and quiet chat bootstrap placeholders; refresh browser module cache-busting URLs; remove decorative RIM wordmark from the main app header while retaining auth branding; channel creation rolls back if owner membership fails and validates avatar MIME types; wire ChatInfoController to the info button.
-Verification: channel creation, chat info, search and header regression tests included. Full CI, generated browser bundle and package artifact required; live authenticated Android acceptance remains necessary.
+RIM 4.1.8 — Iteration 183
+Build focus: public group discovery/join, search navigation, feed publishing, profile settings, E2E controls and Zladen command help.
+
+Production Supabase migrations applied to project:
+- 20261128053459_rim_iteration_183_zladen_help_details
+- 20261128053725_rim_iteration_183_public_group_discovery_join
+- 20261128053821_rim_iteration_183_private_profile_details
+- 20261128054228_rim_iteration_183_zladen_help_secret_scope_guard
+
+Application changes:
+- Group creation now calls the existing production create_group_chat RPC, then applies visibility and avatar settings through rim_group_update_settings. The unsupported group-username field was removed instead of pretending it was persisted.
+- Public groups are discoverable to authenticated users through a narrowly scoped SELECT policy. Joining uses rim_group_join_public, which checks group visibility, E2E state and permanent group bans; private conversation messages and member lists remain protected.
+- Search result navigation is delegated from the stable results root so users, channels, messages and public groups remain clickable after asynchronous rendering.
+- Feed publish click now resolves the current Supabase publisher at click time rather than retaining the obsolete local-only function reference.
+- Chat bootstrap placeholders no longer emit misleading “module is loading” notices when the modular chat list already owns rendering.
+- Settings now includes a “Мой профиль” entry. Birth date is stored separately in profile_private_details with owner-only RLS; it is not exposed through the public profiles table.
+- Eligible secret direct chats expose the E2E verification action in chat information. Group E2E controls remain restricted to private groups.
+- Zladen now answers /help <command> with command-specific descriptions, including group custom commands and aliases. The handler skips E2E-required, pending and secret conversations. The group console also explains its quick-command presets.
+- Music render failures now show an actionable error panel and retry control instead of leaving a blank section.
+- Browser asset cache key is 4.1.8.183-release. Existing Signal SDK 14.7.0, idb 8.0.3 and esbuild 0.27.0 remain pinned.
+
+Verification:
+- GitHub verification workflow passed on commit bc60adcef81f9caf970c78ffeb8c4950db7bf018.
+- Final Iteration 183 package build, generated bundle publication and ZIP artifact are pending on the final commit.
+- Live acceptance on two authenticated Android accounts is not simulated by unit tests. E2E group exchange, actual audio playback, Telegram OAuth, and the complete UI flow still require device-level verification.
+
+Known scope limits:
+- This iteration does not claim full Iris feature parity. It improves Zladen command discoverability while preserving the existing moderation, triggers, economy, games, polls, reminders, clans, aliases and custom-command modules.
+- Profile birth date is private to the account owner by default; public birthday visibility is intentionally not implemented.
