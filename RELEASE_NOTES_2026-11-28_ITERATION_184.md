@@ -8,6 +8,7 @@
 - `GroupCommandService` now calls the atomic RPC and cleans up an uploaded avatar if creation fails.
 - Removed the competing prompt-based `newGroupChat` assignment from `ShellSurface`. `GroupsSurface` is the single owner of the group-create route.
 - The plus menu now checks that a route exists and reports missing module handlers instead of silently doing nothing.
+- New-group dialog offers Zladen as a default participant. His username is checked against the profiles table before inclusion, so a missing bot profile does not block group creation.
 - Channel creation reports an unavailable modal runtime instead of silently returning.
 - Added `rim_create_channel`, which creates the channel and owner-admin membership in one transaction. Public channels become catalog-visible; private channels do not.
 
