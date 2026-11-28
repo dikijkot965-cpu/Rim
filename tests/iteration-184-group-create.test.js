@@ -67,3 +67,14 @@ test('new groups offer Zladen as a default member so group commands can run', as
   assert.match(groups, /container\.get\('zladenBot'\).*getPublicProfile/);
   assert.match(groups, /names\.push\(profile\.value\.username\)/);
 });
+
+test('creation RPCs run as invokers with narrowly scoped group insert policies', async () => {
+  const sql = await read('supabase/migrations/20261128124000_rim_iteration_184_invoker_create_rpc_rls.sql');
+  const scope = await read('supabase/migrations/20261128124500_rim_iteration_184_creator_scoped_member_insert.sql');
+  assert.match(sql, /rim_create_group_chat\(text, uuid\[\], boolean, text\) security invoker/i);
+  assert.match(sql, /rim_create_channel\(text, text, text, boolean, text\) security invoker/i);
+  assert.match(sql, /revoke all on function public\.create_group_chat\(text, uuid\[\]\) from public, anon, authenticated/i);
+  assert.match(sql, /type = 'group'[\s\S]{0,80}created_by = auth\.uid\(\)/i);
+  assert.match(scope, /user_id = auth\.uid\(\) and role = 'owner'/i);
+  assert.match(scope, /user_id <> auth\.uid\(\) and role = 'member'/i);
+});
