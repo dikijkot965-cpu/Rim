@@ -36,12 +36,12 @@ import { ChannelFeedRepository } from './infrastructure/supabase/channel-feed-re
 import { ChannelSettingsRepository } from './infrastructure/supabase/channel-settings-repository.js';
 import { createLegacyBridge } from './compatibility/legacy-bridge.js';
 
-// Compatibility baseline retained for static regression contracts: 4.1.8-iteration.163; package release is 4.1.8-iteration.182.
+// Compatibility baseline retained for static regression contracts: 4.1.8-iteration.163; package release is 4.1.8-iteration.183.
 const context = window.__RIM_LEGACY_CONTEXT;
 if (!context?.db) throw new Error('RIM bootstrap: legacy database client is unavailable');
 const legacy = createLegacyBridge(context);
 const container = new Container();
-const logger = new Logger({ version: '4.1.8-iteration.181' });
+const logger = new Logger({ version: '4.1.8-iteration.183' });
 const events = new EventBus();
 const health = new HealthRegistry();
 const lifecycle = new DisposableScope({ onError: error => logger.error('lifecycle.dispose.failed', error) });
