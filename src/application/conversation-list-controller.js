@@ -139,7 +139,7 @@ export class ConversationListController {
 
     const direct = conversations.filter(chat => chat?.type === 'direct');
     const peerFor = chat => [chat?.other_profile, chat?.peer_profile, chat?.other_user]
-      .find(peer => peer && (peer.id || peer.username || peer.display_name));
+      .find(peer => peer && (String(peer.display_name || '').trim() || String(peer.username || '').trim()));
     const unresolved = direct.filter(chat => !peerFor(chat));
     if (unresolved.length) {
       const result = await this.repository.getDirectPeers(unresolved.map(chat => chat.id), user.id, { includePresence: false });
@@ -198,7 +198,7 @@ export class ConversationListController {
   conversationTitle(chat) {
     if (!chat) return 'Переписка';
     const peer = [chat.other_profile, chat.peer_profile, chat.other_user]
-      .find(value => value && (value.id || value.username || value.display_name)) || null;
+      .find(value => value && (String(value.display_name || '').trim() || String(value.username || '').trim())) || null;
     return displayConversationTitle(chat, peer);
   }
 
